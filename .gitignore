@@ -1,0 +1,46 @@
+# General Ignore
+*.o
+*.out
+*.log
+*.so
+*.elf
+*.a
+.DS_Store
+Thumbs.db
+
+# CMake Ignore
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.cmake
+Makefile
+
+# STM32 CMake
+_deps/
+
+
+# Build Directories
+build/
+build-*/
+release/
+release-*/
+debug/
+debug-*/
+
+# Editor backups
+*~
+*.bak
+*.swp
+*.swo
+
+# Python Ignore
+*.pyc
+__pycache__/
+.git
+.giattributes
+
+# IDE Specific files
+.vscode/
+.idea/
+
+
