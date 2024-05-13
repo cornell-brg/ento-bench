@@ -8,7 +8,6 @@ option(FETCH_ST_SOURCES "Fetch STMicro CMSIS/HAL Libraries." OFF)
 option(IS_STM32G4_BUILD "Build for STM32G4." OFF)
 option(IS_GEM5 "Build for gem5." OFF)
 
-set(SRCS dot_prod.c)
 
 if(IS_STM32G4_BUILD)
 	message(STATUS "Building for STM32G4")
@@ -43,14 +42,23 @@ endif()
 
 set(SRC_DIR src)
 set(BIN_DIR bin)
+set(APP_DIR apps)
 set(UB_DIR ubench)
+set(SANDBOX_DIR sandbox)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 
 
 set(CMAKE_C_FLAGS "-Wall -Wextra -O3 -std=c11")
 
-set(MODULES linalg stm32-util)
+set(MODULES
+  linalg
+  stm32-util
+)
+
+set(APPS
+  ubench
+)
 
 include_directories(
   linalg
@@ -61,10 +69,13 @@ foreach(MODULE ${MODULES})
   add_subdirectory(${SRC_DIR}/${MODULE})
 endforeach()
 
+add_subdirectory(${APP_DIR})
+add_subdirectory(${SANDBOX_DIR})
+
 #===============================
 #======Microbenchmarking========
-if (IS_STM32G4_BUILD)
 #[===[
+if (IS_STM32G4_BUILD)
 add_executable(ub_vvadd ${UB_DIR}/vv_add.c)
 target_link_libraries(
   ub_vvadd
@@ -86,8 +97,7 @@ target_link_libraries(
   CMSIS::STM32::G474RE
   STM32::NoSys
 )
-#]===]
-add_executable(ub_dotprod ${UB_DIR}/dot_prod.c)
+add_executable(ub_dotprod ${APP_DIR}/ubench/dot_prod.c)
 target_link_libraries(
   ub_dotprod
   PRIVATE
@@ -122,4 +132,4 @@ target_link_libraries(
   linalg_lib
 )
 endif()
-
+#]===]

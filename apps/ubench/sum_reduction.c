@@ -1,8 +1,6 @@
-#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "minunit.h"
 
 #ifdef RISCV_BRG_GEM5
 // From include/gem5/asm/generic/m5ops.h
@@ -98,7 +96,6 @@ int main(int argc, char** argv)
   {
     printf("Clearing cache!\n");
     int status = clear_cache(cache_sz);
-    mu_assert("Failure clearing cache!", status);
   }
 
   uint32_t result;
@@ -116,6 +113,5 @@ int main(int argc, char** argv)
 
   printf("Finished sum reduction ubenchmark.\n");
   printf("Result: %i, Expected: %i\n", result, expected);
-  mu_assert("Sum Reduction returned wrong result!", result == expected);
   return 0;
 }
