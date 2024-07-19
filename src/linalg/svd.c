@@ -1,6 +1,6 @@
 #include "svd.h"
 #include "blas.h"
-#include "linalg_core.h"
+#include "linalg/core.h"
 #include <stdint.h>
 
 float sign (const float num){

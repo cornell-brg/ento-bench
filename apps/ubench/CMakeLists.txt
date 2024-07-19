@@ -1,60 +1,28 @@
-#===============================
-#======Microbenchmarking========
-if (IS_STM32G4_BUILD)
-add_executable(ub_vvadd vv_add.c)
-target_link_libraries(
-  ub_vvadd
-  PRIVATE
-  linalg_lib
-  HAL::STM32::G4::LL_RCC
-  HAL::STM32::G4::LL_GPIO
-  CMSIS::STM32::G474RE
-  STM32::NoSys
+include(${CMAKE_CURRENT_SOURCE_DIR}/../apps_common.cmake)
+
+# Build ubench.cc 
+set(UBENCH_SOURCES
+  ubench.cc
+  # armv7em_base.cc
+  # armv7em_dsp.cc
+  # armv7em_fpu.cc
 )
 
-add_executable(ub_sumreduction sum_reduction.c)
-target_link_libraries(
-  ub_sumreduction
-  PRIVATE
-  linalg_lib
-  HAL::STM32::G4::LL_RCC
-  HAL::STM32::G4::LL_GPIO
-  CMSIS::STM32::G474RE
-  STM32::NoSys
-)
-
-add_executable(ub_dotprod dot_prod.c)
-target_link_libraries(
-  ub_dotprod
-  PRIVATE
-  linalg_lib
-  stm32util_lib
-  HAL::STM32::G4::LL_RCC
-  HAL::STM32::G4::LL_GPIO
-  CMSIS::STM32::G474RE
-  STM32::NoSys
-)
-elseif(IS_GEM5_BUILD)
-
+if (STM32_BUILD)
+  message("Building microbenchmarks for STM32 Semihosting")
+  add_arm_semihosting_executable(ubench
+                                 SOURCES ${UBENCH_SOURCES}
+                                 LIBRARIES bench mcu-util assembly)
+elseif(GEM5_ARMV7E-M_BUILD)
+  message("Building microbenchmarks for gem5 ARM")
+  add_arm_baremetal_gem5_se_executable(ubench
+                                       SOURCES ${UBENCH_SOURCES}
+                                       LIBRARIES bench assembly startup sys)
 else()
-add_executable(ub_vvadd vv_add.c)
-target_link_libraries(
-  ub_vvadd
-  PRIVATE
-  linalg_lib
-)
-
-add_executable(ub_sumreduction sum_reduction.c)
-target_link_libraries(
-  ub_sumreduction
-  PRIVATE
-  linalg_lib
-)
-
-add_executable(ub_dotprod dot_prod.c)
-target_link_libraries(
-  ub_dotprod
-  PRIVATE
-  linalg_lib
-)
+  message("Building microbenchmarks for native")
+  add_non_arm_executable(ubench
+                         SOURCES ${UBENCH_SOURCES}
+                         LIBRARIES bench assembly)
 endif()
+
+#target_include_directories(ubench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

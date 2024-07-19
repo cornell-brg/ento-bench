@@ -87,12 +87,14 @@ int main(void)
 	e += f;
 
 #ifdef NANO_SPECS
-  printf("Hello gem5!\n\
-          a: %i, b: %i, c:%i\n\ 
-          d: %f, e: %f, f: %f\n", 
-          a, b, c, d, e, f);
+  printf("Hello gem5!\n"
+       "a: %i, b: %i, c:%i\n"
+       "d: %f, e: %f, f: %f\n", 
+        a, b, c, d, e, f);
+  //printf("Hello gem5!\n");
 #else
-  mini_printf("Hello gem5!\n");
+  e += f;
+  //mini_printf("Hello gem5!\n");
 #endif
 
 	return 0;

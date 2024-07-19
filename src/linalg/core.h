@@ -1,5 +1,10 @@
 #ifndef LINALG_CORE_H
 #define LINALG_CORE_H
+
+#ifdef __cpluplus
+extern "C" {
+#endif
+
 #include "blas.h"
 #include <stdio.h>
 
@@ -15,5 +20,9 @@ blas_status eye_f32(Mat_f32* mat);
 static inline void v_zeros_f32(Vec_f32* vec) { for (uint32_t i = 0; i < vec->n; i++) vec->data[i] = 0; }
 static inline void zeros_f32(float32_t* v, uint32_t N) { for (uint32_t i = 0; i < N; i++) v[i] = 0; }
 static inline void m_zeros_f32(Mat_f32* mat) { for (uint32_t i = 0; i < mat->m*mat->n; i++) mat->data[i] = 0;}
+
+#ifdef __cpluplus
+}
+#endif
 
 #endif

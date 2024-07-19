@@ -11,13 +11,13 @@ set(SRC_FILES
 )
 
 # Create a library for this module
-add_library(linalg_lib ${SRC_FILES})
+add_library(linalg ${SRC_FILES})
 
 # Include directories for this module
-target_include_directories(linalg_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# target_include_directories(linalg_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # Link any additional libraries specific to this module
 #find_package(SomeDependency REQUIRED)  # Find and specify the required dependency
-target_link_libraries(linalg_lib m)
+target_link_libraries(linalg m)
 
 # Optionally, if this module also needs to create an executable, you can do so:
 # add_executable(linalg_executable ${SRC_FILES})

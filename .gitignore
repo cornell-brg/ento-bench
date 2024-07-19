@@ -12,11 +12,13 @@ Thumbs.db
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-*.cmake
-Makefile
+#*.cmake
+
 
 # STM32 CMake
 _deps/
+stm32-cmake/examples
+stm32-cmake/tests
 
 
 # Build Directories
@@ -43,4 +45,14 @@ __pycache__/
 .vscode/
 .idea/
 
+# My own stash files (DERIN)
+stash/
+*.dump
+*.txt
+*.map
+CMSIS_6/
+
+
+# Ignore gem5 outputs
+m5out/
 

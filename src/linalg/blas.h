@@ -1,6 +1,10 @@
 #ifndef BLAS_H
 #define BLAS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 typedef int32_t blas_status;
@@ -43,7 +47,7 @@ blas_status vv_dot_f32(const Vec_f32* v1, const Vec_f32* v2, float32_t* dst);
 blas_status v_offset_f32(Vec_f32* vec, const float32_t offset, Vec_f32* dst);
 blas_status v_scale_f32(Vec_f32* vec, float32_t scale, Vec_f32* dst);
 float32_t   v_l2norm_f32(Vec_f32* vec1);
-
+float32_t   v_sum(Vec_f32* vec);
 
 void        f32_scale(float32_t* vec, float32_t scale, uint32_t N, float32_t* dst);
 void        f32_offset(float32_t* vec, float32_t offset, uint32_t N, float32_t* dst);
@@ -64,5 +68,8 @@ blas_status mm_sub_f32(Mat_f32* mat1, Mat_f32* mat2, Mat_f32* dst);
 blas_status m_scale_f32(Mat_f32* in1, float32_t scale, Mat_f32* dst);
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

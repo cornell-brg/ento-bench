@@ -87,7 +87,9 @@ blas_status vv_add_f32(Vec_f32 *v1, Vec_f32 *v2, Vec_f32 *dst)
 
 blas_status vv_sub_f32(Vec_f32 *v1, Vec_f32 *v2, Vec_f32 *dst) 
 {
+#if DEBUG
   if (v1->n != v2->n && v1->n != dst->n) return 0;
+#endif
   for (uint32_t i = 0; i < v2->n; i++)
   {
     dst->data[i] = v1->data[i] - v2->data[i];

@@ -7,7 +7,15 @@ SECTIONS
     .data : { *(.data) }
     .bss : { *(.bss COMMON) }
     . = ALIGN(8);
-    . = . + 0x500; /* 2kB of stack memory */
+    . = . + 0x8000; /* 2kB of stack memory */
     stack_top = .;
-    PROVIDE (end = .)   ;
+    /* Adjust heap size, needed for printf float support */
+    .heap (NOLOAD) :
+    {
+      _heap_start = .;
+      /* Printf float support apparently works with a heap size of 1 byte... */
+      . = . + 0x1;
+      _heap_end = .;
+    }
+    PROVIDE (end = .);
 }

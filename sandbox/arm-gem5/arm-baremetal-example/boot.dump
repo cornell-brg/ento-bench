@@ -1,0 +1,29 @@
+
+boot.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <_Reset>:
+   0:	4b04      	ldr	r3, [pc, #16]	@ (14 <exit_program+0xa>)
+   2:	469d      	mov	sp, r3
+   4:	4904      	ldr	r1, [pc, #16]	@ (18 <exit_program+0xe>)
+   6:	4788      	blx	r1
+   8:	e7ff      	b.n	a <exit_program>
+
+0000000a <exit_program>:
+   a:	2000      	movs	r0, #0
+   c:	f04f 0701 	mov.w	r7, #1
+  10:	df00      	svc	0
+	...
+
+Disassembly of section .ARM.attributes:
+
+00000000 <.ARM.attributes>:
+   0:	00001b41 	andeq	r1, r0, r1, asr #22
+   4:	61656100 	cmnvs	r5, r0, lsl #2
+   8:	01006962 	tsteq	r0, r2, ror #18
+   c:	00000011 	andeq	r0, r0, r1, lsl r0
+  10:	2d453705 	stclcs	7, cr3, [r5, #-20]	@ 0xffffffec
+  14:	0d06004d 	stceq	0, cr0, [r6, #-308]	@ 0xfffffecc
+  18:	02094d07 	andeq	r4, r9, #448	@ 0x1c0
