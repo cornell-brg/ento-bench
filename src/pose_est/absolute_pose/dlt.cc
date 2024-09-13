@@ -1,5 +1,7 @@
 #include <Eigen/Dense>
-#include <entomoton_math/svd.hh>
+
+#include <entomoton_math/svd.h>
+#include <absolute_pose/dlt.h>
 
 template <typename Scalar, typename N>
 Eigen::Matrix<Scalar, 3, 3>
@@ -137,5 +139,3 @@ Eigen::Matrix<Scalar, 3, 3> dlt_planar_ho(Eigen::Matrix<Scalar, N, 2, Order>& po
   EntomotonMath::svd_osj(&At, &V, &h);
 
 }
-
-

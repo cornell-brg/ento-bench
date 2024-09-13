@@ -35,16 +35,16 @@ int main()
   using namespace assembly;
 
   printf("Running microbenchmarks!\n");
-  printf("Iprintf test: %i", 10);
-  /*auto lambdaMul = []() {
-    mul<64>();
+  //printf("Iprintf test: %i", 10);
+  auto lambdaMul = []() {
+    mul<8>();
   };
 
   auto lambdaAdd = []() {
-    add<64>();
+    add<8>();
   };
 
-  MultiHarness assembly_harness(lambdaMul);
+  /*MultiHarness assembly_harness(lambdaMul);
   assembly_harness.run();
 
   auto lambdaNop = []() -> void {
@@ -67,12 +67,18 @@ int main()
   //mul_harness.run();
 
   // (Single) Function Pointer Multiply Harness
-  Harness mul_harness_fp(mul<8>, "Mul<8> Function Pointer");
-  mul_harness_fp.run();
+  //Harness mul_harness_fp(mul<8>, "Mul<8> Function Pointer", 10);
+  //mul_harness_fp.run();
 
-  Harness add_harness_fp(add<8>, "Add<8> Function Pointer");
-  add_harness_fp.run();
+  //Harness add_harness_fp(add<8>, "Add<8> Function Pointer", 10);
+  //add_harness_fp.run();
 
+  
+  Harness mul_harness_lmbda(lambdaMul, "Mul<8> Lambda", 10);
+  mul_harness_lmbda.run();
+
+  Harness add_harness_lmbda(lambdaAdd, "Add<8> Lambda", 10);
+  add_harness_lmbda.run();
 
   return 0;
 }

@@ -167,38 +167,46 @@ inline void vsqrt_f32() __attribute__((always_inline));
 
 template<int N>
 inline void add() {
-  for (int i = 0; i < N; i++)
-  asm volatile (
-    "add r0, r0, r0 \n\t"
-    "add r1, r1, r1 \n\t"
-    "add r2, r2, r2 \n\t"
-    "add r3, r3, r3 \n\t"
-    "add r4, r4, r4 \n\t"
-    "add r5, r5, r5 \n\t"
-    "add r6, r6, r6 \n\t"
-    "add r7, r7, r7 \n\t"
-    : // No outputs
-    : // No inputs
-    : "r0", "r2", "r3", "r4", "r5", "r6", "r7" // Clobber list
-  );
+  //for (int i = 0; i < N; i++)
+  if constexpr (N > 0)
+  {
+    asm volatile (
+      "add r0, r0, r0 \n\t"
+      "add r1, r1, r1 \n\t"
+      "add r2, r2, r2 \n\t"
+      "add r3, r3, r3 \n\t"
+      "add r4, r4, r4 \n\t"
+      "add r5, r5, r5 \n\t"
+      "add r6, r6, r6 \n\t"
+      "add r7, r7, r7 \n\t"
+      : // No outputs
+      : // No inputs
+      : "r0", "r2", "r3", "r4", "r5", "r6", "r7" // Clobber list
+    );
+    add<N-1>();
+  }
 }
 
 template<int N>
 inline void mul() {
-  for (int i = 0; i < N; i++)
-  asm volatile (
-    "mul r0, r0, r0 \n\t"
-    "mul r1, r1, r1 \n\t"
-    "mul r2, r2, r2 \n\t"
-    "mul r3, r3, r3 \n\t"
-    "mul r4, r4, r4 \n\t"
-    "mul r5, r5, r5 \n\t"
-    "mul r6, r6, r6 \n\t"
-    "mul r7, r7, r7 \n\t"
-    : // No outputs
-    : // No inputs
-    : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7" // Clobber list
-  );
+  //for (int i = 0; i < N; i++)
+  if constexpr (N > 0)
+  {
+    asm volatile (
+      "mul r0, r0, r0 \n\t"
+      "mul r1, r1, r1 \n\t"
+      "mul r2, r2, r2 \n\t"
+      "mul r3, r3, r3 \n\t"
+      "mul r4, r4, r4 \n\t"
+      "mul r5, r5, r5 \n\t"
+      "mul r6, r6, r6 \n\t"
+      "mul r7, r7, r7 \n\t"
+      : // No outputs
+      : // No inputs
+      : "c0", "r1", "r2", "r3", "r4", "r5", "r6", "r7" // Clobber list
+    );
+    mul<N-1>();
+  }
 }
 
 template<int N>

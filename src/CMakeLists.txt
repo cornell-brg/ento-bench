@@ -36,6 +36,12 @@ target_include_directories(assembly
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/workload/microbench/assembly>
 )
 
+add_subdirectory(workload/state_est)
+target_include_directories(state_est
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/workload/state_est>
+)
+
 # Bench is an interface for now, no source files, header only
 add_subdirectory(bench)
 target_include_directories(bench

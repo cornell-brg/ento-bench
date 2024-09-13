@@ -74,30 +74,38 @@ MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
 template<typename Callable>
 class Harness {
 public:
+  Harness(Callable callable, const char* name, const int iters)
+    : callable_(std::move(callable)), name_(name), iters_(iters) {}
+
   Harness(Callable callable, const char* name)
-    : callable_(std::move(callable)), name_(name) {}
+    : callable_(std::move(callable)), name_(name), iters_(1) {}
 
   template<typename... Args>
   auto run(Args&&... args) {
-    printf("Running benchmark: %s", name_);
-    start_roi();
-    if constexpr (std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>) {
-      callable_(std::forward<Args>(args)...);
-      end_roi();
-    } else {
-      auto result = callable_(std::forward<Args>(args)...);
-      end_roi();
-      return result;
+    printf("Running benchmark %s for %i iterations...\n", name_, iters_);
+    for (int i = 0; i < iters_; ++i)
+    {
+      start_roi();
+      if constexpr (std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>) {
+        callable_(std::forward<Args>(args)...);
+        end_roi();
+      } else {
+        auto result = callable_(std::forward<Args>(args)...);
+        end_roi();
+        return result;
+      }
     }
   }
 
 private:
   Callable callable_;
   const char* name_;
+  const int iters_;
 };
 
 template<typename Callable>
-Harness(const char* name, Callable callable) -> Harness<Callable>;
+Harness(Callable callable, const char* name, const int iters) -> Harness<Callable>;
+
 
 } // namespace bench
 
