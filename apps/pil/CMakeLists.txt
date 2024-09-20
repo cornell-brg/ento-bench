@@ -40,17 +40,17 @@ if (STM32_BUILD)
                                  LIBRARIES bench mcu-util linalg)
 elseif(GEM5_ARMV7E-M_BUILD)
   message("Building microbenchmarks for gem5 ARM")
-  add_arm_baremetal_gem5_se_executable(ekf_bench
-                                       SOURCES ekf_bench.cc
-                                       LIBRARIES bench startup linalg sys)
+  #add_arm_baremetal_gem5_se_executable(ekf_bench
+  #SOURCES ekf_bench.cc
+  #LIBRARIES bench startup linalg sys)
 else()
   message("Building microbenchmarks for ${CMAKE_SYSTEM_PROCESSOR}")
-  add_non_arm_executable(ekf_bench
-                         SOURCES ekf_bench.cc
-                         LIBRARIES bench util linalg)
+  #add_non_arm_executable(ekf_bench
+  #                       SOURCES ekf_bench.cc
+  #                       LIBRARIES bench util linalg)
 endif()
 
-target_include_directories(ekf_bench PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${EIGEN_DIR}
-)
+#target_include_directories(ekf_bench PRIVATE
+#${CMAKE_CURRENT_SOURCE_DIR}
+#${EIGEN_DIR}
+#)

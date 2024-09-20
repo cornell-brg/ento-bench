@@ -53,7 +53,7 @@ void bressenham_circle(PixelType* circle[static_cast<int>(0.5 * Diameter * M_PI)
 // For 10-bit Need to decide how it is stored, e.g., contiguously or non-contiguously...
 // So probably hold off on that for now!
 template <typename Image, int CircleDiameter, int Threshold>
-void fast(const Image& img)
+void fast(const Image& img, FeatureDetectorOutput* fdo)
 {
   int circle[25];
   int* cornerpos;
@@ -66,6 +66,7 @@ void fast(const Image& img)
   // I also made this choice because a tab array of 2^17 is no bueno.
   // I might have to rethink the tradeoffs for this implementation that
   // OpenCV.
+  constexpr tab_size = Image.BitDepth... // how to do this?
   uint8_t threshold_tab[2048];
   for (i = -1024; i <=1024; i++)
   {
@@ -125,8 +126,8 @@ void fast(const Image& img)
                           if( ++count > K )
                           {
                               cornerpos[ncorners++] = j;
-                              if(nonmax_suppression)
-                                  curr[j] = (uchar)cornerScore<patternSize>(ptr, pixel, threshold);
+                              //if(nonmax_suppression)
+                                  //curr[j] = (uchar)cornerScore<patternSize>(ptr, pixel, threshold);
                               break;
                           }
                       }
@@ -171,6 +172,7 @@ void fast(const Image& img)
       {
           j = cornerpos[k];
           score = prev[j];
+          
           keypoints_pushback(Keypoint(j, i-1, 7, -1, score));
       }
   }

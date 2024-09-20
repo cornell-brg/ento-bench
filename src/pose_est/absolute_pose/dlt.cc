@@ -3,6 +3,51 @@
 #include <entomoton_math/svd.h>
 #include <absolute_pose/dlt.h>
 
+template <typename Scalar, int N>
+Eigen::Matrix<Scalar, 3, 3> dlt(const Eigen::Matrix<Scalar, N, 2>& points2d,
+                                const Eigen::Matrix<Scalar, N, 3>& points3d)
+{
+  static Eigen::Matrix<Scalar, N, 4> X = Eigen::Matrix<Scalar, N, 4>::Zero();
+  // set X[0:N, 0:3] to points3d
+  X.col(3) = 1;
+
+
+
+  Eigen::Matrix<Scalar, 2*N, 12> A = Eigen::Matrix<Scalar, 2*N, 12>::Zero();
+
+  Eigen::Matrix<Scalar, N, 3> XP;
+  Eigen::Matrix<Scalar, N, 3> YP;
+
+  Eigen::Matrix<Scalar, N, 1> Xdiag = points2d.col(0) * -1;
+  Eigen::Matrix<Scalar, N, 1> Ydiag = points2d.col(1) * -1;
+
+  XP = Xdiag.asDiagonal() * points3d;
+  YP = Ydiag.asDiagonal() * points3d;
+
+  for (int i = 0; i < N; ++i)
+  {
+    for (int j = 0; j < 4; ++j)
+    {
+      A(i, j)         =  points3d(i, j);
+      A(i + N, j)     =  points3d(i, j);
+      A(i, j + 8)     =  XP(i, j);
+      A(i + N, j + 8) =  YP(i, j);
+    }
+  }
+
+  // SVD
+  // Unnormalize
+  // Decompose homography
+
+}
+
+
+template <typename Scalar, typename MaxN>
+Eigen::Matrix<Scalar, 3, 3>
+dlt(const Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxN, 2>& points2d,
+    const Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxN, 3>& points3d);
+
+
 template <typename Scalar, typename N>
 Eigen::Matrix<Scalar, 3, 3>
 dlt_planar(Eigen::Matrix<Scalar, N, 2>& points2d, 
@@ -46,7 +91,8 @@ dlt_planar(Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxPoints, 2>& points2d,
 {
   
   Eigen::Matrix<Scalar, Eigen::Dynamic, 9, 0, 2 * MaxPoints, 9> A =
-      Eigen::Matrix<Scalar, Eigen::Dynamic, 9>::Zero(2 * N, 9);
+              Eigen::Matrix<Scalar, Eigen::Dynamic, 9>::Zero(2 * N, 9);
+
   Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3> XP(N, 3);
   Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3> YP(N, 3);
   
@@ -137,5 +183,6 @@ Eigen::Matrix<Scalar, 3, 3> dlt_planar_ho(Eigen::Matrix<Scalar, N, 2, Order>& po
   Eigen::Matrix<Scalar, 9, 1, Eigen::RowMajor> h;
 
   EntomotonMath::svd_osj(&At, &V, &h);
-
 }
+
+

@@ -6,6 +6,6 @@ template <typename PixelType, typename CicleSize, int RowStride>
 void bressenham_circle(PixelType* circle[static_cast<int>(0.5 * CircleSize * M_PI)]);
 
 template <typename Image, int CircleSize, int Threshold>
-void fast(const Image& img);
+void fast(const Image& img, FeatureDetectorOutput* fdo );
 
 #endif // FAST_H

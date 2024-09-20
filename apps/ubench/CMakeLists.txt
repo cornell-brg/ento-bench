@@ -15,14 +15,14 @@ if (STM32_BUILD)
                                  LIBRARIES bench mcu-util assembly)
 elseif(GEM5_ARMV7E-M_BUILD)
   message("Building microbenchmarks for gem5 ARM")
-  add_arm_baremetal_gem5_se_executable(ubench
-                                       SOURCES ${UBENCH_SOURCES}
-                                       LIBRARIES bench assembly startup sys)
+  #add_arm_baremetal_gem5_se_executable(ubench
+  #SOURCES ${UBENCH_SOURCES}
+  #LIBRARIES bench assembly startup sys)
 else()
   message("Building microbenchmarks for native")
-  add_non_arm_executable(ubench
-                         SOURCES ${UBENCH_SOURCES}
-                         LIBRARIES bench assembly)
+  #add_non_arm_executable(ubench
+  #                       SOURCES ${UBENCH_SOURCES}
+  #                       LIBRARIES bench assembly)
 endif()
 
 #target_include_directories(ubench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

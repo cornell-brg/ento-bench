@@ -36,7 +36,6 @@ function(add_arm_baremetal_gem5_se_executable TARGET_NAME)
     -u _printf_float
     -nostartfiles
     --data-sections
-    -flto
     -Xlinker -T${STARTUP_DIR}/boot.ld
     -static # gem5 SE mode needs a static binary
   )
@@ -58,6 +57,7 @@ function(add_non_arm_executable TARGET_NAME)
   cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
 
   add_executable(${TARGET_NAME} ${ARG_SOURCES})
+  message("Native exe librs: ${ARG_LIBRARIES}")
 
   #target_link_options(${TARGET_NAME}
   #  PRIVATE

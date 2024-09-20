@@ -10,7 +10,7 @@
 
 typedef struct {
   uint16_t data[320][320];
-  uint16_t width = 320 / 2 ; // 320
+  const uint16_t width = 320 ; // 320
   const uint16_t height = 320 ; // 320
 } NaneyeImage;
 
