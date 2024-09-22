@@ -62,3 +62,5 @@ target_include_directories(ento_math
   ${EIGEN_DIR}
 )
 
+add_subdirectory(feature2d)
+

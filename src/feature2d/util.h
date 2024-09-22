@@ -8,15 +8,25 @@ struct Keypoint
   int16_t x;
   int16_t y;
 
-  Keypoint(int16_t x, int16_t y)
+  Keypoint() : x(0), y(0) {}
+  Keypoint(int16_t _x, int16_t _y)
     : x(_x), y(_y) {}
+  Keypoint(const Keypoint&) = default;
+  Keypoint(Keypoint&&) = default;
+  Keypoint& operator=(const Keypoint&) = default;
+  Keypoint& operator=(Keypoint&&) = default;
 };
 
 struct FastKeypoint : public Keypoint
 {
   int score;
+  FastKeypoint() : Keypoint(0, 0), score(0) {}
   FastKeypoint(int16_t _x, int16_t _y, int _score)
-    : x(_x), y(_y), score(_score) {}
+    : Keypoint(_x, _y), score(_score) {}
+  FastKeypoint(const FastKeypoint&) = default;
+  FastKeypoint(FastKeypoint&&) = default;
+  FastKeypoint& operator=(const FastKeypoint&) = default;
+  FastKeypoint& operator=(FastKeypoint&&) = default;
 };
 
 struct ORBKeypoint : public FastKeypoint
@@ -24,17 +34,18 @@ struct ORBKeypoint : public FastKeypoint
 
 };
 
-template <size_t MaxFeatures = 100>
+template <typename KeypointType, size_t MaxFeatures = 100>
 struct FeatureDetectorOutput
 {
-  std::array<Keypoint, MaxFeatures> keypoints;
+  std::array<KeypointType, MaxFeatures> keypoints;
   size_t num_features = 0;
-  size_t max_features = 0;
+  static constexpr size_t max_features = MaxFeatures;
 
+  FeatureDetectorOutput() = default;
   
-  bool add_keypoint(const Keypoint& kp)
+  bool add_keypoint(const KeypointType& kp)
   {
-    if (feature_count < MaxFeatures)
+    if (num_features < max_features)
     {
       keypoints[num_features++] = kp;
       return true;
@@ -42,7 +53,7 @@ struct FeatureDetectorOutput
     return false;
   }
 
-  const Keypoint& operator[](size_t idx) const
+  const KeypointType& operator[](size_t idx) const
   {
     return keypoints[idx];
   }
@@ -51,8 +62,6 @@ struct FeatureDetectorOutput
   {
     return num_features;
   }
-
-
-}
+};
 
 #endif // FEAT_UTIL_H

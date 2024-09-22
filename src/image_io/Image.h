@@ -11,6 +11,13 @@ template <int Rows, int Cols, typename PixelT>
 class Image
 {
 public:
+  static constexpr int rows = Rows;
+  static constexpr int cols = Cols;
+  static constexpr int bit_depth = sizeof(PixelT) * 8;
+  using pixel_type = PixelT;
+
+  PixelT data[Rows * Cols];
+
   Image(): data{} {}
 
   void set_pixel(int row, int col, PixelT pixel)
@@ -89,12 +96,7 @@ public:
     }
     fclose(file);
     return 1;  // Success
-}
-
-
-
-protected:
-  PixelT data[Rows * Cols];
+  }
 };
 
 
@@ -105,6 +107,8 @@ public:
   using PackedPixelT = typename PixelType<BitDepth, StartBit, StopBit>::type;
   using PacketType = typename PackedPixelT::PacketType;
   using PixelReturnType = typename std::conditional<BitDepth <= 8, uint8_t, uint16_t>::type;
+
+  static constexpr int bit_depth = UserBitDepth;
 
   PackedImage() : Image<Rows, Cols, PackedPixelT>() {}
 

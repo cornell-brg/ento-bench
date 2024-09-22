@@ -12,12 +12,14 @@ struct PixelType;
 template <int BitDepth>
 struct PixelType<BitDepth, false>
 {
+  static constexpr int bit_depth = BitDepth;
   using type = typename std::conditional<BitDepth <= 8, uint8_t, uint16_t>::type;
 };
 
 template <int BitDepth, int StartBit, int StopBit>
 struct PixelType<BitDepth, true, StartBit, StopBit>
 {
+  static constexpr int bit_depth = BitDepth;
   static constexpr int TotalBitSize = BitDepth + 2;
   using PacketType = typename std::conditional<
     TotalBitSize <= 8, uint8_t, typename std::conditional<
