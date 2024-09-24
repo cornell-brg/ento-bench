@@ -203,13 +203,13 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
         DPRINTF("[FAST] Pixel Value: (%i)\n", v);
 
         const PixelType* tab = &threshold_tab[0] - v + middle_value;
-        DPRINTF("[FAST] &threshold_tab[0], minus v, minus v + middle: %u, %u, %u\n", &threshold_tab[0], &threshold_tab[0] - v, tab);
-        DPRINTF("[FAST] &threshold_tab[half]: %u", &threshold_tab[half]);
+        //DPRINTF("[FAST] &threshold_tab[0], minus v, minus v + middle: %u, %u, %u\n", &threshold_tab[0], &threshold_tab[0] - v, tab);
+        //DPRINTF("[FAST] &threshold_tab[half]: %u", &threshold_tab[half]);
         int d = tab[ptr[circle[0]]] | tab[ptr[circle[8]]];
 
-        DPRINTF("[FAST] circle[0], circle[8]: %i, %i\n", circle[0], circle[8]);
+        /*DPRINTF("[FAST] circle[0], circle[8]: %i, %i\n", circle[0], circle[8]);
         DPRINTF("[FAST] ptr[circle[0]], ptr[circle[8]]: %i, %i\n", ptr[circle[0]], ptr[circle[8]]);
-        DPRINTF("[FAST] tab[ptr[circle[0]]], tab[ptr[circle[8]]: %i, %i\n", tab[ptr[circle[0]]], tab[ptr[circle[8]]]);
+        DPRINTF("[FAST] tab[ptr[circle[0]]], tab[ptr[circle[8]]: %i, %i\n", tab[ptr[circle[0]]], tab[ptr[circle[8]]]);*/
 
 
         DPRINTF("[FAST] First test d: %i\n", d);
@@ -219,12 +219,12 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
         d &= tab[ptr[circle[4]]] | tab[ptr[circle[12]]];
         d &= tab[ptr[circle[6]]] | tab[ptr[circle[14]]];
 
-        DPRINTF("[FAST] circle[2], circle[10]: %i, %i\n", circle[2], circle[10]);
+        /*DPRINTF("[FAST] circle[2], circle[10]: %i, %i\n", circle[2], circle[10]);
         DPRINTF("[FAST] ptr[circle[2]], ptr[circle[10]]: %i, %i\n", ptr[circle[2]], ptr[circle[10]]);
         DPRINTF("[FAST] circle[4], circle[12]: %i, %i\n", circle[4], circle[12]);
         DPRINTF("[FAST] ptr[circle[4]], ptr[circle[12]]: %i, %i\n", ptr[circle[4]], ptr[circle[12]]);
         DPRINTF("[FAST] circle[6], circle[14]: %i, %i\n", circle[6], circle[14]);
-        DPRINTF("[FAST] ptr[circle[6]], ptr[circle[14]]: %i, %i\n", ptr[circle[6]], ptr[circle[14]]);
+        DPRINTF("[FAST] ptr[circle[6]], ptr[circle[14]]: %i, %i\n", ptr[circle[6]], ptr[circle[14]]);*/
         DPRINTF("[FAST] Second test d: %i\n", d);
         if( d == 0 )
             continue;
@@ -273,6 +273,7 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
               if( ++count > ContiguityRequirement )
               {
                 cornerpos[ncorners++] = j;
+                DPRINTF("Found feature: %i, %i\n", j, i-1);
                 break;
               }
             }
@@ -294,14 +295,16 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
     cornerpos = cpbuf[(i-4+3)%3] + 1;
     ncorners = cornerpos[-1];
 
+    DPRINTF("[FAST] Ncorners: %i\n", ncorners);
     for (k = 0; k < ncorners; k++)
     {
       j = cornerpos[k];
       int score = prev[j];
       FastKeypoint kp(j, i-1, score);
-      DPRINTF("Found feature: %i, %i, %i", j, i-1, score);
+      DPRINTF("Found feature: %i, %i, %i\n", j, i-1, score);
       fdo.add_keypoint(kp);
     }
+    DPRINTF("Onto next row! \n\n");
   }
 }
 

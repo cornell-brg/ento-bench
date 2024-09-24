@@ -94,7 +94,7 @@ void test_bressenham_circle()
 }
 
 // Test fast algorithm on an image
-void test_fast_algorithm()
+void test_fast_algorithm_1()
 {
   printf("Running test_fast_algorithm...\n");
 
@@ -122,11 +122,48 @@ void test_fast_algorithm()
   printf("test_fast_algorithm finished.\n");
 }
 
+// Test fast algorithm on an image
+void test_fast_algorithm_2()
+{
+  printf("Running test_fast_algorithm...\n");
+
+  using TestImgType = Image<14, 14, uint8_t>;
+  TestImgType img;
+  FeatureDetectorOutput<FastKeypoint, 100> fdo;
+
+  const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_fast2.pgm";
+  //const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_pgm.pgm";
+  bool img_opened = img.image_from_pgm(pgm_path);
+  checkCondition(img_opened, "Load FAST Test 1 pgm");
+  if (!img_opened) return;
+
+  fast<TestImgType, 16, 10>(img, fdo);  // Run the FAST detector
+
+  checkCondition(fdo.size() == 4, "FAST detector found 4 features");
+  printf("FAST detected %i features.\n", fdo.size());
+
+
+  uint8_t gtxs[4] = {3, 10,  3, 10};
+  uint8_t gtys[4] = {3,  3, 10, 10};
+
+  for (int i = 0; i < 4; i++)
+  {
+    auto x = fdo[i].x;  auto y = fdo[i].y;
+    auto gtx = gtxs[i]; auto gty = gtys[i];
+    checkCondition((x == gtx) & (y == gty), "Fast detector feature location");
+    printf("FAST detected feature at (%i, %i)\n", x, y);
+
+  }
+
+  printf("test_fast_algorithm finished.\n");
+}
+
 int main() {
   test_fdo_creation();
   test_threshold_table();
   test_bressenham_circle();
-  test_fast_algorithm();
+  test_fast_algorithm_1();
+  test_fast_algorithm_2();
 
   printf("All tests executed!\n");
   return 0;

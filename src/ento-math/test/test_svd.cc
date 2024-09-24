@@ -62,6 +62,11 @@ void test_osj_svd_generic_simple()
   return;
 }
 
+template <typename Scalar>
+void test_osj_svd_known_size_8x3()
+{
+  
+}
 
 int main(void)
 {
