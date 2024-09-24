@@ -1,7 +1,9 @@
 #ifndef FEAT_UTIL_H
 #define FEAT_UTIL_H
 
+
 #include <array>
+#include <Eigen/Dense>
 
 struct Keypoint
 {
@@ -126,7 +128,7 @@ void iso_normalize_points(Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxFeature
   int num_points = points.rows();
 
   // 1. Compute centroi of points
-  Eigen::Matrix<Scalar, 1, 2> = points.leftCols(2).colwise().mean();
+  Eigen::Matrix<Scalar, 1, 2> centroid = points.leftCols(2).colwise().mean();
 
   // 2. Center points around origin
   for (int i = 0; i < num_points; ++i)
@@ -141,8 +143,9 @@ void iso_normalize_points(Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxFeature
   for (int i = 0; i < num_points; ++i)
   {
     mean_distance += std::sqrt(
-      points(i, 0)) * points(i, 0) + points(i, 1) * points(i, 1)
+      points(i, 0) * points(i, 0) + points(i, 1) * points(i, 1)
     );
+    
   }
 
   mean_distance /= num_points;

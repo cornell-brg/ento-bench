@@ -33,11 +33,12 @@ function(add_arm_baremetal_gem5_se_executable TARGET_NAME)
     PRIVATE
     -L$ENV{ARM_NONE_EABI_LIB}/thumb/v7e-m+fp/hard #Link hard float lib
     -lc_nano
-    -u _printf_float
     -nostartfiles
     --data-sections
     -Xlinker -T${STARTUP_DIR}/boot.ld
     -static # gem5 SE mode needs a static binary
+    -Wl,--undefined,_printf_float
+    -Wl,--undefined,_scanf_float
   )
 
   message("[ARM gem5-SE build] Libs for ${TARGET_NAME}: ${ARG_LIBRARIES}")

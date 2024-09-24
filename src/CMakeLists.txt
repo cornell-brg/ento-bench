@@ -63,4 +63,5 @@ target_include_directories(ento_math
 )
 
 add_subdirectory(feature2d)
+add_subdirectory(ento-util)
 

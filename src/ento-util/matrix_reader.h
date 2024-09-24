@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <cstdio>
 #include <cstring>
+#include "ento-util/debug.h"
 
 
 enum MatrixFileType {
@@ -12,10 +13,10 @@ enum MatrixFileType {
   INT32,
   UINT32,
   UNKNOWN
-}
+};
 
 // Convert type string to enum
-MatrixType get_matrix_type(const char* type_str)
+MatrixFileType get_matrix_type(const char* type_str)
 {
   if (strcmp(type_str, "FLOAT") == 0) return FLOAT;
   if (strcmp(type_str, "DOUBLE") == 0) return DOUBLE;
@@ -24,30 +25,28 @@ MatrixType get_matrix_type(const char* type_str)
   return UNKNOWN;
 }
 
-}
-
 template <typename Derived>
 bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
 {
   FILE* file = fopen(file_path, "r");
   if (!file)
   {
-    fprintf(stderr, "Error opening file: %s\n", file_path);
+    printf("Error opening file: %s\n", file_path);
     return false;
   }
 
   char magic[7], type_str[10];
   if (fscanf(file, "%6s %9s", magic, type_str) != 2 || std::string(magic) != "MATRIX")
   {
-    fprintf(stderr, "Invalid matrix file format: %s\n", file_path);
+    printf("Invalid matrix file format: %s\n", file_path);
     fclose(file);
     return false;
   }
 
-  MatrixType matrix_type = get_matrix_type(type_str);
+  MatrixFileType matrix_type = get_matrix_type(type_str);
   if (matrix_type == UNKNOWN)
   {
-    fprintf(stderr, "Unknown matrix type: %s\n", type_str);
+    printf("Unknown matrix type: %s\n", type_str);
     fclose(file);
     return false;
   }
@@ -55,13 +54,19 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
   int rows, cols;
   if (fscanf(file, "%d %d", &rows, &cols) != 2)
   {
-    fprintf(stderr, "Error reading matrix dimensions\n");
+    printf("Error reading matrix dimensions\n");
     fclose(file);
     return false;
   }
 
-  // Resize the matrix to the dimensions read from the file
-  matrix.derived().resize(rows, cols);
+  // If the matrix dimensions being read in don't match return false
+  if ((rows != matrix.rows()) || (cols != matrix.cols()))
+  {
+    printf("Matrix dimensions do not match.");
+    return false;
+  }
+  DPRINTF("File has matrix dimensions of %i rows and %i cols", rows, cols);
+  //matrix.derived().resize(rows, cols);
 
   // Read matrix data based on type
   for (int row = 0; row < rows; ++row)
@@ -73,7 +78,8 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
         float value;
         if (fscanf(file, "%f", &value) != 1)
         {
-          fprintf(stderr, "Error reading value at (%d, %d)\n", row, col);
+          printf("Error reading value at (%d, %d)\n", row, col);
+          printf("Value: %d\n", value);
           fclose(file);
           return false;
         }
