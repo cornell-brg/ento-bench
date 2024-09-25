@@ -8,12 +8,17 @@
 namespace EntoMath
 {
 
-constexpr float eps = 1e-6;
+constexpr float eps = 1e-5;
 
 //template <typename Scalar, int MaxM, int MaxN, int Order=0>
 //void osj_svd_bounded(BoundedMatrix<Scalar, MaxM, MaxN>& A,
                      //BoundedMatrix<Scalar, MaxN, MaxN>& V,
                      //BoundedColVector<Scalar, MaxN>& min_v);
+
+inline float sign (const float x){
+	return (x > 0.0f) - (x < 0.0f);
+}
+
 
 template <typename Scalar, int MaxM, int MaxN, int Order=0>
 void osj_svd_bounded(Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order, MaxM, MaxN>& A,
@@ -56,17 +61,20 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
 
   // @TODO: Add a allocator? Or caller is in charge of allocating this?
   constexpr int NUM_PAIRS = (N * (N-1)) / 2;
+  DPRINTF("NUM_PAIRS: %i\n", NUM_PAIRS);
   static Scalar work_ab[N];
   static Scalar work_gamma[NUM_PAIRS];
-  static uint8_t rotated[N];
+  static uint8_t rotated[N] = {0};
 
+  DPRINTF("Setting up work_ab!\n");
   for (int i = 0; i < N; i++)
   {
-    work_ab[i] = A.col(i).squaredNorm();
-
+    work_ab[i] = A.col(i).dot(A.col(i));
+    DPRINTF("Work_ab[%i] = %f\n", i, work_ab[i]); 
   }
 
   int gamma_idx = 0;
+  DPRINTF("Setting up work_gamma!\n");
   for (int j = 1; j < N; ++j)
   {
     for (int i = 0; i < j; ++i)
@@ -75,69 +83,92 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
     }
   }
   
+  DPRINTF("Entering sweeps loop!\n");
   while (!exit)
   {
     exit = true;
     iterations++;
-    for (int j = M - 1; j>=1; --j)
+    DPRINTF("Iterations: %i", iterations);
+    gamma_idx = 2;
+    for (int j = N - 1; j>=1; --j)
     {
       for (int i = j - 1; i>=0; --i)
       {
         //Scalar* ai = A.row(i).data();
         //Scalar* aj = A.row(j).data();
-
+        DPRINTF("New sweep for cols i,j = %i, %i\n", i, j);
         alpha = work_ab[i];
         beta = work_ab[j];
 
-        if (rotated[i] || rotated[j])
-        {
-          work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
-        }
+        //if (rotated[i] || rotated[j])
+        //{
+        //  DPRINTF("Recomputing gamma!\n");
+        work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
+        //}
         gamma = work_gamma[gamma_idx];
 
         off_diag = sqrtf(alpha * beta);
-        if (fabs(gamma) >= eps * off_diag)
+        DPRINTF("alpha, beta: %.30f, %.30f\n", alpha, beta);
+        DPRINTF("alpha * beta: %.30f\n", alpha * beta);
+        DPRINTF("off_diag: %.30f\n", off_diag);
+        DPRINTF("gamma: %.30f, eps*off_diag: %.30f\n", gamma, eps*off_diag);
+        if (fabsf(gamma) >= eps * off_diag)
         {
+          DPRINTF("Rotating!\n");
           exit = 0;
 
           // Givens rotation calculations
           tmp = (beta - alpha) / (2 * gamma);
-          t = copysign(1.0f, tmp) / (fabsf(tmp) + sqrtf(1 + tmp * tmp));
+          t = sign(tmp) / (fabsf(tmp) + sqrtf(1 + tmp * tmp));
           c = 1.0f / sqrtf(1 + t * t);
           s = c * t;
 
           // Apply Givens rotations to both A and V
-          Scalar alpha_sum = 0, beta_sum = 0, gamma_sum = 0;
+          work_ab[i] = 0; work_ab[j] = 0; work_gamma[gamma_idx] = 0;
+          Scalar alpha_sum = 0.0f, beta_sum = 0.0f, gamma_sum = 0.0f;
           for (int k = 0; k < M; ++k)
           {
-            tmp = A(i, k);  // Temporary copy of A(i, k)
+            tmp = A(k, i);  // Temporary copy of A(i, k)
             
             // Update A(i, k)
-            A(i, k) = c * tmp - s * A(j, k);
-            alpha_sum += A(i, k) * A(i, k);
+            A(k, i) = c * tmp - s * A(k, j);
+            DPRINTF("Updating A(%i, %i)=%f\n", k, i, A(k, i));
+            alpha_sum += (A(k, i) * A(k, i));
+            DPRINTF("Alpha sum intermediary: %f\n", alpha_sum);
             
             // Update A(j, k)
-            A(j, k) = s * tmp + c * A(j, k);
-            beta_sum += A(j, k) * A(j, k);
+            DPRINTF("Updating A(%i, %i)=%f\n", k, j, A(k, j));
+            A(k, j) = s * tmp + c * A(k, j);
+            beta_sum += (A(k, j) * A(k, j));
+            DPRINTF("Beta sum intermediary: %f\n", beta_sum);
             
             // Update dot product
-            gamma_sum += A(i, k) * A(j, k);
+            DPRINTF("Updating gamma_sum with i,j,k=(%d, %d, %d)\n", i, j, k);
+            gamma_sum += (A(k, i) * A(k, j));
 
             // Apply rotations to V
-            if (k < V.rows())
+            if (k < N)
             {
-              tmp = V(i, k);
-              V(i, k) = c * tmp - s * V(j, k);
-              V(j, k) = s * tmp + c * V(j, k);
+              //DPRINTF("Accumulating Rotation for idx k: %i \n", k);
+              tmp = V(k, i);
+              V(k, i) = c * tmp - s * V(k, j);
+              V(k, j) = s * tmp + c * V(k, j);
+              //DPRINTF("Updating V(k,i)=%f\n",V(k,i));
+              //DPRINTF("Updating V(k,j)=%f\n",V(k,j));
             }
           }
 
           // Update the precomputed values
+          printf("Alpha sum for work_ab[%i]: %.10f\n", i, alpha_sum);
+          printf("Beta sum for work_ab[%i]: %.10f\n", j, beta_sum);
           work_ab[i] = alpha_sum;
           work_ab[j] = beta_sum;
           work_gamma[gamma_idx] = gamma_sum;
+          printf("work_gamma[%i] = %.10f\n", gamma_idx, gamma_sum);
           rotated[i] = 1;
           rotated[j] = 1;
+          printf("Alpha sum for work_ab[%i]: %.10f\n", i, work_ab[i]);
+          printf("Beta sum for work_ab[%i]: %.10f\n", j, work_ab[j]);
         }
         else
         {
@@ -153,11 +184,14 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
             min_idx = j;
           }
         }
+        DPRINTF("Moving onto next sweep!\n\n");
         --gamma_idx;  // Move to the next pair in work_gamma
       }
     }
   }
+  printf("Exited out of sweeps loop!\n");
   min_v = V.col(min_idx);
+  return;
 
 }
 
@@ -230,7 +264,7 @@ void osj_svd_bounded(Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order
 
           // Givens rotation calculations
           tmp = (beta - alpha) / (2 * gamma);
-          t = copysign(1.0f, tmp) / (fabsf(tmp) + sqrtf(1 + tmp * tmp));
+          t = copysignf(1.0f, tmp) / (fabsf(tmp) + sqrtf(1 + tmp * tmp));
           c = 1.0f / sqrtf(1 + t * t);
           s = c * t;
 

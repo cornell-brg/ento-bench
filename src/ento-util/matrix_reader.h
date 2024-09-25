@@ -28,6 +28,7 @@ MatrixFileType get_matrix_type(const char* type_str)
 template <typename Derived>
 bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
 {
+  printf("Opening matrix from file %s\n", file_path);
   FILE* file = fopen(file_path, "r");
   if (!file)
   {
@@ -62,7 +63,7 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
   // If the matrix dimensions being read in don't match return false
   if ((rows != matrix.rows()) || (cols != matrix.cols()))
   {
-    printf("Matrix dimensions do not match.");
+    printf("Matrix dimensions do not match.\n");
     return false;
   }
   DPRINTF("File has matrix dimensions of %i rows and %i cols", rows, cols);
@@ -75,6 +76,7 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
     {
       if (matrix_type == FLOAT)
       {
+        printf("Matrix is type float, reading value at (%d, %d)\n", row, col);
         float value;
         if (fscanf(file, "%f", &value) != 1)
         {
@@ -83,10 +85,11 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
           fclose(file);
           return false;
         }
-        matrix(row, col) = static_cast<typename Derived::Scalar>(value);
+        matrix(row, col) = static_cast<float>(value);
       }
       else if (matrix_type == DOUBLE)
       {
+        printf("Matrix is type double, reading value at (%d, %d)\n", row, col);
         double value;
         if (fscanf(file, "%lf", &value) != 1)
         {
@@ -98,6 +101,7 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
       }
       else if (matrix_type == INT32)
       {
+        printf("Matrix is type int32, reading value at (%d, %d)\n", row, col);
         int32_t value;
         if (fscanf(file, "%d", &value) != 1) {
           fprintf(stderr, "Error reading value at (%d, %d)\n", row, col);
@@ -108,6 +112,7 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
       }
       else if (matrix_type == UINT32)
       {
+        printf("Matrix is type uint32, reading value at (%d, %d)\n", row, col);
         uint32_t value;
         if (fscanf(file, "%u", &value) != 1) {
           fprintf(stderr, "Error reading value at (%d, %d)\n", row, col);
@@ -118,6 +123,7 @@ bool matrix_from_file(const char* file_path, Eigen::DenseBase<Derived>& matrix)
       }
     }
   }
+  printf("Successfully read file!\n");
 
   fclose(file);
   return true;

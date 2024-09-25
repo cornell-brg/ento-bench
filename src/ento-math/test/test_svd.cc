@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include "ento-math/svd.h"
 #include "ento-math/core.h"
+#include "ento-util/matrix_reader.h"
 
 using namespace EntoMath;
 
@@ -56,37 +57,72 @@ void test_osj_svd_generic_simple()
   min_v.resize(3,1);
   BoundedMatrix<Scalar, 3, 3> V;
   V.resize(3,3);
+  V.setIdentity();
 
   osj_svd_generic(A, V, min_v);
   printf("Min right vec: [ %f, %f, %f ]\n", min_v(0), min_v(1), min_v(2));
   return;
 }
 
-template <typename Scalar>
-void test_osj_svd_known_size_8x3()
+void test_osj_svd_8x3()
 {
+  Eigen::Matrix<float, 8, 3> A;
+  printf("A rows, cols: (%d, %d)\n", A.rows(), A.cols());
+  matrix_from_file("/home/ddo26/workspace/entomoton-bench/datasets/unittest/svd_8x3.txt",
+                   A);
+  for (int i = 0; i < 8; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      DPRINTF("A(%i, %i) = %f\n", i, j, A(i,j));
+    }
+  }
+
+  Eigen::Matrix<float, 3, 3> V;
+  V.setIdentity();
+  DPRINTF("Sanity check diagonal of V: %f, %f, %f", V(0,0), V(1,1), V(2,2));
+
+  Eigen::Matrix<float, 3, 1> min_v;
+
+  printf("Running svd on our 8x3 A matrix!\n");
+  osj_svd<float, 8, 3, 0>(A, V, min_v);
   
+
+  for (int i = 0; i < 8; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      DPRINTF("A(%i, %i) = %f\n", i, j, A(i,j));
+    }
+  }
+
+  for (int i = 0; i < 3; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      DPRINTF("V(%i, %i) = %f\n", i, j, V(i,j));
+    }
+  }
+  printf("Min right vec: [%f, %f, %f]\n", min_v(0), min_v(1), min_v(2));
+  return;
 }
 
 int main(void)
-{
+{ 
 
   // Tests:
   // 1. SVD with 12x9
   // 2. SVD with 8x3
   // 3. ...
-  volatile int a = 0;
-  volatile int b = 1;
-  volatile int c = a + b;
-  b = c + a + 10;
-
-  printf("A, B, C: %i, %i, %i", a, b, c);
-  printf("HI %i\n", a);
-  //printf("Running OSJ SVD known size simple...\n");
+  printf("Running OSJ SVD known size simple...\n");
   //test_osj_svd_known_size_simple<float>();
   
-  //printf("Running OSJ SVD bounded size simple...\n");
+  printf("Running OSJ SVD bounded size simple...\n");
   //test_osj_svd_bounded_size_simple<float>();
 
+  printf("Running OSJ SVD for an 8x3 matrix from file...\n");
+  test_osj_svd_8x3();
+
   return 0;
+  
 }
