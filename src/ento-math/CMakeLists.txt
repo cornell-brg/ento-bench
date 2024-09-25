@@ -29,11 +29,11 @@ if (GEM5_ARMV7E-M_BUILD)
     SOURCES ${TEST_DIR}/test_svd.cc
     LIBRARIES ento_math m startup sys)
 else()
-  #add_non_arm_executable(test_svd
-  #                       SOURCES ${TEST_DIR}/test_svd.cc
-  #                       LIBRARIES ento_math m)
-  add_executable(test_svd ${TEST_DIR}/test_svd.cc)
-  target_link_libraries(test_svd PUBLIC m ento_math)
+  add_non_arm_executable(test_svd
+                         SOURCES ${TEST_DIR}/test_svd.cc
+                         LIBRARIES ento_math m)
+  #add_executable(test_svd ${TEST_DIR}/test_svd.cc)
+  #target_link_libraries(test_svd PUBLIC m ento_math)
 endif()
 target_include_directories(test_svd 
   PUBLIC

@@ -36,7 +36,7 @@ set(CMAKE_OBJCOPY ${CROSS_COMPILE}objcopy)
 set(CMAKE_OBJDUMP ${CROSS_COMPILE}objdump)
 
 # Compiler and linker flags can be configured here or in the main CMakeLists.txt
-set(CMAKE_C_FLAGS_INIT "-Wall -fno-exceptions -O3")
+set(CMAKE_C_FLAGS_INIT "-Wall -fno-exceptions -O2 -g3")
 set(CMAKE_CXX_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} -std=c++20 -Wl,-Map,output.map")
 
 # Platform specific configurations can also be set via cache variables or environment

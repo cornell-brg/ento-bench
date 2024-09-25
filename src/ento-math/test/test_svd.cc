@@ -70,11 +70,23 @@ void test_osj_svd_8x3()
   printf("A rows, cols: (%d, %d)\n", A.rows(), A.cols());
   matrix_from_file("/home/ddo26/workspace/entomoton-bench/datasets/unittest/svd_8x3.txt",
                    A);
+
+  Eigen::Matrix<float, 8, 3> exp_A;
+  exp_A << -0.99687326,  0.00489541,  0.00042951,
+          0.9968732 , -0.00489541, -0.00042956,
+         -0.99687326,  0.00489541,  0.00042951,
+          0.9968733 , -0.00489541, -0.00042956,
+          0.00111352,  1.0031136,   0.00147715,
+         -0.00111352, -1.0031135,  -0.001477  ,
+          0.00111352,  1.0031136,   0.00147715,
+         -0.00111352, -1.0031137,  -0.001477;  
   for (int i = 0; i < 8; ++i)
   {
     for (int j = 0; j < 3; ++j)
     {
-      DPRINTF("A(%i, %i) = %f\n", i, j, A(i,j));
+      bool withinTol = A.isApprox(exp_A, 1e-5);
+      DPRINTF("A(%i, %i) = %.8f, Within Tol? %i \n", i, j, A(i,j), withinTol);
+
     }
   }
 
@@ -95,7 +107,27 @@ void test_osj_svd_8x3()
       DPRINTF("A(%i, %i) = %f\n", i, j, A(i,j));
     }
   }
+  DPRINTF("\n");
 
+  Eigen::Matrix<float, 3, 3> S;
+  S.setIdentity();
+  Eigen::Matrix<float, 8, 3> U;
+  for (int i = 0; i < 3; ++i)
+  {
+    float s = sqrtf(A.col(i).squaredNorm());
+    S(i, i) = s;
+    for (int j = 0; j < 8; ++j)
+    {
+      U(j, i) = A(j,i) / s;
+      DPRINTF("U(%i, %i) = %.6f\n", j, i, A(j,i) / s);
+
+    }
+  }
+  DPRINTF("\n");
+
+  DPRINTF("S: %.10f, %.10f, %.10f\n", S(0,0), S(1,1), S(2,2));
+
+  DPRINTF("\n");
   for (int i = 0; i < 3; ++i)
   {
     for (int j = 0; j < 3; ++j)
@@ -103,8 +135,24 @@ void test_osj_svd_8x3()
       DPRINTF("V(%i, %i) = %f\n", i, j, V(i,j));
     }
   }
+  DPRINTF("\n");
   printf("Min right vec: [%f, %f, %f]\n", min_v(0), min_v(1), min_v(2));
+
+  Eigen::Matrix<float, 8, 3> inter;
+  Eigen::Matrix<float, 8, 3> out;
+  inter = U * S;
+  out = inter * V.transpose();
+
+  for (int i = 0; i < 8; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      DPRINTF("Out(%i, %i) = %f\n", i, j, out(i,j));
+    }
+  }
+  DPRINTF("\n");
   return;
+
 }
 
 int main(void)
