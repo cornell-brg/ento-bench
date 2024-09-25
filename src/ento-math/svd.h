@@ -159,16 +159,16 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
           }
 
           // Update the precomputed values
-          printf("Alpha sum for work_ab[%i]: %.10f\n", i, alpha_sum);
-          printf("Beta sum for work_ab[%i]: %.10f\n", j, beta_sum);
+          DPRINTF("Alpha sum for work_ab[%i]: %.10f\n", i, alpha_sum);
+          DPRINTF("Beta sum for work_ab[%i]: %.10f\n", j, beta_sum);
           work_ab[i] = alpha_sum;
           work_ab[j] = beta_sum;
           work_gamma[gamma_idx] = gamma_sum;
-          printf("work_gamma[%i] = %.10f\n", gamma_idx, gamma_sum);
+          DPRINTF("work_gamma[%i] = %.10f\n", gamma_idx, gamma_sum);
           rotated[i] = 1;
           rotated[j] = 1;
-          printf("Alpha sum for work_ab[%i]: %.10f\n", i, work_ab[i]);
-          printf("Beta sum for work_ab[%i]: %.10f\n", j, work_ab[j]);
+          DPRINTF("Alpha sum for work_ab[%i]: %.10f\n", i, work_ab[i]);
+          DPRINTF("Beta sum for work_ab[%i]: %.10f\n", j, work_ab[j]);
         }
         else
         {
@@ -189,7 +189,7 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
       }
     }
   }
-  printf("Exited out of sweeps loop!\n");
+  DPRINTF("Exited out of sweeps loop!\n");
   min_v = V.col(min_idx);
   return;
 
