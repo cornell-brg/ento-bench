@@ -64,31 +64,32 @@ void test_osj_svd_generic_simple()
   return;
 }
 
-void test_osj_svd_8x3()
+void test_osj_svd_8x3( char* matrix_file )
 {
   Eigen::Matrix<float, 8, 3> A;
   printf("A rows, cols: (%d, %d)\n", A.rows(), A.cols());
-  matrix_from_file("/home/ddo26/workspace/entomoton-bench/datasets/unittest/svd_8x3.txt",
-                   A);
+  // matrix_from_file("/home/ddo26/workspace/entomoton-bench/datasets/unittest/svd_8x3.txt",
+  //                  A);
+  matrix_from_file(matrix_file, A);
 
-  Eigen::Matrix<float, 8, 3> exp_A;
-  exp_A << -0.99687326,  0.00489541,  0.00042951,
-          0.9968732 , -0.00489541, -0.00042956,
-         -0.99687326,  0.00489541,  0.00042951,
-          0.9968733 , -0.00489541, -0.00042956,
-          0.00111352,  1.0031136,   0.00147715,
-         -0.00111352, -1.0031135,  -0.001477  ,
-          0.00111352,  1.0031136,   0.00147715,
-         -0.00111352, -1.0031137,  -0.001477;  
-  for (int i = 0; i < 8; ++i)
-  {
-    for (int j = 0; j < 3; ++j)
-    {
-      bool withinTol = A.isApprox(exp_A, 1e-5);
-      DPRINTF("A(%i, %i) = %.8f, Within Tol? %i \n", i, j, A(i,j), withinTol);
+  // Eigen::Matrix<float, 8, 3> exp_A;
+  // exp_A << -0.99687326,  0.00489541,  0.00042951,
+  //         0.9968732 , -0.00489541, -0.00042956,
+  //        -0.99687326,  0.00489541,  0.00042951,
+  //         0.9968733 , -0.00489541, -0.00042956,
+  //         0.00111352,  1.0031136,   0.00147715,
+  //        -0.00111352, -1.0031135,  -0.001477  ,
+  //         0.00111352,  1.0031136,   0.00147715,
+  //        -0.00111352, -1.0031137,  -0.001477;  
+  // for (int i = 0; i < 8; ++i)
+  // {
+  //   for (int j = 0; j < 3; ++j)
+  //   {
+  //     bool withinTol = A.isApprox(exp_A, 1e-5);
+  //     DPRINTF("A(%i, %i) = %.8f, Within Tol? %i \n", i, j, A(i,j), withinTol);
 
-    }
-  }
+  //   }
+  // }
 
   Eigen::Matrix<float, 3, 3> V;
   V.setIdentity();
@@ -155,22 +156,38 @@ void test_osj_svd_8x3()
 
 }
 
-int main(void)
+int main(int argc, char** argv)
+// int main()
 { 
 
   // Tests:
   // 1. SVD with 12x9
   // 2. SVD with 8x3
   // 3. ...
-  printf("Running OSJ SVD known size simple...\n");
+  // printf("Running OSJ SVD known size simple...\n");
   //test_osj_svd_known_size_simple<float>();
   
-  printf("Running OSJ SVD bounded size simple...\n");
+  // printf("Running OSJ SVD bounded size simple...\n");
   //test_osj_svd_bounded_size_simple<float>();
 
-  printf("Running OSJ SVD for an 8x3 matrix from file...\n");
-  test_osj_svd_8x3();
+  int first_dim = atoi( argv[1] );
+
+  if ( first_dim == 8 ) {
+    printf( "%s\n", argv[2] );
+    test_osj_svd_8x3( argv[2] );
+  }
+  // if ( strcmp( argv[1], "8" ) == 0 ) {
+  //   printf("Running OSJ SVD for an 8x3 matrix from file...\n");
+  //   test_osj_svd_8x3( argv[2] );
+  // }
+  // else if ( strcmp( argv[1], "356" ) == 0 ) {
+  //   printf("Running OSJ SVD for an 256x3 matrix from file...\n");
+  //   // test_osj_svd_256x3( argv[2] );
+  // }
+  // else {
+  //   printf( "invalid first matrix dimension\n" );
+  //   return 1;
+  // }
 
   return 0;
-  
 }
