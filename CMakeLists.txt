@@ -20,36 +20,44 @@ endif()
 
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
+
 if(STM32_BUILD)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
   find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
   find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO REQUIRED)
   add_definitions(-DSTM32_BUILD=1)
+
+  # Setup OpenOCD flash and debug targets.
+  option(STM32_DEVICE "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
+  option(OPENOCD_INTERFACE "OpenOCD interface (e.g., stlink.cfg)" "interface/stlink.cfg")
+
+  # Flash and Debug targets
+  add_custom_target(stm32-flash
+    COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin
+    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin verify reset exit"
+    DEPENDS ${PROJECT_NAME}
+    COMMENT "Flashing ${PROJECT_NAME} to target (${STM32_DEVICE})"
+  )
+
+  add_custom_target(stm32-debug
+    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf verify reset halt"
+    COMMAND arm-none-eabi-gdb -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf
+    DEPENDS ${PROJECT_NAME}
+    COMMENT "Starting debug session for ${PROJECT_NAME} on ${STM32_DEVICE}"
+  )
+  
 elseif(GEM5_BUILD)
 	message(STATUS "Building for gem5.")
 
   # If env variable for GEM5_PATH is not set, then look for it.
   set(GEM5_PATH "$ENV{GEM5_PATH}" CACHE PATH "Path to gem5 installation.")
   set(STARTUP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/startup" CACHE PATH "Path to startup directory.")
+
   if(NOT GEM5_PATH)
     find_path(GEM5_PATH NAMES gem5 PATH)
   endif()
 
-  # Define the expected sub-directory for libm5.a
-  #set(GEM5_LIB_PATH "${GEM5_PATH}/util/m5/build/arm/out")
-
-  # Check if the specific subdirectory exists
-  #if(EXISTS "${GEM5_LIB_PATH}")
-  #    message(STATUS "Found GEM5 library path: ${GEM5_LIB_PATH}")
-  #else()
-  #    message(FATAL_ERROR "GEM5 library path not found at ${GEM5_LIB_PATH}")
-  #endif()
-  #if(EXISTS "${GEM5_LIB_PATH}/libm5.a")
-  #    message(STATUS "Found gem5 libm5.a path: ${GEM5_LIB_PATH}")
-  #else()
-  #    message(FATAL_ERROR "GEM5 library path not found at ${GEM5_LIB_PATH}")
-  #endif()
-else()
+else() # Native Build
   set(CMAKE_C_COMPILER clang)
   set(CMAKE_CXX_COMPILER clang++)
   set(CMAKE_ASM_COMPILER clang)
@@ -62,6 +70,8 @@ set(BIN_DIR bin)
 set(APP_DIR apps)
 set(UB_DIR ubench)
 set(SANDBOX_DIR sandbox)
+set(BENCHMARK_DIR benchmark)
+set(EXAMPLE_DIR example)
 
 # Get GSL lib. This depends on the arch we are building for.
 # Figure out arch
@@ -78,6 +88,8 @@ else()
   # Default or other specific configurations
 endif()
 
+
+# Setup Linking GSL
 set(GSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl/build/${GSL_BUILD} CACHE PATH "Path to compiled GSL")
 set(GSL_LIB ${GSL_DIR}/lib/libgsl.a CACHE PATH "Path to GSL static lib.")
 set(GSL_BLAS_LIB ${GSL_DIR}/lib/libgslcblas.a CACHE PATH "Path to GSL CBLAS static lib.")
@@ -92,3 +104,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
+add_subdirectory(${EXAMPLE_DIR})
+
+message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "Linker options: ${CMAKE_EXE_LINKER_FLAGS}")

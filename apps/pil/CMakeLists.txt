@@ -35,9 +35,9 @@ endif()
 
 if (STM32_BUILD)
   message("Building microbenchmarks for STM32 Semihosting")
-  add_arm_semihosting_executable(ekf_bench
-                                 SOURCES ekf_bench.cc
-                                 LIBRARIES bench mcu-util linalg)
+  #add_arm_semihosting_executable(ekf_bench
+  #SOURCES ekf_bench.cc
+  #LIBRARIES bench mcu-util linalg)
 elseif(GEM5_ARMV7E-M_BUILD)
   message("Building microbenchmarks for gem5 ARM")
   #add_arm_baremetal_gem5_se_executable(ekf_bench

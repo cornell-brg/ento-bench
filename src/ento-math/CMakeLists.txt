@@ -28,6 +28,12 @@ if (GEM5_ARMV7E-M_BUILD)
   add_arm_baremetal_gem5_se_executable(test_svd
     SOURCES ${TEST_DIR}/test_svd.cc
     LIBRARIES ento_math m startup sys)
+elseif(STM32_BUILD)
+  add_arm_semihosting_executable(
+    test_svd
+    SOURCES ${TEST_DIR}/test_svd.cc
+    LIBRARIES ento_math m mcu-util
+  )
 else()
   add_non_arm_executable(test_svd
                          SOURCES ${TEST_DIR}/test_svd.cc

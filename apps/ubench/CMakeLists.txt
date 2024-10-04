@@ -10,9 +10,9 @@ set(UBENCH_SOURCES
 
 if (STM32_BUILD)
   message("Building microbenchmarks for STM32 Semihosting")
-  add_arm_semihosting_executable(ubench
-                                 SOURCES ${UBENCH_SOURCES}
-                                 LIBRARIES bench mcu-util assembly)
+  #add_arm_semihosting_executable(ubench
+    #SOURCES ${UBENCH_SOURCES}
+                                 #LIBRARIES bench mcu-util assembly)
 elseif(GEM5_ARMV7E-M_BUILD)
   message("Building microbenchmarks for gem5 ARM")
   #add_arm_baremetal_gem5_se_executable(ubench

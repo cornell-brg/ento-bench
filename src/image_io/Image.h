@@ -99,6 +99,61 @@ public:
   }
 };
 
+template <int Rows, int Cols, typename PixelT>
+class DoubleBufferedImage : public Image<Rows, Cols, PixelT>
+{
+public:
+  PixelT buffer1[Rows * Cols];
+  PixelT buffer2[Rows * Cols];
+
+  PixelT* active_buffer;
+  PixelT* dma_buffer;
+
+  // ....
+
+  DoubleBufferedImage()
+  {
+    active_buffer = buffer1;
+    dma_buffer = buffer2;
+  }
+
+  void swap_buffers()
+  {
+    PixelT* tmp = active_buffer;
+    active_buffer = dma_buffer;
+    dma_buffer = tmp;
+  }
+
+  PixelT& operator()(int row, int col)
+  {
+    return active_buffer[row * Cols + col];
+  }
+
+  PixelT& get_pixel(int row, int col)
+  {
+    return active_buffer[row * Cols + col];
+  }
+
+  void set_pixel(int row, int col, PixelT pixel)
+  {
+    active_buffer[row * Cols + col] = pixel;
+  }
+};
+
+
+// We assume here that partitions are double buffered
+template <int Rows, int Cols, int RowsPerPartition, typename PixelT>
+class PartitionedImage : public DoubleBufferedImage<Rows, RowsPerPartition, PixelT>
+{
+public:
+  static constexpr int part_size = RowsPerPartition;
+  static constexpr int total_parts = Rows / RowsPerPartition;
+  int part_num = 0;
+
+  PixelT& get_partition_pixel
+};
+
+
 
 template <int Rows, int Cols, int BitDepth, int UserBitDepth, int StartBit = 1, int StopBit = 0>
 class PackedImage : public Image<Rows, Cols, typename PixelType<BitDepth, StartBit, StopBit>::type>
@@ -138,5 +193,17 @@ public:
 
 };
 
+
+
+
+template <int Rows, int Cols, int RowsPerPartition, int BitDepth, int UserBitDepth, int StartBit = 1, int StopBit = 0>
+class PartitionedPackedImage : public PackedImage<Rows, Cols, BitDepth, UserBitDepth, StartBit, StopBit>
+{
+public:
+  using PackedPixelT = typename PixelType<BitDepth, StartBit, StopBit>::type;
+  using PacketType = typename PackedPixelT::PacketType;
+  using PixelReturnType = typename std::conditional<BitDepth <= 8, uint8_t, uint16_t>::type;
+  
+};
 
 #endif // IMAGE_IO_IMAGE_HH

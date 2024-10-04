@@ -2,7 +2,7 @@
 #define LED_UTIL_H
 
 #ifdef __cplusplus
-#extern "C" {
+extern "C" {
 #endif
 
 #if defined STM32G4

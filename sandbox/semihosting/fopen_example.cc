@@ -3,10 +3,10 @@
 #include <stm32g4xx.h>
 #include <stm32g4xx_ll_cortex.h>
 #include <stm32g4xx_ll_rcc.h>
-#include <systick_config.h>
-#include <led_util.h>
+#include <mcu-util/systick_config.h>
+#include <mcu-util/led_util.h>
 
-extern void initialise_monitor_handles(void);
+extern "C" void initialise_monitor_handles(void);
 
 int main()
 {

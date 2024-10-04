@@ -8,12 +8,12 @@ set(EXAMPLE_SOURCES
 
 if (STM32_BUILD)
   message("Configuring Examples for STM32 Semihosting")
-  add_arm_semihosting_executable(harness_example1
-                                 SOURCES harness_example1.cc
-                                 LIBRARIES bench mcu-util assembly)
-  add_arm_semihosting_executable(harness_example2
-                                 SOURCES harness_example2.cc
-                                 LIBRARIES bench mcu-util assembly)
+  #add_arm_semihosting_executable(harness_example1
+  #                               SOURCES harness_example1.cc
+  #                               LIBRARIES bench mcu-util assembly)
+  #add_arm_semihosting_executable(harness_example2
+  #                               SOURCES harness_example2.cc
+  #                               LIBRARIES bench mcu-util assembly)
 elseif(GEM5_ARMV7E-M_BUILD)
   message("Configuring Examples for gem5 ARM")
   #add_arm_baremetal_gem5_se_executable(harness_example1

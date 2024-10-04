@@ -50,9 +50,19 @@ set(TEST_DIR "test")
 
 
 if (GEM5_ARMV7E-M_BUILD)
-  add_arm_baremetal_gem5_se_executable(test_image
+  add_arm_baremetal_gem5_se_executable(
+    test_image
     SOURCES ${TEST_DIR}/test_image.cc
-    LIBRARIES image_io m startup sys)
+    LIBRARIES image_io m startup sys
+  )
+elseif(STM32_BUILD)
+  message("Building test_image for STM32")
+  add_arm_semihosting_executable(
+    test_image
+    SOURCES ${TEST_DIR}/test_image.cc
+    LIBRARIES image_io m mcu-util
+  )
+
 else()
   #add_non_arm_executable(test_svd
   #                       SOURCES ${TEST_DIR}/test_svd.cc
