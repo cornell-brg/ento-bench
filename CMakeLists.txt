@@ -29,23 +29,37 @@ if(STM32_BUILD)
 
   # Setup OpenOCD flash and debug targets.
   option(STM32_DEVICE "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
-  option(OPENOCD_INTERFACE "OpenOCD interface (e.g., stlink.cfg)" "interface/stlink.cfg")
 
-  # Flash and Debug targets
-  add_custom_target(stm32-flash
-    COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin verify reset exit"
-    DEPENDS ${PROJECT_NAME}
-    COMMENT "Flashing ${PROJECT_NAME} to target (${STM32_DEVICE})"
+  if(DEFINED ENV{OPENOCD_HOME})
+      set(OPENOCD_ROOT "$ENV{OPENOCD_HOME}")
+    elseif(DEFINED ENV{OPENOCD_PATH})
+      set(OPENOCD_ROOT "$ENV{OPENOCD_PATH}")
+    else()
+      set(OPENOCD_ROOT "/usr/local/share/openocd/scripts")  # Default fallback
+    endif()
+
+  # Search for the OpenOCD interface config file (stlink.cfg)
+  find_file(OPENOCD_INTERFACE
+    NAMES stlink.cfg
+    PATHS ${OPENOCD_ROOT}/interface
+          /usr/share/openocd/scripts/interface
+          /opt/local/share/openocd/scripts/interface
   )
 
-  add_custom_target(stm32-debug
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf verify reset halt"
-    COMMAND arm-none-eabi-gdb -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf
-    DEPENDS ${PROJECT_NAME}
-    COMMENT "Starting debug session for ${PROJECT_NAME} on ${STM32_DEVICE}"
-  )
-  
+  if(NOT OPENOCD_INTERFACE)
+    message(FATAL_ERROR "Could not find OpenOCD interface configuration (stlink.cfg). Please set OPENOCD_INTERFACE manually.")
+  else()
+    message(STATUS "Using OpenOCD interface: ${OPENOCD_INTERFACE}")
+  endif()
+
+  # The STM32 device configuration must be passed in manually
+  if(NOT DEFINED STM32_DEVICE)
+    message(FATAL_ERROR "Please provide the STM32_DEVICE configuration file (e.g., st_nucleo_g4.cfg).")
+  else()
+    message(STATUS "Using STM32 device config: ${STM32_DEVICE}")
+  endif()
+
+
 elseif(GEM5_BUILD)
 	message(STATUS "Building for gem5.")
 

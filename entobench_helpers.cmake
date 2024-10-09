@@ -130,22 +130,34 @@ endfunction()
 function(add_stm32_flash_and_debug_targets target_name)
   # Flash target
   add_custom_target(stm32-flash-${target_name}
-    COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.elf ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.bin
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.bin verify reset exit"
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -c "init"
+      -c "reset halt"
+      -c "arm semihosting enable"
+      -c "program $<TARGET_FILE:${target_name}> verify reset"
+      -c "arm semihosting_cmdline --shutdown-on-exit"
     DEPENDS ${target_name}
     COMMENT "Flashing ${target_name} to target (${STM32_DEVICE})"
   )
 
   # Debug target
   add_custom_target(stm32-debug-${target_name}
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.elf verify reset halt"
-    COMMAND arm-none-eabi-gdb -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.elf
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -c "init"
+      -c "reset halt"
+      -c "arm semihosting enable"
+      -c "program $<TARGET_FILE:${target_name}> verify reset halt"
+    COMMAND arm-none-eabi-gdb
+      -ex "target remote localhost:3333"
+      -ex "monitor reset halt"
+      -ex "load" $<TARGET_FILE:${target_name}>
     DEPENDS ${target_name}
     COMMENT "Starting debug session for ${target_name} on ${STM32_DEVICE}"
   )
 endfunction()
-
-
-
 
 

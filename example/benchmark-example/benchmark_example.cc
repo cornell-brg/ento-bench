@@ -1,3 +1,5 @@
+#include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "bench/harness.hh"
 
@@ -16,6 +18,10 @@ int main()
   constexpr int reps = 10;
   Harness hello_host_harness(hello_host_computer,
                              "Hello Host Computer Benchmark Example", reps);
+  hello_host_harness.run();
   printf("Finished running hello host computer benchmark example!\n");
+
+  exit(1);
+
   return 0;
 }

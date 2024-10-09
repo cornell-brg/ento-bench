@@ -5,6 +5,7 @@
 #include <tuple>
 #include <cstdio>
 #include "bench/roi.h"
+#include <initializer_list>
 
 
 namespace bench{
