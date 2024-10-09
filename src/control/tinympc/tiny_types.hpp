@@ -12,7 +12,7 @@ using namespace Eigen;
 extern "C" {
 #endif
 
-    typedef double tinytype;  // should be double if you want to generate code
+    typedef float tinytype;  // should be double if you want to generate code
     typedef Matrix<tinytype, Dynamic, Dynamic> tinyMatrix;
     typedef Matrix<tinytype, Dynamic, 1> tinyVector;
 

@@ -19,11 +19,13 @@
 #define NHORIZON 10
 #define NTOTAL 301
 
-#include <iostream>
+// #include <iostream>
+#include <cstdio>
 #include <tiny_api.hpp>
 
 extern "C" {
 
+void* __dso_handle = nullptr;
 
 #include "problem_data/quadrotor_20hz_params.hpp"
 #include "trajectory_data/quadrotor_20hz_y_axis_line.hpp"
@@ -67,7 +69,8 @@ int main()
 
     for (int k = 0; k < NTOTAL - NHORIZON; ++k)
     {
-        std::cout << "tracking error: " << (x0 - work->Xref.col(1)).norm() << std::endl;
+        // std::cout << "tracking error: " << (x0 - work->Xref.col(1)).norm() << std::endl;
+        printf( "tracking error: %f\n", (x0 - work->Xref.col(1)).norm() );
 
         // 1. Update measurement
         tiny_set_x0(solver, x0);
