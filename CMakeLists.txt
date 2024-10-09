@@ -44,6 +44,7 @@ if(STM32_BUILD)
     PATHS ${OPENOCD_ROOT}/interface
           /usr/share/openocd/scripts/interface
           /opt/local/share/openocd/scripts/interface
+          /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface/stlink.cfg
   )
 
   if(NOT OPENOCD_INTERFACE)
