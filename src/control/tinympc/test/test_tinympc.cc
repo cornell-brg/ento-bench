@@ -25,7 +25,9 @@
 
 extern "C" {
 
+#ifdef GEM5
 void* __dso_handle = nullptr;
+#endif
 
 #include "problem_data/quadrotor_20hz_params.hpp"
 #include "trajectory_data/quadrotor_20hz_y_axis_line.hpp"

@@ -14,7 +14,7 @@ IOFormat TinyApiFmt(4, 0, ", ", "\n", "[", "]");
 static int check_dimension(std::string matrix_name, std::string rows_or_columns, int actual, int expected) {
     if (actual != expected) {
         // std::cout << matrix_name << " has " << actual << " " << rows_or_columns << ". Expected " << expected << "." << std::endl;
-        printf( " %s has %d %s. Expected %d.\n", matrix_name, actual, rows_or_columns, expected );
+        printf( "%s has %d %s. Expected %d.\n", matrix_name.c_str(), actual, rows_or_columns.c_str(), expected );
         return 1;
     }
     return 0;
