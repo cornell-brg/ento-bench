@@ -4,12 +4,12 @@ ENTRY(_Reset)
 /* Define the start and size of memory regions */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x10000, LENGTH = 128K
+  RAM    (xrw)    : ORIGIN = 0x10000, LENGTH = 2M
 }
 
 /* Minimum heap and stack sizes */
-_Min_Heap_Size = 0x200;   /* 512 bytes of heap */
-_Min_Stack_Size = 0x8000; /* 32KB of stack */
+_Min_Heap_Size = 0x2000;   /* 512 bytes of heap */
+_Min_Stack_Size = 0x80000; /* 32KB of stack */
 
 /* Sections */
 SECTIONS
