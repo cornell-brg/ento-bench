@@ -5,6 +5,7 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_example.cc)
 
 set(MODULES
   bench
+  mcu-util
   CMSIS::STM32::G474RE
 )
 

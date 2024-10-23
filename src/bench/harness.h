@@ -5,6 +5,7 @@
 #include <tuple>
 #include <cstdio>
 #include "bench/roi.h"
+#include <array>
 #include <initializer_list>
 
 
@@ -72,40 +73,65 @@ MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
  * Allows for running a function many times for cache warm up.
  *
  */
-template<typename Callable>
+template<int Iters, typename Callable>
 class Harness {
 public:
-  Harness(Callable callable, const char* name, const int iters)
-    : callable_(std::move(callable)), name_(name), iters_(iters) {}
-
   Harness(Callable callable, const char* name)
-    : callable_(std::move(callable)), name_(name), iters_(1) {}
+    : callable_(std::move(callable)), name_(name) {}
 
   template<typename... Args>
   auto run(Args&&... args) {
-    printf("Running benchmark %s for %i iterations...\n", name_, iters_);
-    for (int i = 0; i < iters_; ++i)
+    printf("Running benchmark %s for %i iterations...\n", name_, Iters);
+
+    if constexpr (!std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>)
     {
-      start_roi();
-      if constexpr (std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>) {
-        callable_(std::forward<Args>(args)...);
-        end_roi();
-      } else {
+      using ResultType = decltype(callable_(std::forward<Args>(args)...));
+      std::array<ResultType, Iters> results;
+
+      for (int i = 0; i < Iters; i++)
+      {
+        start_roi();
         auto result = callable_(std::forward<Args>(args)...);
         end_roi();
-        return result;
+        cycles_[i] = get_cycles();
+        results[i] = result;
+      }
+      return results;
+
+    }
+    else
+    {
+      for (int i = 0; i < Iters; ++i)
+      {
+        start_roi();
+        callable_(std::forward<Args>(args)...);
+        end_roi();
+        cycles_[i] = get_cycles();
       }
     }
+
+    printf("Results from running %s for %i iterations.\n", name_, Iters);
+    for (int i = 0; i < Iters; ++i)
+    {
+      printf("Cycle count for iteration %i: %i\n", i, cycles_[i]);
+    }
+
   }
 
 private:
   Callable callable_;
   const char* name_;
-  const int iters_;
+  std::array<int, Iters> cycles_;
 };
 
-template<typename Callable>
-Harness(Callable callable, const char* name, const int iters) -> Harness<Callable>;
+template<int Iters, typename Callable>
+Harness(Callable callable, const char* name) -> Harness<Iters, Callable>;
+
+template<int Iters, typename Callable>
+Harness<Iters, Callable> make_harness(Callable callable, const char* name)
+{
+  return Harness<Iters, Callable>(std::move(callable), name);
+}
 
 
 } // namespace bench

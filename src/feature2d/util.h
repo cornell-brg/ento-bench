@@ -31,8 +31,17 @@ struct FastKeypoint : public Keypoint
   FastKeypoint& operator=(FastKeypoint&&) = default;
 };
 
+template <typename Scalar = float>
 struct ORBKeypoint : public FastKeypoint
 {
+  Scalar orientation;
+  OrbKeypoint() : FastKeypoint(), orientation(0) {}
+  OrbKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
+    : FastKeypoint(_x, _y, _score), orientation(_ori) {} 
+  OrbKeypoint(const OrbKeypoint&) = default;
+  OrbKeypoint(OrbKeypoint&&) = default;
+  OrbKeypoint& operator=(const OrbKeypoint&) = default;
+  OrbKeypoint& operator=(OrbKeypoint&&) = default;
 
 };
 

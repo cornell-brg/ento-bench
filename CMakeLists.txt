@@ -23,8 +23,11 @@ add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
+  message(STATUS "HAL FAMILY PATH ${HAL_${FAMILY}_PATH}")
   find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
-  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO REQUIRED)
+  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO LL_UTILS LL_PWR REQUIRED)
+  set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
+
   add_definitions(-DSTM32_BUILD=1)
 
   # Setup OpenOCD flash and debug targets.

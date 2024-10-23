@@ -46,8 +46,8 @@ extern double __double_expr0;
 extern double __double_expr1;
 
 // Check macro helper functions
-const char* __ece2400_get_file_name(const char*);
-void  __ece2400_fail(const char*, int, const char*);
+const char* __ento_test_get_file_name(const char*);
+void  __ento_test_fail(const char*, int, const char*);
 void  __ento_test_check_and_print_uniop(const char*, int, const char*);
 void  __ento_test_check_and_print_int_binop(const char*, int, const char*, const char*);
 void  __ento_test_check_and_print_double_binop(const char*, int, const char*, const char*);
