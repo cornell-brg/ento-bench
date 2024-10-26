@@ -5,6 +5,7 @@
 #include <cstdio>
 //#include <Eigen/Dense>
 #include <image_io/Pixel.h>
+#include <ento-util/debug.h>
 
 
 template <int Rows, int Cols, typename PixelT>

@@ -68,21 +68,25 @@ function(add_arm_baremetal_gem5_se_executable TARGET_NAME)
 endfunction()
 
 function(add_non_arm_executable TARGET_NAME)
-  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
+  cmake_parse_arguments(ARG "" "EXCLUDE" "SOURCES;LIBRARIES" ${ARGN})
 
-  add_executable(${TARGET_NAME} ${ARG_SOURCES})
-  message("Native exe librs: ${ARG_LIBRARIES}")
-
-  #target_link_options(${TARGET_NAME}
-  #  PRIVATE
-  #  "${CMAKE_C_FLAGS}"
-  #)
-
-  if("Eigen" IN_LIST ARG_LIBRARIES)
-    target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
-    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+  if(ARG_EXCLUDE)
+    add_executable(${TARGET_NAME} EXCLUDE_FROM_ALL ${ARG_SOURCES})
+  else()
+    add_executable(${TARGET_NAME} ${ARG_SOURCES})
   endif()
 
+  message(STATUS "Building ${TARGET_NAME} with the following libs/includes: ${ARG_LIBRARIES}")
+  
+  if("Eigen" IN_LIST ARG_LIBRARIES)
+    message(STATUS "Eigen in libraries list. Adding as include dir...")
+    target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
+    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+  else()
+    message(STATUS "Eigen not in libraries list: ${ARG_LIBRARIES}")
+  endif()
+
+  message(STATUS "linking ${ARG_LIBRARIES} to ${TARGET_NAME}")
   target_link_libraries(${TARGET_NAME}
     PRIVATE
     ${ARG_LIBRARIES}
@@ -90,7 +94,7 @@ function(add_non_arm_executable TARGET_NAME)
 endfunction()
 
 function(add_benchmark TARGET_NAME)
-  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
+  cmake_parse_arguments(ARG "" "EXCLUDE" "SOURCES;LIBRARIES" ${ARGN})
 
   # Determine the build type (semihosting, gem5-SE, or native)
   if(STM32_BUILD)
@@ -160,4 +164,16 @@ function(add_stm32_flash_and_debug_targets target_name)
   )
 endfunction()
 
+function(add_ento_test TARGET_NAME)
+  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
 
+  if (NOT GEM5_ARMV7E-M_BUILD AND NOT STM32_BUILD)
+    message(STATUS "Building ${TEST_BIN} for native")
+    add_non_arm_executable(${TARGET_NAME}
+      EXCLUDE TRUE
+      SOURCES ${ARG_SOURCES}
+      LIBRARIES ${ARG_LIBRARIES})
+    add_dependencies(check ${TARGET_NAME})
+    add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
+  endif()
+endfunction()

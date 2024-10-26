@@ -3,6 +3,7 @@
 #include "image_io/Pixel.h"
 #include "image_io/Image.h"
 #include "feature2d/fast.h"
+#include "feature2d/util.h"
 #include "ento-util/debug.h"
 
 void checkCondition(bool condition, const char* testName) {
@@ -108,7 +109,7 @@ void test_fast_algorithm_1()
   checkCondition(img_opened, "Load FAST Test 1 pgm");
   if (!img_opened) return;
 
-  fast<TestImgType, 16, 10>(img, fdo);  // Run the FAST detector
+  fast<TestImgType, FastKeypoint, 16, 10>(img, fdo);  // Run the FAST detector
 
   checkCondition(fdo.size() > 0, "FAST detector found features");
   printf("FAST detected %i features.\n", fdo.size());
@@ -137,7 +138,7 @@ void test_fast_algorithm_2()
   checkCondition(img_opened, "Load FAST Test 1 pgm");
   if (!img_opened) return;
 
-  fast<TestImgType, 16, 10>(img, fdo);  // Run the FAST detector
+  fast<TestImgType, FastKeypoint, 16, 10>(img, fdo);  // Run the FAST detector
 
   checkCondition(fdo.size() == 4, "FAST detector found 4 features");
   printf("FAST detected %i features.\n", fdo.size());

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../apps/apps_common.cmake)
+include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
 # List source files for this module
 set(SRC_FILES
@@ -16,8 +16,13 @@ set(SRC_FILES
 )
 
 # Create a library for this module
-#add_library(image_io ${SRC_FILES})
 add_library(image_io INTERFACE) # No src files for now
+
+# Link any libraries to this module
+target_link_libraries(image_io
+  INTERFACE
+  ento_util
+)
 
 # Link any libraries specific to this module
 #include (FindPkgConfig)
@@ -46,37 +51,25 @@ add_library(image_io INTERFACE) # No src files for now
 
 #=====================================================
 include (CTest)
-set(TEST_DIR "test")
 
-
-if (GEM5_ARMV7E-M_BUILD)
-  add_arm_baremetal_gem5_se_executable(
-    test_image
-    SOURCES ${TEST_DIR}/test_image.cc
-    LIBRARIES image_io m startup sys
-  )
-elseif(STM32_BUILD)
-  message("Building test_image for STM32")
-  add_arm_semihosting_executable(
-    test_image
-    SOURCES ${TEST_DIR}/test_image.cc
-    LIBRARIES image_io m mcu-util
-  )
-
-else()
-  #add_non_arm_executable(test_svd
-  #                       SOURCES ${TEST_DIR}/test_svd.cc
-  #                       LIBRARIES ento_math m)
-  add_executable(test_image ${TEST_DIR}/test_image.cc)
-  target_link_libraries(test_image PUBLIC m image_io)
-endif()
-target_include_directories(test_image
-  PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+set(TEST_FILES
+  test_image.cc
 )
 
-add_test(
-  NAME TestImage
-  COMMAND test_image
+set(LIBRARIES_test_image
+  m image_io ento_util
 )
 
+foreach(TEST_FILE ${TEST_FILES})
+  message(STATUS "Test file: ${TEST_FILE}")
+  set(TEST_SRC "test/${TEST_FILE}")
+  get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
+  string(CONCAT LIBRARY_VAR_NAME "LIBRARIES_" ${TEST_BIN})
+  message(STATUS ${${LIBRARY_VAR_NAME}})
+  set(TEST_LIBRARIES ${${LIBRARY_VAR_NAME}})
+  add_ento_test(
+    ${TEST_BIN}
+    SOURCES   ${TEST_SRC}
+    LIBRARIES ${TEST_LIBRARIES}
+  )
+endforeach()

@@ -146,7 +146,6 @@ void fast(const ImageType& img,
   // OpenCV.
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
   constexpr int tab_size = (1 << (bit_depth + 1));
-  constexpr int half = tab_size / 2;
   
   static PixelType buff1[img_width];
   static PixelType buff2[img_width];

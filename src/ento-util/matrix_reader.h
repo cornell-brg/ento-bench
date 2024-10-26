@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <cstdio>
 #include <cstring>
-#include "ento-util/debug.h"
+#include <ento-util/debug.h>
 
 
 enum MatrixFileType {

@@ -35,19 +35,6 @@ else()
   #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   #)
 endif()
-
-#add_subdirectory(workload/microbench/assembly)
-#target_include_directories(assembly
-#INTERFACE
-#$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/workload/microbench/assembly>
-#)
-
-#add_subdirectory(workload/state_est)
-#target_include_directories(state_est
-#INTERFACE
-#$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/workload/state_est>
-#)
-
 # Bench is an interface for now, no source files, header only
 add_subdirectory(bench)
 target_include_directories(bench
@@ -63,5 +50,10 @@ target_include_directories(ento_math
 )
 
 add_subdirectory(feature2d)
+
 add_subdirectory(ento-util)
+target_include_directories(ento_util
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
 
