@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 
+#include "ento-util/debug.h"
 #include "ento-util/unittest.h"
 #include "ento-util/pose_est_reader.h"
 

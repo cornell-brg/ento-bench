@@ -77,6 +77,7 @@
 
 #define ENTO_DEBUG_ARRAY_FLOAT(...) // no-op
 
+#define ENTO_DEBUG_EIGEN_MATRIX(...) // no-op
 
 #endif
 
