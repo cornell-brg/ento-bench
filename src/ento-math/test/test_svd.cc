@@ -165,17 +165,17 @@ int main(int argc, char** argv)
   // 2. SVD with 8x3
   // 3. ...
   // printf("Running OSJ SVD known size simple...\n");
-  //test_osj_svd_known_size_simple<float>();
+  test_osj_svd_known_size_simple<float>();
   
   // printf("Running OSJ SVD bounded size simple...\n");
-  //test_osj_svd_bounded_size_simple<float>();
+  test_osj_svd_bounded_size_simple<float>();
 
-  int first_dim = atoi( argv[1] );
+  //int first_dim = atoi( argv[1] );
 
-  if ( first_dim == 8 ) {
-    printf( "%s\n", argv[2] );
-    test_osj_svd_8x3( argv[2] );
-  }
+  //if ( first_dim == 8 ) {
+  //  printf( "%s\n", argv[2] );
+  //  test_osj_svd_8x3( argv[2] );
+  //}
   // if ( strcmp( argv[1], "8" ) == 0 ) {
   //   printf("Running OSJ SVD for an 8x3 matrix from file...\n");
   //   test_osj_svd_8x3( argv[2] );

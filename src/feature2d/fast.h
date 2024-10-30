@@ -32,11 +32,13 @@ constexpr std::array<PixelType, PatternSize + ContiguityRequirement>
 generate_bresenham_circle();
 
 template <typename Image,
+          typename KeypointType,
           int PatternSize,
           int Threshold,
           int ContiguityRequirement = 9,
           size_t MaxFeatures = 100>
-void fast(const Image& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>& fdo );
+void fast(const Image& img,
+          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo );
 
 
 // ===========================================================
@@ -96,18 +98,18 @@ generate_bresenham_circle() {
 // For 10-bit Need to decide how it is stored, e.g., contiguously or non-contiguously...
 // So probably hold off on that for now!
 template <typename ImageType,
+          typename KeypointType,
           int PatternSize,
           int Threshold,
           int ContiguityRequirement,
           size_t MaxFeatures>
-void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>& fdo)
+void fast(const ImageType& img,
+          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo)
 {
   // Compile-time access to number of columns
   constexpr int img_width   = ImageType::cols;
   constexpr int img_height  = ImageType::rows;
   constexpr int max_dim     = (img_width > img_height) ? img_width : img_height;
-
-  DPRINTF("[FAST] img W, H: (%i, %i)\n", img_width, img_height);
 
   // Extract pixel type info
   using PixelType = ImageType::pixel_type;
@@ -130,17 +132,7 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
   //static PixelType circle[circle_buff_sz];
   //bressenham_circle<PixelType, CircleDiameter, img_width>(circle);
   static constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
-  //DPRINTF("[FAST] Circle size: %i\n", circle_buff_sz);
-  //DPRINTF("[FAST] Circle offsets: ");
   const PixelType* ptemp = &img.data[3*img_width] + 3;
-  //DPRINTF("[FAST] ptemp[0]: %i\n", ptemp[0]);
-  for (int i = 0; i < circle_buff_sz; ++i)
-  {
-    DPRINTF("Pixel[%i]: %i\n", circle[i], ptemp[circle[i]]);
-  }
-  DPRINTF("\n");
-
-
 
   CoordType* cornerpos;
   CoordType i, j, k, ncorners;
@@ -154,26 +146,7 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
   // OpenCV.
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
   constexpr int tab_size = (1 << (bit_depth + 1));
-  constexpr int half = tab_size / 2;
   
-  DPRINTF("[FAST] Threshold table[%i]: \n", tab_size);
-  for (int i = 0; i < tab_size/16; ++i)
-  {
-    for (int j = 0; j < 16; ++j )
-    {
-      if (i * 16 + j == half)
-      {
-        DPRINTF(" {%i} ", threshold_tab[i*16+j]);
-      }
-      else
-      {
-        DPRINTF("  %i  ", threshold_tab[i*16 + j]);
-      }
-    }
-    DPRINTF("\n");
-  }
-  DPRINTF("\n");
-
   static PixelType buff1[img_width];
   static PixelType buff2[img_width];
   static PixelType buff3[img_width];
@@ -198,34 +171,17 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
       j = 3;
       for (; j < img_width - 3; j++, ptr++)
       {
-        DPRINTF("[FAST] Current Pixel Coord for test: (%i, %i)\n", i, j);
         int v = ptr[0];
-        DPRINTF("[FAST] Pixel Value: (%i)\n", v);
 
         const PixelType* tab = &threshold_tab[0] - v + middle_value;
-        //DPRINTF("[FAST] &threshold_tab[0], minus v, minus v + middle: %u, %u, %u\n", &threshold_tab[0], &threshold_tab[0] - v, tab);
-        //DPRINTF("[FAST] &threshold_tab[half]: %u", &threshold_tab[half]);
         int d = tab[ptr[circle[0]]] | tab[ptr[circle[8]]];
 
-        /*DPRINTF("[FAST] circle[0], circle[8]: %i, %i\n", circle[0], circle[8]);
-        DPRINTF("[FAST] ptr[circle[0]], ptr[circle[8]]: %i, %i\n", ptr[circle[0]], ptr[circle[8]]);
-        DPRINTF("[FAST] tab[ptr[circle[0]]], tab[ptr[circle[8]]: %i, %i\n", tab[ptr[circle[0]]], tab[ptr[circle[8]]]);*/
-
-
-        DPRINTF("[FAST] First test d: %i\n", d);
         if ( d==0 ) continue;
 
         d &= tab[ptr[circle[2]]] | tab[ptr[circle[10]]];
         d &= tab[ptr[circle[4]]] | tab[ptr[circle[12]]];
         d &= tab[ptr[circle[6]]] | tab[ptr[circle[14]]];
 
-        /*DPRINTF("[FAST] circle[2], circle[10]: %i, %i\n", circle[2], circle[10]);
-        DPRINTF("[FAST] ptr[circle[2]], ptr[circle[10]]: %i, %i\n", ptr[circle[2]], ptr[circle[10]]);
-        DPRINTF("[FAST] circle[4], circle[12]: %i, %i\n", circle[4], circle[12]);
-        DPRINTF("[FAST] ptr[circle[4]], ptr[circle[12]]: %i, %i\n", ptr[circle[4]], ptr[circle[12]]);
-        DPRINTF("[FAST] circle[6], circle[14]: %i, %i\n", circle[6], circle[14]);
-        DPRINTF("[FAST] ptr[circle[6]], ptr[circle[14]]: %i, %i\n", ptr[circle[6]], ptr[circle[14]]);*/
-        DPRINTF("[FAST] Second test d: %i\n", d);
         if( d == 0 )
             continue;
 
@@ -234,7 +190,6 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
         d &= tab[ptr[circle[5]]] | tab[ptr[circle[13]]];
         d &= tab[ptr[circle[7]]] | tab[ptr[circle[15]]];
 
-        DPRINTF("[FAST] third test d: %i\n", d);
         if( d & 1 )
         {
           int vt = v - Threshold;
@@ -248,6 +203,7 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
               if( ++count > ContiguityRequirement )
               {
                 cornerpos[ncorners++] = j;
+                //@TODO: Add non max suppression. This requires computing the FAST corner score!
                 //if(nonmax_suppression)
                     //curr[j] = (uchar)cornerScore<patternSize>(ptr, pixel, threshold);
                 break;
@@ -291,20 +247,16 @@ void fast(const ImageType& img, FeatureDetectorOutput<FastKeypoint, MaxFeatures>
     if (i == 3) continue;
 
     const PixelType* prev = buf[(i-4+3)%3];
-    //const PixelType* pprev = buf[(i-5+3) % 3];
     cornerpos = cpbuf[(i-4+3)%3] + 1;
     ncorners = cornerpos[-1];
 
-    DPRINTF("[FAST] Ncorners: %i\n", ncorners);
     for (k = 0; k < ncorners; k++)
     {
       j = cornerpos[k];
       int score = prev[j];
-      FastKeypoint kp(j, i-1, score);
-      DPRINTF("Found feature: %i, %i, %i\n", j, i-1, score);
+      KeypointType kp(j, i-1, score);
       fdo.add_keypoint(kp);
     }
-    DPRINTF("Onto next row! \n\n");
   }
 }
 

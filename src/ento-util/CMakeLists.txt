@@ -1,39 +1,71 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../../apps/apps_common.cmake)
+include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
+
+# ======================================
+set(SRC_FILES
+  unittest.cc
+)
+
+add_library(ento_util
+  ${SRC_FILES}
+)
+
+target_link_libraries(
+  ento_util
+  PUBLIC
+)
+
+
+# ======================================
 
 include (CTest)
 set(TEST_DIR "test")
 
+set(TEST_FILES
+    test_matrix_reader.cc
+    test_pose_est_reader.cc
+)
 
+# Define library lists based on source names
 if (GEM5_ARMV7E-M_BUILD)
-  add_arm_baremetal_gem5_se_executable(test_matrix_reader
-    SOURCES ${TEST_DIR}/test_matrix_reader.cc
-    LIBRARIES ento_math m startup sys)
-elseif(STM32_BUILD)
-  add_arm_semihosting_executable(
-    test_matrix_reader
-    SOURCES ${TEST_DIR}/test_matrix_reader.cc
-    LIBRARIES ento_math m mcu-util
-  )
-else()
-  #add_non_arm_executable(test_svd
-  #                       SOURCES ${TEST_DIR}/test_svd.cc
-  #                       LIBRARIES ento_math m)
-  add_executable(test_matrix_reader ${TEST_DIR}/test_matrix_reader.cc)
-  target_link_libraries(test_matrix_reader
-    PUBLIC
-    m
-    ento_math)
-endif()
+  set(TEST_LIBRARIES_test_matrix_reader ento_math m startup ento_util sys Eigen)
+  set(TEST_LIBRARIES_test_pose_est_reader ento_math m startup ento_util sys Eigen)
+elseif (STM32_BUILD)
+  set(TEST_LIBRARIES_test_matrix_reader ento_math m mcu-util ento_util Eigen)
+  set(TEST_LIBRARIES_test_pose_est_reader ento_math m mcu-util ento_util Eigen)
+else ()
+  set(TEST_LIBRARIES_test_matrix_reader ento_math m ento_util Eigen)
+  set(TEST_LIBRARIES_test_pose_est_reader ento_math m ento_util Eigen)
+endif ()
 
-target_include_directories(test_matrix_reader 
-  PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  ${EIGEN_DIR}
-)
+foreach(TEST_FILE ${TEST_FILES})
+  get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
+  set(TEST_SRC "test/${TEST_FILE}")
 
-add_test(
-  NAME TestMatrixReader
-  COMMAND test_matrix_reader
-)
+  # Construct the library variable name and retrieve the list
+  string(CONCAT LIBRARY_VAR_NAME "TEST_LIBRARIES_" ${TEST_BIN})
+  set(TEST_LIBRARIES ${${LIBRARY_VAR_NAME}})
+
+  if (GEM5_ARMV7E-M_BUILD)
+    add_arm_baremetal_gem5_se_executable(
+      ${TEST_BIN}
+      SOURCES ${TEST_SRC}
+      LIBRARIES ${TEST_LIBRARIES})
+  elseif(STM32_BUILD)
+    add_arm_semihosting_executable(
+      ${TEST_BIN}
+      SOURCES ${TEST_SRC}
+      LIBRARIES ${TEST_LIBRARIES}
+    )
+  else()
+    message(STATUS "Building ${TEST_BIN} for native")
+    add_non_arm_executable(${TEST_BIN}
+      EXCLUDE TRUE
+      SOURCES ${TEST_SRC}
+      LIBRARIES ${TEST_LIBRARIES})
+    add_dependencies(check ${TEST_BIN})
+    add_test(NAME ${TEST_BIN} COMMAND ${TEST_BIN})
+  endif()
+endforeach()
+

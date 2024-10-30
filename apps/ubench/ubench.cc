@@ -1,4 +1,4 @@
-#include <bench/harness.hh>
+#include <bench/harness.h>
 
 #include <cstdio>
 #include <variant>

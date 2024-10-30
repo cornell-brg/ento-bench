@@ -80,9 +80,10 @@ M5OP_FUNC(m5_exit, 0x21)
 // Add other m5op functions as needed
 
 
-
+static int g_cycles = 0;
 static inline void start_roi(void) __attribute__((always_inline));
 static inline void end_roi(void) __attribute__ ((always_inline));
+static inline int  get_cycles(void) __attribute__((always_inline));
 
 // Inline Implementations
 static inline
@@ -104,11 +105,22 @@ void end_roi(void)
 {
 #ifdef STM32_BUILD
   uint32_t cycles = get_elapsed_cycles();
-  printf("Cycles elapsed: %lu\n", cycles);
+  g_cycles = cycles;
+  //printf("Cycles elapsed: %lu\n", cycles);
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_DUMP_RESET_STATS;
   //m5_dump_reset_stats();
 #endif
+}
+
+static inline
+int get_cycles()
+{
+#ifdef STM32_BUILD
+  return g_cycles;
+#endif
+  return 0;
+
 }
 
 #ifdef __cplusplus

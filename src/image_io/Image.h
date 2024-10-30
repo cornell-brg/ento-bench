@@ -5,6 +5,7 @@
 #include <cstdio>
 //#include <Eigen/Dense>
 #include <image_io/Pixel.h>
+#include <ento-util/debug.h>
 
 
 template <int Rows, int Cols, typename PixelT>
@@ -149,8 +150,6 @@ public:
   static constexpr int part_size = RowsPerPartition;
   static constexpr int total_parts = Rows / RowsPerPartition;
   int part_num = 0;
-
-  PixelT& get_partition_pixel
 };
 
 

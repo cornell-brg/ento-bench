@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(insect-scale-benchmark-suite C CXX ASM)
+project(ento-bench C CXX ASM)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -9,10 +9,30 @@ option(STM32_BUILD "Build for STM32." OFF)
 option(GEM5_BUILD "Build for gem5." OFF)
 option(SEMIHOSTING "Enable semihosting when deployed on MCU." OFF)
 
+enable_testing()
+
+# Add a custom make check target that runs ctest with 60s timeout
+add_custom_target(check COMMAND ctest "--timeout" "60")
+
+# Set path to compile_commands.json based on the current build directory
+set(COMPILE_COMMANDS_DIR "${CMAKE_BINARY_DIR}")
+
+# Path to the .clangd file
+set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
+
+# Custom target to update .clangd with the correct CompilationDatabase path
+add_custom_target(update_clangd ALL
+  COMMAND ${CMAKE_COMMAND} -E echo "CompileFlags:" > ${CLANGD_FILE}
+  COMMAND ${CMAKE_COMMAND} -E echo "  CompilationDatabase: ${COMPILE_COMMANDS_DIR}" >> ${CLANGD_FILE}
+  COMMENT "Updating .clangd file to use compile_commands.json from ${COMPILE_COMMANDS_DIR}"
+)
+
+# Ensure update_clangd runs after the project is built
+add_dependencies(update_clangd check)
+
 # Needed to use inline versions of critical routines in GSL
 add_definitions(-DHAVE_INLINE)
-message("CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
-message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+add_definitions(-DDATASET_PATH="${CMAKE_SOURCE_DIR}/datasets")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
@@ -23,29 +43,47 @@ add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
+  message(STATUS "HAL FAMILY PATH ${HAL_${FAMILY}_PATH}")
   find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
-  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO REQUIRED)
+  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO LL_UTILS LL_PWR REQUIRED)
+  set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
+
   add_definitions(-DSTM32_BUILD=1)
 
   # Setup OpenOCD flash and debug targets.
   option(STM32_DEVICE "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
-  option(OPENOCD_INTERFACE "OpenOCD interface (e.g., stlink.cfg)" "interface/stlink.cfg")
 
-  # Flash and Debug targets
-  add_custom_target(stm32-flash
-    COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.bin verify reset exit"
-    DEPENDS ${PROJECT_NAME}
-    COMMENT "Flashing ${PROJECT_NAME} to target (${STM32_DEVICE})"
+  if(DEFINED ENV{OPENOCD_HOME})
+      set(OPENOCD_ROOT "$ENV{OPENOCD_HOME}")
+    elseif(DEFINED ENV{OPENOCD_PATH})
+      set(OPENOCD_ROOT "$ENV{OPENOCD_PATH}")
+    else()
+      set(OPENOCD_ROOT "/usr/local/share/openocd/scripts")  # Default fallback
+    endif()
+
+  # Search for the OpenOCD interface config file (stlink.cfg)
+  find_file(OPENOCD_INTERFACE
+    NAMES stlink.cfg
+    PATHS ${OPENOCD_ROOT}/interface
+          /usr/share/openocd/scripts/interface
+          /opt/local/share/openocd/scripts/interface
+          /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface
   )
 
-  add_custom_target(stm32-debug
-    COMMAND openocd -f ${OPENOCD_INTERFACE} -f target/${STM32_DEVICE} -c "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf verify reset halt"
-    COMMAND arm-none-eabi-gdb -ex "target remote localhost:3333" -ex "monitor reset halt" -ex "load" ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.elf
-    DEPENDS ${PROJECT_NAME}
-    COMMENT "Starting debug session for ${PROJECT_NAME} on ${STM32_DEVICE}"
-  )
-  
+  if(NOT OPENOCD_INTERFACE)
+    message(FATAL_ERROR "Could not find OpenOCD interface configuration (stlink.cfg). Please set OPENOCD_INTERFACE manually.")
+  else()
+    message(STATUS "Using OpenOCD interface: ${OPENOCD_INTERFACE}")
+  endif()
+
+  # The STM32 device configuration must be passed in manually
+  if(NOT DEFINED STM32_DEVICE)
+    message(FATAL_ERROR "Please provide the STM32_DEVICE configuration file (e.g., st_nucleo_g4.cfg).")
+  else()
+    message(STATUS "Using STM32 device config: ${STM32_DEVICE}")
+  endif()
+
+
 elseif(GEM5_BUILD)
 	message(STATUS "Building for gem5.")
 
@@ -58,11 +96,11 @@ elseif(GEM5_BUILD)
   endif()
 
 else() # Native Build
+	message(STATUS "Building for native.")
   set(CMAKE_C_COMPILER clang)
   set(CMAKE_CXX_COMPILER clang++)
   set(CMAKE_ASM_COMPILER clang)
   set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O0")
-	message(STATUS "Building for native.")
 endif()
 
 set(SRC_DIR src)
@@ -94,7 +132,6 @@ set(GSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl/build/${GSL_BUILD} CACHE PA
 set(GSL_LIB ${GSL_DIR}/lib/libgsl.a CACHE PATH "Path to GSL static lib.")
 set(GSL_BLAS_LIB ${GSL_DIR}/lib/libgslcblas.a CACHE PATH "Path to GSL CBLAS static lib.")
 set(GSL_INC ${GSL_DIR}/include CACHE PATH "Path to include directory of GSL")
-message("GSL_DIR in top: ${GSL_DIR}")
 
 set(EIGEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen CACHE PATH "Path to Eigen library")
 
@@ -106,6 +143,4 @@ add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 
-message(STATUS "CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
-message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-message(STATUS "Linker options: ${CMAKE_EXE_LINKER_FLAGS}")
+
