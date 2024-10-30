@@ -27,6 +27,7 @@ target_include_directories(test_pid
   ${EIGEN_DIR}
 )
 
+add_dependencies(check test_pid)
 add_test(
   NAME TestPID
   COMMAND test_pid

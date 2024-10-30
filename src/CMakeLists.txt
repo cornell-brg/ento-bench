@@ -57,3 +57,6 @@ target_include_directories(ento_util
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
+add_subdirectory(control)
+add_subdirectory(planning)
+

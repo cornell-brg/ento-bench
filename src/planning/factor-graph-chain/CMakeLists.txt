@@ -27,6 +27,7 @@ target_include_directories(test_fg
   ${EIGEN_DIR}
 )
 
+add_dependencies(check test_fg)
 add_test(
   NAME TestFg
   COMMAND test_fg

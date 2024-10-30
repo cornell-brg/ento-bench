@@ -34,6 +34,7 @@ target_include_directories(test_tinympc
   ${EIGEN_DIR}
 )
 
+add_dependencies(check test_tinympc)
 add_test(
   NAME TestTinyMPC
   COMMAND test_tinympc
