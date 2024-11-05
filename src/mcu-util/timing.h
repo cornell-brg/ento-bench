@@ -7,10 +7,16 @@ extern "C" {
 
 #include <stdint.h>
 #if defined(STM32G4)
-#include <stm32g4xx_ll_gpio.h>
 #include <stm32g4xx_ll_cortex.h>
+#include <stm32g4xx_ll_gpio.h>
 #include <stm32g4xx_ll_rcc.h>
-//#include <core_cm4.h>
+#elif defined(STM32H7)
+#include <stm32h7xx_ll_cortex.h>
+#include <stm32h7xx_ll_gpio.h>
+#include <stm32h7xx_ll_rcc.h>
+#ifndef __CORE_CM7_H_GENERIC
+#include <core_cm7.h>
+#endif
 #endif
 
 static volatile uint32_t global_last_cycle_count;

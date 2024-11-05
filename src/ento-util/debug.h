@@ -37,19 +37,18 @@
 #define ENTO_DEBUG_NEWLINE \
   if ( __n > 0 ) { std::printf("\n"); }
 
-#define ENTO_DEBUG_EIGEN_MATRIX(matrix_, rows_, cols_) \
+#define ENTO_DEBUG_EIGEN_MATRIX(matrix_, rows_, cols_, scalar_type_) \
   if ( EntoUtil::__n > 0 ) { \
     std::printf(" - [ " YELLOW "-info-" RESET " ] %s:%d: \n%s =",      \
       EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__, #matrix_);\
     constexpr int width = 10;                                           \
     constexpr const char* indent = "\t";                          \
-    using ScalarType = typename Eigen::MatrixBase<decltype(matrix_)>::Scalar; \
     for ( size_t i = 0; i < rows_; i++ ) {                              \
       printf("%s[ ", indent);                                         \
       for (size_t j = 0; j < cols_; j++ ) {                             \
-        if constexpr (std::is_integral_v<ScalarType>) {                 \
+        if constexpr (std::is_integral_v<scalar_type_>) {                 \
           printf("%*d", width, matrix_(i, j));                          \
-        } else if constexpr (std::is_floating_point_v<ScalarType>) {    \
+        } else if constexpr (std::is_floating_point_v<scalar_type_>) {    \
           printf("%*.*f", width, 3, matrix_(i, j));                     \
         }                                                               \
         if ( j != cols_ - 1 )                         \
@@ -73,7 +72,7 @@
 
 #define ENTO_DEBUG_NEWLINE  // no-op
 
-#define ENTO_DEBUG_MATRIX(...) // no-op
+#define ENTO_DEBUG_EIGEN_MATRIX(...) // no-op
 
 #define ENTO_DEBUG_ARRAY_FLOAT(...) // no-op
 

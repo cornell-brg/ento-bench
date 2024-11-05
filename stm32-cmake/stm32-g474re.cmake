@@ -34,15 +34,10 @@ if(NOT STM_PRODUCT)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM_FAMILY_LONG_NAME)
-message("STM_FAMILY_LONG_NAME=${STM_FAMILY_LONG_NAME}")
-
-message("FETCH_ST_SOURCES=${FETCH_ST_SOURCES}")
 if (FETCH_ST_SOURCES)
   stm32_fetch_cmsis(G4)
   stm32_fetch_hal(G4)
 endif()
-
-message("LONG_NAME ${STM_FAMILY_LONG_NAME}")
 
 set(CMAKE_SYSTEM_PROCESSOR armv7e-m)
 
@@ -50,5 +45,8 @@ add_definitions(-DSTM32G4)
 # Ensure we have the HAL and CMSIS libraries
 #find_package(CMSIS REQUIRED ${STM_FAMILY_LONG_NAME})
 #find_package(HAL REQUIRED ${STM_FAMILY_LONG_NAME})
+
+# Set the chip model (e.g., STM32G474RE) if not explicitly provided
+set(STM32_CHIP "STM32G474RE" CACHE STRING "Specify the STM32 chip model (e.g., STM32G474RE)")
 
 

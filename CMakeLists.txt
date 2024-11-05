@@ -4,6 +4,10 @@ project(ento-bench C CXX ASM)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
+get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+message(STATUS "Languages in main CMakeLists.txt after project(): ${languages}")
+
 option(FETCH_ST_SOURCES "Fetch STMicro CMSIS/HAL Libraries." OFF)
 option(STM32_BUILD "Build for STM32." OFF)
 option(GEM5_BUILD "Build for gem5." OFF)
@@ -20,6 +24,8 @@ set(COMPILE_COMMANDS_DIR "${CMAKE_BINARY_DIR}")
 # Path to the .clangd file
 set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
 
+message(STATUS ".clangd file: ${CLANGD_FILE}")
+
 # Custom target to update .clangd with the correct CompilationDatabase path
 add_custom_target(update_clangd ALL
   COMMAND ${CMAKE_COMMAND} -E echo "CompileFlags:" > ${CLANGD_FILE}
@@ -28,10 +34,11 @@ add_custom_target(update_clangd ALL
 )
 
 # Ensure update_clangd runs after the project is built
-add_dependencies(update_clangd check)
+#:add_dependencies(update_clangd check)
 
 # Needed to use inline versions of critical routines in GSL
-add_definitions(-DHAVE_INLINE)
+# add_definitions(-DHAVE_INLINE)
+
 add_definitions(-DDATASET_PATH="${CMAKE_SOURCE_DIR}/datasets")
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -42,16 +49,81 @@ add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
+  add_definitions(-DSTM32_BUILD=1)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
   message(STATUS "HAL FAMILY PATH ${HAL_${FAMILY}_PATH}")
+
+  message(STATUS "STM Product: ${STM_PRODUCT}")
+  message(STATUS "STM Family: ${STM_FAMILY}")
+
+  # Set HAL and CMSIS target library variables dynamically
+  if(${STM_FAMILY} STREQUAL "H7")
+    # Special case for H7 family which requires an additional M7
+    set(CORE_U M7)
+    set(CORE_C "::M7")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}${CORE_C}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_PRODUCT}::M7")
+    set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_RCC")
+    set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_GPIO")
+    set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_FLASH")
+    set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_UTILS")
+    set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_PWR")
+    set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::M7::CORTEX")
+    set(STM_FAMILY_LONG_NAME ${STM_FAMILY_LONG_NAME}_M7)
+  else()
+    set(CORE_U "")
+    set(CORE_C "")
+    set(CMSIS_TARGET "CMSIS::STM32::${STM_FAMILY}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_PRODUCT}")
+    set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::LL_RCC")
+    set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::LL_GPIO")
+    set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::LL_FLASH")
+    set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::LL_UTILS")
+    set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::LL_PWR")
+    set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::CORTEX")
+  endif()
+
+
+  # Log HAL and CMSIS target library variables
+  message(STATUS "CMSIS family target: ${CMSIS_FAMILY_TARGET}")
+  message(STATUS "CMSIS type target: ${CMSIS_TYPE_TARGET}")
+  message(STATUS "HAL RCC target: ${HAL_RCC_TARGET}")
+  message(STATUS "HAL GPIO target: ${HAL_GPIO_TARGET}")
+  message(STATUS "HAL FLASH target: ${HAL_FLASH_TARGET}")
+  message(STATUS "HAL UTILS target: ${HAL_UTILS_TARGET}")
+  message(STATUS "HAL PWR target: ${HAL_PWR_TARGET}")
+
+  #if (FETCH_ST_SOURCES)
+  #  stm32_fetch_cmsis(${STM32_FAMILY})
+  #  stm32_fetch_hal(${STM32_FAMILY})
+  #endif()
+
   find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
-  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO LL_UTILS LL_PWR REQUIRED)
+  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
+
+  message(STATUS "Checking whether TARGET exists: CMSIS_LD_${STM_PRODUCT}${CORE_U}")
+  if(TARGET CMSIS_LD_${STM_PRODUCT}${CORE_U})
+    message(STATUS "HI HI HI")
+    # Remove dependencies on this target if defined
+    set_target_properties(CMSIS_LD_${STM_PRODUCT}${CORE_U} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    # Optionally remove any unwanted dependencies
+    set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} PROPERTIES LINK_DEPENDS "")
+  endif()
+  #set(STACK_SIZE "0x200")
+  cmsis_generate_parametrizable_linker_script(
+    ${STM_FAMILY}
+    ${STM_PRODUCT}
+    ""
+    STACK_SIZE ${STACK_SIZE}
+    )
+
   set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 
-  add_definitions(-DSTM32_BUILD=1)
-
+  # ========================================================
   # Setup OpenOCD flash and debug targets.
-  option(STM32_DEVICE "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
+  # ========================================================
+
+  option(OPENOCD_CFG "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
 
   if(DEFINED ENV{OPENOCD_HOME})
       set(OPENOCD_ROOT "$ENV{OPENOCD_HOME}")
@@ -77,10 +149,10 @@ if(STM32_BUILD)
   endif()
 
   # The STM32 device configuration must be passed in manually
-  if(NOT DEFINED STM32_DEVICE)
-    message(FATAL_ERROR "Please provide the STM32_DEVICE configuration file (e.g., st_nucleo_g4.cfg).")
+  if(NOT DEFINED OPENOCD_CFG)
+    message(FATAL_ERROR "Please provide the OpenOCD configuration file (e.g., st_nucleo_g4.cfg).")
   else()
-    message(STATUS "Using STM32 device config: ${STM32_DEVICE}")
+    message(STATUS "Using STM32 device config: ${OPENOCD_CFG}")
   endif()
 
 
@@ -126,13 +198,6 @@ else()
   # Default or other specific configurations
 endif()
 
-
-# Setup Linking GSL
-set(GSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl/build/${GSL_BUILD} CACHE PATH "Path to compiled GSL")
-set(GSL_LIB ${GSL_DIR}/lib/libgsl.a CACHE PATH "Path to GSL static lib.")
-set(GSL_BLAS_LIB ${GSL_DIR}/lib/libgslcblas.a CACHE PATH "Path to GSL CBLAS static lib.")
-set(GSL_INC ${GSL_DIR}/include CACHE PATH "Path to include directory of GSL")
-
 set(EIGEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen CACHE PATH "Path to Eigen library")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
@@ -143,4 +208,7 @@ add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 
-
+get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+message(STATUS "Global Compile Definitions: ${all_definitions}")
+string(REPLACE "-DSTM32H7A3xx" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "-DSTM32H7A3xx" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")

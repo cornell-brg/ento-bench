@@ -7,12 +7,19 @@ extern "C" {
 
 #include <stdint.h>
 
-#ifdef STM32G4
+#if defined(STM32G4)
 #include <stm32g4xx_ll_system.h>
 #include <stm32g4xx_ll_rcc.h>
 #include <stm32g4xx_ll_pwr.h>
 #include <stm32g4xx_ll_utils.h>
 #include <stm32g4xx_ll_bus.h>
+#elif defined(STM32H7)
+#include <stm32h7xx.h>
+#include <stm32h7xx_ll_bus.h>
+#include <stm32h7xx_ll_rcc.h>
+#include <stm32h7xx_ll_system.h>
+#include <stm32h7xx_ll_utils.h>
+#include <stm32h7xx_ll_pwr.h>
 #endif
 
 

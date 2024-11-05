@@ -1,8 +1,8 @@
-#include "p4p.h"
+#include <ento-pose/abs-pose/p4p.h>
 #include <Eigen/Dense>
-#include <linalg/svd.hh>
+#include <ento-math/svd.h>
 
-template <typename Scalar, typename N>
+template <typename Scalar, int N>
 Eigen::Matrix<Scalar, 3, 3>
 p4p_homography(Eigen::Matrix<Scalar, 4, 2>& points2d, 
                Eigen::Matrix<Scalar, 4, 3>& points3d)
@@ -16,7 +16,6 @@ p4p_homography(Eigen::Matrix<Scalar, 4, 2>& points2d,
 
   XP = Xdiag.asDiagonal() * points3d;
   YP = Ydiag.asDiagonal() * points3d;
-
 
   for (int i = 0; i < 4; ++i)
   {
@@ -37,20 +36,22 @@ p4p_homography(Eigen::Matrix<Scalar, 4, 2>& points2d,
   return H;
 }
 
+
+/*
 template <typename Scalar, int MaxN>
-Eigen::Matrix<Scalar, Eigen::Dynamic, 9, 0, 2 * MaxPoints, 9>
-dlt_planar(Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxPoints, 2>& points2d,
-           Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3>& points3d,
+Eigen::Matrix<Scalar, Eigen::Dynamic, 9, 0, 2 * MaxN, 9>
+dlt_planar(Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxN, 2>& points2d,
+           Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxN, 3>& points3d,
            const int N)
 {
   
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 9, 0, 2 * MaxPoints, 9> A =
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 9, 0, 2 * MaxN, 9> A =
       Eigen::Matrix<Scalar, Eigen::Dynamic, 9>::Zero(2 * N, 9);
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3> XP(N, 3);
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3> YP(N, 3);
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxN, 3> XP(N, 3);
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxN, 3> YP(N, 3);
   
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 1, 0, MaxPoints, 1> Xdiag = points2d.col(0).head(N) * -1;
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 1, 0, MaxPoints, 1> Ydiag = points2d.col(1).head(N) * -1;
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 1, 0, MaxN, 1> Xdiag = points2d.col(0).head(N) * -1;
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 1, 0, MaxN, 1> Ydiag = points2d.col(1).head(N) * -1;
 
   XP = Xdiag.asDiagonal() * points3d.topRows(N);
   YP = Ydiag.asDiagonal() * points3d.topRows(N);
@@ -77,7 +78,7 @@ dlt_planar(Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxPoints, 2>& points2d,
 
 template <typename Scalar, int Order>
 Eigen::Matrix<Scalar, 3, 3> p4p_homography_HO(Eigen::Matrix<Scalar, 4, 2, Order>& points2d,
-                                          Eigen::Matrix<Scalar, 4, 2, Order>& points3d)
+                                              Eigen::Matrix<Scalar, 4, 2, Order>& points3d)
 {
   Eigen::Matrix<Scalar, 4, 1, Order> C1, C2, C3, C4;
   Eigen::Matrix<Scalar, 3, 8, Order> Mt;
@@ -134,6 +135,9 @@ Eigen::Matrix<Scalar, 3, 3> p4p_homography_HO(Eigen::Matrix<Scalar, 4, 2, Order>
 
   Eigen::Matrix<Scalar, 9, 1, Eigen::RowMajor> h;
 
-  EntomotonMath::svd_osj(&At, &V, &h);
+  EntoMath::osj_svd_bounded(&At, &V, &h);
 
-}
+  if (H(3,3) < 0) H *= -1;
+  
+  return H;
+}*/

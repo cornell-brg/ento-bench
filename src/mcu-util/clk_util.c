@@ -2,6 +2,7 @@
 
 uint32_t get_sys_clk_freq(void)
 {
+#if defined(STM32G4)
   uint32_t sysclk_freq = 0;
 
   // Determine the current system clock source
@@ -27,6 +28,52 @@ uint32_t get_sys_clk_freq(void)
   }
 
   return sysclk_freq;
+#elif defined(STM32H7)
+  uint32_t sysclk_freq = 0;
+
+  // Determine the current system clock source
+  switch (LL_RCC_GetSysClkSource())
+  {
+    case LL_RCC_SYS_CLKSOURCE_STATUS_HSI:
+      sysclk_freq = HSI_VALUE;  // HSI is 64 MHz by default on STM32H7
+      break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_CSI:
+      sysclk_freq = CSI_VALUE;  // CSI is 4 MHz by default
+      break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_HSE:
+      sysclk_freq = HSE_VALUE;  // HSE is user-defined (e.g., 8 MHz)
+      break;
+    case LL_RCC_SYS_CLKSOURCE_STATUS_PLL1:
+      // Calculate the frequency based on PLL1 settings for the STM32H7
+      {
+        uint32_t pll_source = LL_RCC_PLL_GetSource();
+        uint32_t pll_m = LL_RCC_PLL1_GetM();
+        uint32_t pll_n = LL_RCC_PLL1_GetN();
+        uint32_t pll_r = LL_RCC_PLL1_GetR();
+
+        if (pll_source == LL_RCC_PLLSOURCE_HSI)
+        {
+          sysclk_freq = (HSI_VALUE / pll_m) * pll_n / pll_r;
+        }
+        else if (pll_source == LL_RCC_PLLSOURCE_CSI)
+        {
+          sysclk_freq = (CSI_VALUE / pll_m) * pll_n / pll_r;
+        }
+        else if (pll_source == LL_RCC_PLLSOURCE_HSE)
+        {
+          sysclk_freq = (HSE_VALUE / pll_m) * pll_n / pll_r;
+        }
+      }
+      break;
+    default:
+      sysclk_freq = 0;  // Unknown clock source
+      break;
+  }
+  return sysclk_freq;
+
+#else
+  return 0;
+#endif
 }
 
 uint32_t get_AHB_clk_freq(void)
@@ -41,27 +88,39 @@ uint32_t get_AHB_clk_freq(void)
 
 uint32_t get_APB1_clk_freq(void)
 {
+#if defined(STM32G4)
   // Get AHB clock frequency
   uint32_t ahb_freq = get_AHB_clk_freq();
 
   // Get APB1 prescaler and calculate APB1 clock frequency
   uint32_t apb1_prescaler = LL_RCC_GetAPB1Prescaler();
   return ahb_freq >> apb1_prescaler;  // Right-shift by prescaler value
+#elif defined(STM32H7)
+  return 0;
+#else
+  return 0;
+#endif
 }
 
 uint32_t get_APB2_clk_freq(void)
 {
+#if defined(STM32G4)
   // Get AHB clock frequency
   uint32_t ahb_freq = get_AHB_clk_freq();
 
   // Get APB2 prescaler and calculate APB2 clock frequency
   uint32_t apb2_prescaler = LL_RCC_GetAPB2Prescaler();
   return ahb_freq >> apb2_prescaler;  // Right-shift by prescaler value
+#elif defined(STM32H7)
+
+#else
+  return 0;
+#endif
 }
 
 void sys_clk_cfg()
 {
-#ifdef STM32G4
+#if defined(STM32G4)
   if (LL_APB2_GRP1_IsEnabledClock(LL_APB2_GRP1_PERIPH_SYSCFG) == 0) {
     LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
   }
@@ -110,5 +169,63 @@ void sys_clk_cfg()
   LL_Init1msTick(170000000);
 
   LL_SetSystemCoreClock(170000000);
+
+#elif defined(STM32H7)
+  /* Power Configuration */
+  //LL_PWR_ConfigSupply(LL_PWR_DIRECT_SMPS_SUPPLY);
+  LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE0);
+  while (LL_PWR_IsActiveFlag_VOS() == 0)
+  {
+  }
+
+  /* Enable HSE oscillator */
+  LL_RCC_HSE_EnableBypass();
+  LL_RCC_HSE_SelectDigitalClock();
+  LL_RCC_HSE_Enable();
+  while(LL_RCC_HSE_IsReady() != 1)
+  {
+  }
+
+  /* Set FLASH latency */
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_6);
+
+  /* Main PLL configuration and activation */
+  LL_RCC_PLL_SetSource(LL_RCC_PLLSOURCE_HSE);
+  LL_RCC_PLL1P_Enable();
+  LL_RCC_PLL1Q_Enable();
+  LL_RCC_PLL1R_Enable();
+  LL_RCC_PLL1FRACN_Disable();
+  LL_RCC_PLL1_SetVCOInputRange(LL_RCC_PLLINPUTRANGE_2_4);
+  LL_RCC_PLL1_SetVCOOutputRange(LL_RCC_PLLVCORANGE_WIDE);
+  LL_RCC_PLL1_SetM(4);
+  LL_RCC_PLL1_SetN(280);
+  LL_RCC_PLL1_SetP(2);
+  LL_RCC_PLL1_SetQ(2);
+  LL_RCC_PLL1_SetR(2);
+  LL_RCC_PLL1_Enable();
+
+  while(LL_RCC_PLL1_IsReady() != 1)
+  {
+  }
+
+  /* Set Sys & AHB & APB1 & APB2 & APB4  prescaler */
+  LL_RCC_SetSysPrescaler(LL_RCC_SYSCLK_DIV_1);
+  LL_RCC_SetAHBPrescaler(LL_RCC_AHB_DIV_1);
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_2);
+  LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_2);
+  LL_RCC_SetAPB4Prescaler(LL_RCC_APB4_DIV_2);
+
+  /* Set PLL1 as System Clock Source */
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL1);
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL1)
+  {
+  }
+
+  /* Set systick to 1ms */
+  SysTick_Config(280000000 / 1000);
+
+  /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
+  SystemCoreClock = 280000000;
 #endif
+
 }

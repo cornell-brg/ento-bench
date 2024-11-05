@@ -11,7 +11,8 @@ target_include_directories(image_io
 
 add_subdirectory(mcu-util)
 if(STM32_BUILD)
-  target_include_directories(mcu-util PUBLIC
+  target_include_directories(mcu-util
+    PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
 elseif(GEM5_ARMV7E-M_BUILD)
@@ -57,3 +58,9 @@ target_include_directories(ento_util
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
+add_subdirectory(ento-pose)
+target_include_directories(ento_abs_pose
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)

@@ -18,7 +18,7 @@ function(add_arm_semihosting_executable TARGET_NAME)
   # Include Eigen if it's one of the libraries
   if("Eigen" IN_LIST ARG_LIBRARIES)
     target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
-    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
   message("[ARM semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
@@ -136,21 +136,21 @@ function(add_stm32_flash_and_debug_targets target_name)
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
       -c "reset halt"
       -c "arm semihosting enable"
       -c "program $<TARGET_FILE:${target_name}> verify reset"
       -c "arm semihosting_cmdline --shutdown-on-exit"
     DEPENDS ${target_name}
-    COMMENT "Flashing ${target_name} to target (${STM32_DEVICE})"
+    COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
   )
 
   # Debug target
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
       -c "reset halt"
       -c "arm semihosting enable"
@@ -160,7 +160,7 @@ function(add_stm32_flash_and_debug_targets target_name)
       -ex "monitor reset halt"
       -ex "load" $<TARGET_FILE:${target_name}>
     DEPENDS ${target_name}
-    COMMENT "Starting debug session for ${target_name} on ${STM32_DEVICE}"
+    COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
   )
 endfunction()
 

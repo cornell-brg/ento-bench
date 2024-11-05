@@ -3,7 +3,16 @@
 
 #include <Eigen/Dense>  // Ensure Eigen is included
 
-namespace EntoMath {
+namespace EntoMath
+{
+
+  constexpr float ENTO_EPS = 1e-6;
+  
+  template <typename Scalar>
+  inline Scalar sign(const Scalar x)
+  {
+    return (x > (Scalar) 0 ) - ( x < (Scalar) 0 );
+  }
 
   template <typename Scalar, int MaxM, int MaxN, int Order = 0>
   using BoundedMatrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order, MaxM, MaxN>;

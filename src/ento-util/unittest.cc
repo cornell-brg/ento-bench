@@ -107,6 +107,11 @@ void __ento_test_check_and_print_int_binop( const char* file, int lineno, const 
 }
 
 //------------------------------------------------------------------------
+// __ento_test_check_and_print_matrix_binop
+//------------------------------------------------------------------------
+void __ento_test_check_and_print_matrix_binop( const char* file, int lineno, const char* expr1, const char* expr2 );
+
+//------------------------------------------------------------------------
 // __ento_test_check_and_print_float_binop
 //------------------------------------------------------------------------
 

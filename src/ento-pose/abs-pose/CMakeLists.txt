@@ -1,22 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
 
-include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
-
 set(SRC_FILES
-  linalg.cc
+  dlt.cc
+  p3p.cc
+  p4p.cc
 )
 
-set(TEST_FILES
-  test_svd.cc
-)
-
-add_library(ento_math
+add_library(ento_abs_pose
+  STATIC
   ${SRC_FILES}
 )
 
-target_link_libraries(ento_math
+target_link_libraries(ento_abs_pose
   PUBLIC
-  m
+  ento_math
 )
 
 #=========================================
@@ -26,10 +23,16 @@ target_link_libraries(ento_math
 include(CTest)
 
 set(TEST_FILES
-  test_svd.cc)
+  test_p4p.cc
+  test_dlt.cc
+)
 
-set(LIBRARIES_test_svd
-  m ento_math ento_util
+set(LIBRARIES_test_dlt
+  ento_util ento_abs_pose feature2d Eigen
+)
+
+set(LIBRARIES_test_p4p
+  ento_util ento_abs_pose feature2d Eigen
 )
 
 foreach(TEST_FILE ${TEST_FILES})

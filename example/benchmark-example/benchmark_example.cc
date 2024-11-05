@@ -4,6 +4,7 @@
 #include "mcu-util/flash_util.h"
 #include "mcu-util/clk_util.h"
 #include "mcu-util/pwr_util.h"
+#include <Eigen/Dense>
 
 extern "C" void initialise_monitor_handles(void);
 
@@ -86,17 +87,17 @@ int main()
   printf("Finished running add4x8 benchmark example with default parameters.\n\n");
 
   printf("==========================\n\n");
-  printf("Changing clock to 170 MHz. Flash latency is 4 Wait states!\n");
+  printf("Maxing out clock.");
   printf("Enabling cache and prefetch!\n");
 
   clk_freq = get_sys_clk_freq();
 
-  printf("Current clk frequency (MHz): %.2f\n", clk_freq / 1000000.0);
+  printf("Current clk frequency (MHz): %.2f\n", float(clk_freq) / 1000000.0);
 
   sys_clk_cfg();
   clk_freq = get_sys_clk_freq();
 
-  printf("Current clk frequency (MHz): %li\n", clk_freq);
+  printf("Current clk frequency (MHz): %.2f\n", float(clk_freq) / 1000000.0);
   uint32_t is_prefetch_en = is_instruction_cache_prefetch_enabled();
   printf("Is prefetch enabled: %li\n", is_prefetch_en);
 

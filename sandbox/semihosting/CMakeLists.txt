@@ -21,9 +21,9 @@ target_link_options(fopen-example
 target_link_libraries(
   fopen-example
   PRIVATE
-  HAL::STM32::G4::LL_RCC
-  HAL::STM32::G4::LL_GPIO
-  CMSIS::STM32::G474RE
+  ${HAL_RCC_TARGET}
+  ${HAL_GPIO_TARGET}
+  ${CMSIS_TARGET}
   mcu-util
 )
 

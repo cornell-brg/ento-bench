@@ -334,6 +334,67 @@ void iso_normalize_points(Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxFeature
 
 }
 
+// Normalize 2D points as per Hartley and Zisserman
+template <typename Scalar, int N>
+void normalize_2d_points(Eigen::Matrix<Scalar, N, 2>& points, Eigen::Matrix<Scalar, 3, 3>& T)
+{
+  // 1. Compute the centroid of the points
+  Eigen::Matrix<Scalar, 1, 2> centroid = points.colwise().mean();
+
+  // 2. Center the points around the origin
+  for (int i = 0; i < N; ++i) {
+    points(i, 0) -= centroid(0);
+    points(i, 1) -= centroid(1);
+  }
+
+  // 3. Compute the mean distance from the origin
+  Scalar mean_distance = (points.rowwise().norm()).mean();
+
+  // 4. Scale points such that mean distance from origin is sqrt(2)
+  Scalar scale = (mean_distance > std::numeric_limits<Scalar>::epsilon()) ? std::sqrt(2) / mean_distance : 1.0;
+
+  points *= scale;  // Apply scaling
+
+  // 5. Set up the transformation matrix T
+  T.setIdentity();
+  T(0, 0) = scale;
+  T(1, 1) = scale;
+  T(0, 2) = -scale * centroid(0);
+  T(1, 2) = -scale * centroid(1);
+}
+
+// Normalize 3D points as per Hartley and Zisserman
+template <typename Scalar, int N>
+void normalize_3d_points(Eigen::Matrix<Scalar, N, 3>& points, Eigen::Matrix<Scalar, 4, 4>& T)
+{
+  // 1. Compute the centroid of the points
+  Eigen::Matrix<Scalar, 1, 3> centroid = points.colwise().mean();
+
+  // 2. Center the points around the origin
+  for (int i = 0; i < N; ++i) {
+    points(i, 0) -= centroid(0);
+    points(i, 1) -= centroid(1);
+    points(i, 2) -= centroid(2);
+  }
+
+  // 3. Compute the mean distance from the origin
+  Scalar mean_distance = (points.rowwise().norm()).mean();
+
+  // 4. Scale points such that mean distance from origin is sqrt(3)
+  Scalar scale = (mean_distance > std::numeric_limits<Scalar>::epsilon()) ? std::sqrt(3) / mean_distance : 1.0;
+
+  points *= scale;  // Apply scaling
+
+  // 5. Set up the transformation matrix T
+  T.setIdentity();
+  T(0, 0) = scale;
+  T(1, 1) = scale;
+  T(2, 2) = scale;
+  T(0, 3) = -scale * centroid(0);
+  T(1, 3) = -scale * centroid(1);
+  T(2, 3) = -scale * centroid(2);
+}
+
 template <typename Scalar>
 void unnormalize_homography(const Eigen::Matrix<Scalar, 3, 3>& H,
                             const Eigen::Matrix<Scalar, 3, 3>& T1,

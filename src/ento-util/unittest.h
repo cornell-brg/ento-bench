@@ -120,6 +120,59 @@ bool  __ento_test_num(int, int);
 #define ENTO_TEST_CHECK_FLOAT_EQ(expr0_, expr1_)                      \
   ENTO_TEST_CHECK_APPROX_EQ(expr0_, expr1_, EntoUtil::__rel_tol_pct)  
 
+//------------------------------------------------------------------------
+// ENTO_TEST_CHECK_EIGEN_MATRIX_EQ( expr0_, expr1_ )
+//------------------------------------------------------------------------
+// Checks to see if two float experssions are within the predefined rel.
+// tolerance of each other.
+#define ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(matrix0_, matrix1_, rows_, cols_) \
+  do { \
+    bool __has_mismatch = false; \
+    /* Check matrix dimensions */ \
+    if ((matrix0_.rows() != matrix1_.rows()) || (matrix0_.cols() != matrix1_.cols())) { \
+      std::printf(RED "Matrix dimension mismatch! %s is %dx%d, but %s is %dx%d\n" RESET, \
+                  #matrix0_, (int) matrix0_.rows(), (int) matrix0_.cols(), #matrix1_, (int) matrix1_.rows(), (int) matrix1_.cols()); \
+      return; \
+    } \
+    /* Precompute mismatches and display side-by-side output */ \
+    constexpr int width = 8; \
+    int mid_row = rows_ / 2; \
+    for (int i = 0; i < rows_; i++) { \
+      /* Print row from matrix0_ */ \
+      std::printf("["); \
+      for (int j = 0; j < cols_; j++) { \
+        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
+        if (EntoUtil::__failure_condition) { \
+          __has_mismatch = true; \
+          std::printf(RED "%*.*f" RESET, width, 3, matrix0_(i, j)); \
+        } else { \
+          std::printf("%*.*f", width, 3, matrix0_(i, j)); \
+        } \
+        if (j != cols_ - 1) std::printf(", "); \
+      } \
+      std::printf("]"); \
+      /* Print equality sign */ \
+      if (i == mid_row) std::printf("\t=\t"); \
+      else std::printf("\t\t"); \
+      /* Print row from matrix1_ */ \
+      std::printf("["); \
+      for (int j = 0; j < cols_; j++) { \
+        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
+        if (EntoUtil::__failure_condition) { \
+          std::printf(RED "%*.*f" RESET, width, 3, matrix1_(i, j)); \
+        } else { \
+          std::printf("%*.*f", width, 3, matrix1_(i, j)); \
+        } \
+        if (j != cols_ - 1) std::printf(", "); \
+      } \
+      std::printf("]\n"); \
+    } \
+    if (__has_mismatch) { \
+      std::printf(RED "Matrices %s and %s do not match.\n" RESET, #matrix0_, #matrix1_); \
+    } else { \
+      std::printf("Matrices %s and %s match.\n", #matrix0_, #matrix1_); \
+    } \
+  } while (0)    
 
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_ARRAY_INT_EQ( expr0_, expr1_, size_ )

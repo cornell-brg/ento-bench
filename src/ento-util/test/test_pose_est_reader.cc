@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 
+#include <ento-util/debug.h>
 #include "ento-util/unittest.h"
 #include "ento-util/pose_est_reader.h"
 
@@ -27,9 +28,9 @@ void test_case_1_sample_file_open_and_read()
 
   bool finished = false;
   finished = loader.get_next_line(xp, x, T);
-  ENTO_DEBUG_EIGEN_MATRIX(xp, xp.rows(), xp.cols());
-  ENTO_DEBUG_EIGEN_MATRIX(x, x.rows(), x.cols());
-  ENTO_DEBUG_EIGEN_MATRIX(T, T.rows(), T.cols());
+  ENTO_DEBUG_EIGEN_MATRIX(xp, xp.rows(), xp.cols(), float);
+  ENTO_DEBUG_EIGEN_MATRIX(x, x.rows(), x.cols(), float);
+  ENTO_DEBUG_EIGEN_MATRIX(T, T.rows(), T.cols(), float)
   const char* eof = (finished) ? "Yes" : "No";
   ENTO_DEBUG("Reached end of file? %s", eof);
 

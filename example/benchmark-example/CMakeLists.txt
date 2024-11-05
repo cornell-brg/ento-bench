@@ -7,7 +7,8 @@ if (STM32_BUILD)
   set(MODULES
     bench
     mcu-util
-    CMSIS::STM32::G474RE
+    Eigen
+
   )
 
   message("Building benchmark_example")

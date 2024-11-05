@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #ifdef STM32_BUILD
-#include <stm32-util/timing.h>
+#include <mcu-util/timing.h>
 #endif
 
 #include <stdio.h>

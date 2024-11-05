@@ -5,8 +5,10 @@
 extern "C" {
 #endif
 
-#if defined SMT32G4
+#if defined(SMT32G4)
 #include <stm32g4xx.h>
+#elif defined(STM32H7)
+#include <stm32h7xx.h>
 #endif
 
 

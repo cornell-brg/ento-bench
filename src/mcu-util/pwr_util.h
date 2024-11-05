@@ -7,8 +7,10 @@ extern "C" {
 
 #include <stdint.h>
 
-#ifdef STM32G4
+#if defined(STM32G4)
 #include <stm32g4xx_ll_pwr.h>
+#elif defined(STM32H7)
+#include <stm32h7xx_ll_pwr.h>
 #endif
 
 // Function to get the current Vcore voltage scaling range (VOS)
