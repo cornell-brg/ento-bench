@@ -172,7 +172,7 @@ void sys_clk_cfg()
 
 #elif defined(STM32H7)
   /* Power Configuration */
-  //LL_PWR_ConfigSupply(LL_PWR_DIRECT_SMPS_SUPPLY);
+  LL_PWR_ConfigSupply(LL_PWR_DIRECT_SMPS_SUPPLY);
   LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE0);
   while (LL_PWR_IsActiveFlag_VOS() == 0)
   {

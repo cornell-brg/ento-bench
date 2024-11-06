@@ -4,6 +4,7 @@ project(ento-bench C CXX ASM)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(entobench_helpers.cmake)
 
 get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
 message(STATUS "Languages in main CMakeLists.txt after project(): ${languages}")
@@ -61,8 +62,8 @@ if(STM32_BUILD)
     # Special case for H7 family which requires an additional M7
     set(CORE_U M7)
     set(CORE_C "::M7")
-    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}${CORE_C}")
-    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_PRODUCT}::M7")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_TYPE}${CORE_C}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_TYPE}${CORE_C}")
     set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_RCC")
     set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_GPIO")
     set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_FLASH")
@@ -98,16 +99,33 @@ if(STM32_BUILD)
   #  stm32_fetch_hal(${STM32_FAMILY})
   #endif()
 
+
+
+  #find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
   find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
+  #find_package(CMSIS COMPONENTS CMSIS::STM32::H7::M7 REQUIRED)
   find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
 
-  message(STATUS "Checking whether TARGET exists: CMSIS_LD_${STM_PRODUCT}${CORE_U}")
-  if(TARGET CMSIS_LD_${STM_PRODUCT}${CORE_U})
-    message(STATUS "HI HI HI")
+
+  get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+
+  print_target_properties(CMSIS::STM32::H7${CORE_C})
+  print_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C})
+
+  if(TARGET CMSIS::STM32::${STM_PRODUCT}${CORE_C})
+    message(STATUS "Checking CMSIS target properties for: CMSIS::STM32::H7A3${CORE_C}, CMSIS::STM32::${STM_PRODUCT}${CORE_C}")
+
+    
+    get_target_property(CMSIS_LD_TARGET_PROPERTIES CMSIS::STM32::H7${CORE_C} INTERFACE_LIBRARIES)
+    get_target_property(CMSIS_PRODUCT_PROPERTIES CMSIS::STM32::${STM_PRODUCT}${CORE_C} COMPILE_DEFINITIONS)
+
+    message(STATUS "CMSIS_LD_TARGET_PROPERTIES: ${CMSIS_LD_TARGET_PROPERTIES}")
+    message(STATUS "CMSIS_PRODUCT_PROPERTIES: ${CMSIS_PRODUCT_PROPERTIES}")
+
     # Remove dependencies on this target if defined
-    set_target_properties(CMSIS_LD_${STM_PRODUCT}${CORE_U} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     # Optionally remove any unwanted dependencies
-    set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} PROPERTIES LINK_DEPENDS "")
+    # set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} COMPILE_DEFINITIONS LINK_DEPENDS "")
   endif()
   #set(STACK_SIZE "0x200")
   cmsis_generate_parametrizable_linker_script(
@@ -208,7 +226,27 @@ add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 
-get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
-message(STATUS "Global Compile Definitions: ${all_definitions}")
-string(REPLACE "-DSTM32H7A3xx" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-string(REPLACE "-DSTM32H7A3xx" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+
+if(BUILD_H7A3ZIQ)
+    # Set the path to the stm32h7xx.h file in the build directory
+    set(STM32H7_HEADER_PATH "${CMAKE_BINARY_DIR}/_deps/stm32-cmsis-h7-src/Include/stm32h7xx.h")
+
+    # Only attempt to patch if the file exists (i.e., after it has been downloaded or generated)
+    if(EXISTS "${STM32H7_HEADER_PATH}")
+        # Read the contents of stm32h7xx.h
+        file(READ "${STM32H7_HEADER_PATH}" FILE_CONTENTS)
+        if(FILE_CONTENTS MATCHES "#elif defined\\(STM32H7A3xx\\) && !defined\\(STM32H7A3xxQ\\)")
+            message(STATUS "The file ${STM32H7_HEADER_PATH} has already been patched. Skipping modification.")
+        else()
+            # Perform the replacement if the line hasn't been modified
+            string(REPLACE "#elif defined(STM32H7A3xx)" "#elif defined(STM32H7A3xx) && !defined(STM32H7A3xxQ)" FILE_CONTENTS "${FILE_CONTENTS}")
+
+            # Write the modified content back to stm32h7xx.h
+            file(WRITE "${STM32H7_HEADER_PATH}" "${FILE_CONTENTS}")
+
+            message(STATUS "Patched ${STM32H7_HEADER_PATH} for H7A3ZIQ build.")
+        endif()
+    else()
+        message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
+    endif()
+endif()

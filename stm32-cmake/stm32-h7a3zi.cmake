@@ -4,12 +4,17 @@ get_filename_component(STM32_CMAKE_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 list(APPEND CMAKE_MODULE_PATH ${STM32_CMAKE_DIR})
 
 add_definitions(-DSTM32H7)
-add_definitions(-DSTM32H7A3xx)
+add_definitions(-DSTM32H7A3xxQ)
 add_definitions(-DPWR)
 add_definitions(-DLL_USE_FULL_DRIVER)
 add_definitions(-DUSE_FULL_LL_DRIVER)
+
+option(BUILD_H7A3ZIQ "Build for Nucleo board STM32H7A3ZI..." ON)
 #add_definitions(-DSMPS)
 
+
+set(CMSIS_FIND_COMPONENTS "STM32H7A3ZI_M7")
+set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32H7A3ZIQ_M7")
 
 include(stm32/common)
 include(stm32/devices)
@@ -41,8 +46,8 @@ if(NOT STM_FAMILY)
 endif()
 
 if(NOT STM_PRODUCT)
-  set(STM_PRODUCT H7A3ZI)
-  set(STM_TYPE H7A3ZI)
+  set(STM_PRODUCT H7A3xx)
+  set(STM_TYPE H7A3xx)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM_FAMILY_LONG_NAME)
