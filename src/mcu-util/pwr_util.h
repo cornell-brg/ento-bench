@@ -11,6 +11,8 @@ extern "C" {
 #include <stm32g4xx_ll_pwr.h>
 #elif defined(STM32H7)
 #include <stm32h7xx_ll_pwr.h>
+#elif defined(STM32F7)
+#include <stm32f7xx_ll_pwr.h>
 #endif
 
 // Function to get the current Vcore voltage scaling range (VOS)

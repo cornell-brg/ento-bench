@@ -16,10 +16,10 @@
 namespace EntoUtil 
 {
 
-#define RED    "\033[31m"
-#define GREEN  "\033[32m"
-#define YELLOW "\033[33m"
-#define RESET  "\033[0m"
+#define __RED    "\033[31m"
+#define __GREEN  "\033[32m"
+#define __YELLOW "\033[33m"
+#define __RESET  "\033[0m"
 
 constexpr float __rel_tol_pct = 0.01;
 
@@ -55,7 +55,15 @@ void  __ento_test_check_and_print_float_binop(const char*, int, const char*, con
 
 // Other helper functions
 bool  __ento_test_num(int, int);
+int   __ento_get_test_num_from_file(const char*);
+bool  __ento_is_mcu_test();
+void  __ento_replace_file_suffix(const char*, const char*);
 
+// Constexpr Helpers
+// Define a global buffer within the header for internal use
+inline char __ento_cmdline_args_path_buffer[256] = {};
+
+// Define the function that modifies this internal buffer directly
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_FAIL()
 //------------------------------------------------------------------------
@@ -130,7 +138,7 @@ bool  __ento_test_num(int, int);
     bool __has_mismatch = false; \
     /* Check matrix dimensions */ \
     if ((matrix0_.rows() != matrix1_.rows()) || (matrix0_.cols() != matrix1_.cols())) { \
-      std::printf(RED "Matrix dimension mismatch! %s is %dx%d, but %s is %dx%d\n" RESET, \
+      std::printf(__RED "Matrix dimension mismatch! %s is %dx%d, but %s is %dx%d\n" __RESET, \
                   #matrix0_, (int) matrix0_.rows(), (int) matrix0_.cols(), #matrix1_, (int) matrix1_.rows(), (int) matrix1_.cols()); \
       return; \
     } \
@@ -144,7 +152,7 @@ bool  __ento_test_num(int, int);
         EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
         if (EntoUtil::__failure_condition) { \
           __has_mismatch = true; \
-          std::printf(RED "%*.*f" RESET, width, 3, matrix0_(i, j)); \
+          std::printf(__RED "%*.*f" __RESET, width, 3, matrix0_(i, j)); \
         } else { \
           std::printf("%*.*f", width, 3, matrix0_(i, j)); \
         } \
@@ -159,7 +167,7 @@ bool  __ento_test_num(int, int);
       for (int j = 0; j < cols_; j++) { \
         EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
         if (EntoUtil::__failure_condition) { \
-          std::printf(RED "%*.*f" RESET, width, 3, matrix1_(i, j)); \
+          std::printf(__RED "%*.*f" __RESET, width, 3, matrix1_(i, j)); \
         } else { \
           std::printf("%*.*f", width, 3, matrix1_(i, j)); \
         } \
@@ -168,7 +176,7 @@ bool  __ento_test_num(int, int);
       std::printf("]\n"); \
     } \
     if (__has_mismatch) { \
-      std::printf(RED "Matrices %s and %s do not match.\n" RESET, #matrix0_, #matrix1_); \
+      std::printf(__RED "Matrices %s and %s do not match.\n" __RESET, #matrix0_, #matrix1_); \
     } else { \
       std::printf("Matrices %s and %s match.\n", #matrix0_, #matrix1_); \
     } \

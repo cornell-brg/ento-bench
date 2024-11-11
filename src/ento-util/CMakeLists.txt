@@ -16,6 +16,16 @@ target_link_libraries(
   PUBLIC
 )
 
+if (STM32_BUILD)
+  target_link_libraries(
+    ento_util
+    PUBLIC
+    ${STM32_TARGET}
+    )
+else()
+
+endif()
+
 
 # ======================================
 

@@ -140,25 +140,23 @@ function(add_stm32_flash_and_debug_targets target_name)
       -c "init"
       -c "reset halt"
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify reset"
-      -c "arm semihosting_cmdline --shutdown-on-exit"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset"
     DEPENDS ${target_name}
     COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
   )
 
-  # Debug target
+  # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
       -c "reset halt"
+      -c "arm semihosting_cmdline '12'" # 12 to see how strings are passed by semihosting
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify reset halt"
-    COMMAND arm-none-eabi-gdb
-      -ex "target remote localhost:3333"
-      -ex "monitor reset halt"
-      -ex "load" $<TARGET_FILE:${target_name}>
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset halt"
     DEPENDS ${target_name}
     COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
   )

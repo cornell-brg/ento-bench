@@ -62,7 +62,7 @@ void __ento_test_fail( const char* file, int lineno, char *expr )
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
   if ( __n < 0 ) std::printf( "\n" );
-  std::printf(" - [ " RED "FAILED" RESET " ] File %s:%d:  %s\n", file, lineno, expr );
+  std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s\n", file, lineno, expr );
   __failed = 1;
 }
 
@@ -76,12 +76,12 @@ void __ento_test_check_and_print_uniop( const char* file, int lineno, const char
   file = __ento_debug_get_file_name( file );
   if ( __failure_condition ) {
     if ( __n < 0 ) std::printf( "\n" );
-    std::printf(" - [ " RED "FAILED" RESET " ] File %s:%d:  %s (%d)\n", file, lineno, expr, __int_expr0 );
+    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s (%d)\n", file, lineno, expr, __int_expr0 );
     __failed = 1;
   } else if ( __n > 0 ) {
-    std::printf(" - [ " GREEN "passed" RESET " ] File %s:%d:  %s (%d)\n", file, lineno, expr, __int_expr0 );
+    std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s (%d)\n", file, lineno, expr, __int_expr0 );
   } else if ( __n < 0 ) {
-    std::printf( GREEN "." RESET );
+    std::printf( __GREEN "." __RESET );
   }
 }
 
@@ -95,14 +95,14 @@ void __ento_test_check_and_print_int_binop( const char* file, int lineno, const 
   file = __ento_debug_get_file_name( file );
   if ( __failure_condition ) {
     if ( __n < 0 ) std::printf( "\n" );
-    std::printf(" - [ " RED "FAILED" RESET " ] File %s:%d:  %s != %s (%d != %d)\n",
+    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%d != %d)\n",
            file, lineno, expr1, expr2, __int_expr0, __int_expr1 );
     __failed = 1;
   } else if ( __n > 0 ) {
-    std::printf(" - [ " GREEN "passed" RESET " ] File %s:%d:  %s == %s (%d == %d)\n",
+    std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s (%d == %d)\n",
            file, lineno, expr1, expr2, __int_expr0, __int_expr1 );
   } else if ( __n < 0 ) {
-    std::printf( GREEN "." RESET );
+    std::printf( __GREEN "." __RESET );
   }
 }
 
@@ -121,14 +121,14 @@ void __ento_test_check_and_print_float_binop( const char* file, int lineno, cons
   file = __ento_debug_get_file_name( file );
   if ( __failure_condition ) {
     if ( __n < 0 ) std::printf( "\n" );
-    std::printf(" - [ " RED "FAILED" RESET " ] File %s:%d:  %s != %s (%.10e != %.10e)\n",
+    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%.10e != %.10e)\n",
            file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
     __failed = 1;
   } else if ( __n > 0 ) {
-    std::printf(" - [ " GREEN "passed" RESET " ] File %s:%d:  %s == %s (%.10e == %.10e)\n",
+    std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s (%.10e == %.10e)\n",
            file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
   } else if ( __n < 0 ) {
-    std::printf( GREEN "." RESET );
+    std::printf( __GREEN "." __RESET );
   }
 }
 
@@ -141,5 +141,53 @@ bool __ento_test_num( int _n, int _id )
   return ( ( _n <= 0 || _n == _id) );
 }
 
+
+//------------------------------------------------------------------------
+// __ento_test_num
+//------------------------------------------------------------------------
+int __ento_get_test_num_from_file(const char* filename)
+{
+  FILE *config_file = fopen(filename, "r");
+  int test_num = 0;
+  if (config_file)
+  {
+    fscanf(config_file, "%d", &test_num);
+    fclose(config_file);
+  }
+  return test_num;
 }
 
+//------------------------------------------------------------------------
+// __ento_test_num
+//------------------------------------------------------------------------
+bool __ento_is_mcu_test()
+{
+#ifdef STM32_BUILD
+  return true;
+#endif
+  return false;
+}
+
+
+void __ento_replace_file_suffix(const char* path, const char* new_suffix) {
+  const char* last_slash = path;
+  for (const char* p = path; *p != '\0'; ++p) {
+    if (*p == '/' || *p == '\\') {
+      last_slash = p + 1;
+    }
+  }
+
+  int i = 0;
+  for (const char* p = path; p != last_slash; ++p, ++i) {
+    __ento_cmdline_args_path_buffer[i] = *p;
+  }
+
+  for (int j = 0; new_suffix[j] != '\0'; ++j, ++i) {
+    __ento_cmdline_args_path_buffer[i] = new_suffix[j];
+  }
+
+  __ento_cmdline_args_path_buffer[i] = '\0';  // Null-terminate
+}
+
+
+}

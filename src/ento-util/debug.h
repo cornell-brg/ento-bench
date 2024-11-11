@@ -1,8 +1,6 @@
 #ifndef ENTO_DEBUG_H__
 #define ENTO_DEBUG_H__
 
-#include <cstdio>
-
 // ENTO_DEBUG_ ( ... )
 // Print out debug info when in DEBUG build (not RELEASE). Debug
 // info is only dumped to stdout when __n > 0 (i.e., we are looking

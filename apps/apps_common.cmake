@@ -145,7 +145,3 @@ function(add_stm32_flash_and_debug_targets target_name)
   )
 endfunction()
 
-
-
-
-

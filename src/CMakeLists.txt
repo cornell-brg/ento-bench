@@ -1,7 +1,7 @@
-add_subdirectory(linalg)
-target_include_directories(linalg PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
+#add_subdirectory(linalg)
+#target_include_directories(linalg PUBLIC
+#  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+#)
 
 add_subdirectory(image_io)
 target_include_directories(image_io

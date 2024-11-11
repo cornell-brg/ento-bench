@@ -5,13 +5,16 @@
 
 set(CMSIS_RTOS RTOS RTOS_V2)
 
+message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 if(NOT CMSIS_FIND_COMPONENTS)
+    message(STATUS "Not found CMSIS_FIND_COMPONENTS. Adding ${STM32_SUPPORTED_FAMILIES_LONG_NAME}")
     set(CMSIS_FIND_COMPONENTS ${STM32_SUPPORTED_FAMILIES_LONG_NAME})
 endif()
 
 if(STM32H7 IN_LIST CMSIS_FIND_COMPONENTS)
     list(REMOVE_ITEM CMSIS_FIND_COMPONENTS STM32H7)
     list(APPEND CMSIS_FIND_COMPONENTS STM32H7_M7 STM32H7_M4)
+    message(STATUS "Added STM32H7_M7 and _M4 to CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 endif()
 
 if(STM32WB IN_LIST CMSIS_FIND_COMPONENTS)
@@ -32,6 +35,7 @@ endif()
 list(REMOVE_DUPLICATES CMSIS_FIND_COMPONENTS)
 
 # This section fills the RTOS or family components list
+message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 foreach(COMP ${CMSIS_FIND_COMPONENTS})
     string(TOLOWER ${COMP} COMP_L)
     string(TOUPPER ${COMP} COMP)
@@ -39,13 +43,16 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS})
     # Component is RTOS component
     if(${COMP} IN_LIST CMSIS_RTOS)
         list(APPEND CMSIS_FIND_COMPONENTS_RTOS ${COMP})
+        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_RTOS")
         continue()
     endif()
 
     # Component is not RTOS component, so check whether it is a family component
+    message(STATUS "Regex on ${COMP} from ${CMSIS_FIND_COMPONENTS}")
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP ${COMP})
     if(CMAKE_MATCH_1)
         list(APPEND CMSIS_FIND_COMPONENTS_FAMILIES ${COMP})
+        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_FAMILIES")
     endif()
 endforeach()
 
@@ -186,6 +193,7 @@ function(cmsis_generate_parametrizable_linker_script FAMILY DEVICE CORE)
 
     add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
     add_dependencies(CMSIS::STM32::${DEVICE}${CORE_C} CMSIS_LD_${DEVICE}${CORE_U})
+    message(STATUS "Linker script dependency: CMSIS::STM32::${DEVICE}${CORE_C}")
     stm32_add_linker_script(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE "${OUTPUT_LD_FILE}")
 endfunction()
 
@@ -234,20 +242,20 @@ function(cmsis_generate_default_linker_script FAMILY DEVICE CORE)
     endif()
     add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
     add_dependencies(CMSIS::STM32::${DEVICE}${CORE_C} CMSIS_LD_${DEVICE}${CORE_U})
+    message(STATUS "Linker script dependency: CMSIS::STM32::${DEVICE}${CORE_C}")
     stm32_add_linker_script(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE "${OUTPUT_LD_FILE}")
 endfunction() 
 
 foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
     string(TOLOWER ${COMP} COMP_L)
     string(TOUPPER ${COMP} COMP)
+    message(STATUS "CMSIS find components families: ${CMSIS_FIND_COMPONENTS_FAMILIES}")
+    message(STATUS "For each comp loop (COMP): ${COMP}")
     
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP ${COMP})
     # CMAKE_MATCH_<n> contains n'th subexpression
     # CMAKE_MATCH_0 contains full match
 
-    if((NOT CMAKE_MATCH_1) AND (NOT CMAKE_MATCH_2))
-        message(FATAL_ERROR "Unknown CMSIS component: ${COMP}")
-    endif()
     
     if(CMAKE_MATCH_2)
         set(FAMILY ${CMAKE_MATCH_1})
@@ -397,7 +405,8 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         
         add_library(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE IMPORTED)
         target_link_libraries(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE CMSIS::STM32::${TYPE}${CORE_C})
-        #cmsis_generate_default_linker_script(${FAMILY} ${DEVICE} "${CORE}")
+        message(STATUS "Generating default linker script for ${FAMILY}, ${DEVICE}, ${CORE}")
+        cmsis_generate_default_linker_script(${FAMILY} ${DEVICE} "${CORE}")
     endforeach()
 
     if(STM_DEVICES_FOUND)

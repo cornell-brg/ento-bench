@@ -7,15 +7,30 @@ extern "C" {
 
 #include <stdint.h>
 #if defined(STM32G4)
+
 #include <stm32g4xx_ll_cortex.h>
 #include <stm32g4xx_ll_gpio.h>
 #include <stm32g4xx_ll_rcc.h>
+
 #elif defined(STM32H7)
+
 #include <stm32h7xx_ll_cortex.h>
 #include <stm32h7xx_ll_gpio.h>
 #include <stm32h7xx_ll_rcc.h>
+
 #ifndef __CORE_CM7_H_GENERIC
 #include <core_cm7.h>
+#endif
+
+#elif defined(STM32F7)
+
+#include <stm32f7xx_ll_cortex.h>
+#include <stm32f7xx_ll_gpio.h>
+#include <stm32f7xx_ll_rcc.h>
+
+#ifndef __CORE_CM7_H_GENERIC
+#include <core_cm7.h>
+
 #endif
 #endif
 

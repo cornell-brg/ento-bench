@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ento-bench C CXX ASM)
+project(ento-bench CXX C ASM)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -62,7 +62,7 @@ if(STM32_BUILD)
     # Special case for H7 family which requires an additional M7
     set(CORE_U M7)
     set(CORE_C "::M7")
-    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_TYPE}${CORE_C}")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}${CORE_C}")
     set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_TYPE}${CORE_C}")
     set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_RCC")
     set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_GPIO")
@@ -71,17 +71,19 @@ if(STM32_BUILD)
     set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_PWR")
     set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::M7::CORTEX")
     set(STM_FAMILY_LONG_NAME ${STM_FAMILY_LONG_NAME}_M7)
+    set(STM32_TARGET "STM32::${STM_TYPE}::M7")
   else()
     set(CORE_U "")
     set(CORE_C "")
-    set(CMSIS_TARGET "CMSIS::STM32::${STM_FAMILY}")
-    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_PRODUCT}")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_TYPE}")
     set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::LL_RCC")
     set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::LL_GPIO")
     set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::LL_FLASH")
     set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::LL_UTILS")
     set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::LL_PWR")
     set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::CORTEX")
+    set(STM32_TARGET "STM32::${STM_TYPE}${CORE_C}")
   endif()
 
 
@@ -109,31 +111,12 @@ if(STM32_BUILD)
 
   get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
 
-  print_target_properties(CMSIS::STM32::H7${CORE_C})
-  print_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C})
-
-  if(TARGET CMSIS::STM32::${STM_PRODUCT}${CORE_C})
-    message(STATUS "Checking CMSIS target properties for: CMSIS::STM32::H7A3${CORE_C}, CMSIS::STM32::${STM_PRODUCT}${CORE_C}")
-
-    
-    get_target_property(CMSIS_LD_TARGET_PROPERTIES CMSIS::STM32::H7${CORE_C} INTERFACE_LIBRARIES)
-    get_target_property(CMSIS_PRODUCT_PROPERTIES CMSIS::STM32::${STM_PRODUCT}${CORE_C} COMPILE_DEFINITIONS)
-
-    message(STATUS "CMSIS_LD_TARGET_PROPERTIES: ${CMSIS_LD_TARGET_PROPERTIES}")
-    message(STATUS "CMSIS_PRODUCT_PROPERTIES: ${CMSIS_PRODUCT_PROPERTIES}")
-
-    # Remove dependencies on this target if defined
-    set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} PROPERTIES EXCLUDE_FROM_ALL TRUE)
-    # Optionally remove any unwanted dependencies
-    # set_target_properties(CMSIS::STM32::${STM_PRODUCT}${CORE_C} COMPILE_DEFINITIONS LINK_DEPENDS "")
-  endif()
-  #set(STACK_SIZE "0x200")
-  cmsis_generate_parametrizable_linker_script(
-    ${STM_FAMILY}
-    ${STM_PRODUCT}
-    ""
-    STACK_SIZE ${STACK_SIZE}
-    )
+  #cmsis_generate_parametrizable_linker_script(
+  #  ${STM_FAMILY}
+  #  ${STM_PRODUCT}
+  #  ""
+  #  STACK_SIZE ${STACK_SIZE}
+  #  )
 
   set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 

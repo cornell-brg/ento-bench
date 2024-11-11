@@ -8,13 +8,15 @@ extern "C" {
 #include <stdint.h>
 
 #if defined(STM32G4)
-
 #include <stm32g4xx_ll_system.h>
-
 #elif defined(STM32H7)
-
 #include <stm32h7xx_ll_system.h>
-
+#elif defined(STM32F7)
+#include <stm32f7xx_ll_system.h>
+#elif defined(STM32G0)
+#include <stm32g0xx_ll_system.h>
+#elif defined(STM32U5)
+#include <stm32u5xx_ll_system.h>
 #endif
 
 void     enable_instruction_cache();

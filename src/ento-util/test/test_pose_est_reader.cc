@@ -79,7 +79,18 @@ void test_case_4_n_view_file_read()
 int main( int argc, char ** argv)
 {
   using namespace EntoUtil;
-  int __n = ( argc == 1 ) ? 0 : atoi( argv[1] );
+  int __n;
+  if (argc > 1)
+  {
+    __n = atoi(argv[1]);
+  }
+  else
+  {
+    __ento_replace_file_suffix(__FILE__, "test_pose_est_reader_cmdline.txt");
+    __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
+  }
+
+  //int __n = ( argc == 1 ) ? 0 : atoi( argv[1] );
   if (__ento_test_num(__n, 1)) test_case_1_sample_file_open_and_read();
   if (__ento_test_num(__n, 2)) test_case_2_absolute_pose_file_read();
   if (__ento_test_num(__n, 3)) test_case_3_relative_pose_file_read();
