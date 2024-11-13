@@ -104,6 +104,7 @@ static inline ROIMetrics end_roi(void);
 static inline
 void init_roi_tracking()
 {
+  disable_dwt();
   if (!is_cycle_counter_enabled()) init_cycle_counter();
   if (!is_cpi_counter_enabled()) init_cpi_counter();
   if (!is_fold_counter_enabled()) init_fold_counter();
