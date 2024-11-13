@@ -110,7 +110,7 @@ public:
         start_roi();
         auto result = callable_(std::forward<Args>(args)...);
         ROIMetrics metrics = end_roi();
-
+        // @TODO: Separate get end roi and get stats.
         handle_mode(metrics, i);
         results[i] = result;
       }

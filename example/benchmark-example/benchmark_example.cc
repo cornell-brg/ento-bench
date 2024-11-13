@@ -13,7 +13,7 @@ void __attribute__((noinline)) hello_host_computer()
   printf("Hello host computer!\n");
 }
 
-void __attribute__((always_inline)) add16x8()
+void __attribute__((noinline)) add64x8()
 {
   asm (
     ".rept 64        \n"   // Repeat 8 times
@@ -79,9 +79,9 @@ int main()
   printf("==========================\n\n");
   printf("Running examples from default startup parameters (see above).");
 
-  auto add16x8_harness = make_harness<reps>(add16x8,
-                                            "Add32x8 Benchmark Example");
-  auto add16x8_harness_agg = make_harness<reps, ProfileMode::Aggregate>(add16x8,
+  auto add16x8_harness = make_harness<reps>(add64x8,
+                                            "Add64x8 Benchmark Example");
+  auto add16x8_harness_agg = make_harness<reps, ProfileMode::Aggregate>(add64x8,
                                                   "Add32x8 Benchmark Example");
   add16x8_harness.run();
   add16x8_harness_agg.run();

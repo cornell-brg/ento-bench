@@ -117,6 +117,7 @@ static inline
 void start_roi(void)
 {
 #ifdef STM32_BUILD
+  //@TODO Disable Clear it Enable it. All in one go
   last_fold_count = get_fold_count();
   last_exc_count = get_exc_count();
   last_lsu_count = get_lsu_count();
@@ -131,6 +132,7 @@ static inline
 ROIMetrics end_roi(void)
 {
 #ifdef STM32_BUILD
+    //@TODO Disable all in one go.
     uint32_t current_cycle_count = get_cycle_count();
     uint32_t current_cpi_count = get_cpi_count();
     uint32_t current_fold_count = get_fold_count();
@@ -139,6 +141,7 @@ ROIMetrics end_roi(void)
     __asm__ volatile ("DMB" ::: "memory");
 
     reset_lsu_count(); // LSU sometimes overflows weirdly...
+    reset_cpi_count();
 
     // Calculate deltas and populate the struct
     ROIMetrics metrics = {

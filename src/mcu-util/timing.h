@@ -248,6 +248,13 @@ static inline void reset_lsu_count()
 #endif
 }
 
+static inline void reset_cpi_count()
+{
+#if !defined(STM3G0)
+  DWT->CPICNT = 0;
+#endif
+}
+
 // Calculate elapsed cycles between two values
 static inline uint32_t calculate_elapsed(uint32_t start, uint32_t end) {
   return (end >= start) ? (end - start) : (UINT32_MAX - start + end + 1);

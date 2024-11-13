@@ -51,7 +51,7 @@ if(STM32_BUILD)
     mcu-util
     ento_util
     CMSIS::STM32::${STM_PRODUCT}
-  )
+ )
 
   set(TEST_LIBRARIES_test_cache_cfg
     mcu-util
