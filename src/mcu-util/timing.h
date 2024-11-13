@@ -124,6 +124,8 @@ static inline uint32_t get_lsu_count() { return DWT->LSUCNT; }
 static inline uint32_t get_sleep_count() { return DWT->SLEEPCNT; }
 static inline uint32_t get_exc_count() { return DWT->EXCCNT; }
 
+static inline void     reset_lsu_count() { DWT->LSUCNT = 0; }
+
 // Calculate elapsed cycles between two values
 static inline uint32_t calculate_elapsed(uint32_t start, uint32_t end) {
     return (end >= start) ? (end - start) : (UINT32_MAX - start + end + 1);

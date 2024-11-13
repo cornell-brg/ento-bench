@@ -88,13 +88,15 @@ enum ProfileMode
 template<int Iters, typename Callable, ProfileMode Mode = ProfileMode::Full>
 class Harness {
 public:
-  Harness(Callable callable, const char* name, int sample_interval = 1)
-    : callable_(std::move(callable)), name_(name), sample_interval_(sample_interval),
+  Harness(Callable callable, const char* name, int sample_interval = 1, int iters = Iters)
+    : callable_(std::move(callable)), name_(name), sample_interval_(sample_interval), iters_(iters),
       total_metrics_({0, 0, 0, 0, 0}), max_metrics_({0, 0, 0, 0, 0}),
       min_metrics_({std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(),
                     std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(),
                     std::numeric_limits<uint32_t>::max()})
-  {}
+  {
+    init_roi_tracking();
+  }
 
   template<typename... Args>
   auto run(Args&&... args) {
@@ -104,7 +106,6 @@ public:
       using ResultType = decltype(callable_(std::forward<Args>(args)...));
       std::array<ResultType, Iters> results;
 
-      init_roi_tracking();
       for (int i = 0; i < Iters; ++i) {
         start_roi();
         auto result = callable_(std::forward<Args>(args)...);
@@ -113,10 +114,9 @@ public:
         handle_mode(metrics, i);
         results[i] = result;
       }
-      print_results();
+      print_summary();
       return results;
     } else {
-      init_roi_tracking();
       for (int i = 0; i < Iters; ++i) {
         start_roi();
         callable_(std::forward<Args>(args)...);
@@ -124,7 +124,7 @@ public:
 
         handle_mode(metrics, i);
       }
-      print_results();
+      print_summary();
     }
   }
 
@@ -132,6 +132,7 @@ private:
   Callable callable_;
   const char* name_;
   int sample_interval_;
+  volatile int iters_;
 
   // Aggregate statistics
   ROIMetrics total_metrics_, max_metrics_, min_metrics_;
@@ -178,7 +179,7 @@ private:
   }
 
   // Print summary results
-  void print_results() const {
+  void print_summary() const {
     printf("Results from running %s for %i iterations.\n", name_, Iters);
     if constexpr (Mode == ProfileMode::Aggregate) {
       printf("Total cycles: %lu\n", total_metrics_.elapsed_cycles);
@@ -196,20 +197,25 @@ private:
   }
 };
 
-template<int Iters, ProfileMode Mode = ProfileMode::Full, typename Callable>
-Harness(Callable callable, const char* name, int sample_interval = 1) 
+// Deduction guide without explicit Mode (defaults to ProfileMode::Full)
+template<int Iters, typename Callable>
+Harness(Callable, const char* name, int sample_interval = 1, int iters = Iters)
+    -> Harness<Iters, Callable, ProfileMode::Full>;
+
+// Deduction guide with explicit Mode specified
+template<int Iters, ProfileMode Mode, typename Callable>
+Harness(Callable, const char* name, int sample_interval = 1, int iters = Iters)
     -> Harness<Iters, Callable, Mode>;
 
 template<int Iters, typename Callable>
-Harness(Callable callable, const char* name, int sample_interval = 1) 
-    -> Harness<Iters, Callable, ProfileMode::Full>;
-
-template<int Iters, typename Callable>
-Harness<Iters, Callable> make_harness(Callable callable, const char* name)
-{
-  return Harness<Iters, Callable>(std::move(callable), name);
+Harness<Iters, Callable, ProfileMode::Full> make_harness(Callable callable, const char* name, int sample_interval = 1) {
+  return Harness<Iters, Callable, ProfileMode::Full>(callable, name, sample_interval);
 }
 
+template<int Iters, ProfileMode Mode, typename Callable>
+Harness<Iters, Callable, Mode> make_harness(Callable callable, const char* name, int sample_interval = 1) {
+  return Harness<Iters, Callable, Mode>(callable, name, sample_interval);
+}
 
 } // namespace bench
 

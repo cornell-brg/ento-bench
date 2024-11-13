@@ -135,6 +135,9 @@ ROIMetrics end_roi(void)
     uint32_t current_fold_count = get_fold_count();
     uint32_t current_lsu_count = get_lsu_count();
     uint32_t current_exc_count = get_exc_count();
+    __asm__ volatile ("DMB" ::: "memory");
+
+    reset_lsu_count(); // LSU sometimes overflows weirdly...
 
     // Calculate deltas and populate the struct
     ROIMetrics metrics = {

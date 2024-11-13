@@ -13,10 +13,10 @@ void __attribute__((noinline)) hello_host_computer()
   printf("Hello host computer!\n");
 }
 
-void __attribute__((noinline)) add16x8()
+void __attribute__((always_inline)) add16x8()
 {
-  asm volatile (
-    ".rept 16        \n"   // Repeat 8 times
+  asm (
+    ".rept 64        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
     "add r1, r1, #1  \n"   // Add 1 to r1
     "add r2, r2, #1  \n"   // Add 1 to r2
@@ -56,8 +56,10 @@ int main()
   using namespace bench;
   initialise_monitor_handles();
 
+  bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;
 
-  constexpr int reps = 10;
+  printf("Is systick enabled: %i\n", is_systick_enabled);
+  constexpr int reps = 50;
 
   printf("==========================");
   printf("Running example microbenchmarks.\n");
@@ -78,60 +80,13 @@ int main()
   printf("Running examples from default startup parameters (see above).");
 
   auto add16x8_harness = make_harness<reps>(add16x8,
-                                            "Add16x8 Benchmark Example");
-  auto add4x8_harness = make_harness<reps>(add4x8,
-                                           "Add4x8 Benchmark Example");
+                                            "Add32x8 Benchmark Example");
+  auto add16x8_harness_agg = make_harness<reps, ProfileMode::Aggregate>(add16x8,
+                                                  "Add32x8 Benchmark Example");
   add16x8_harness.run();
+  add16x8_harness_agg.run();
   printf("Finished running add16x8 benchmark example with default parameters.\n\n");
-  add4x8_harness.run();
-  printf("Finished running add4x8 benchmark example with default parameters.\n\n");
 
-  printf("==========================\n\n");
-  printf("Maxing out clock.");
-  printf("Enabling cache and prefetch!\n");
-
-  clk_freq = get_sys_clk_freq();
-
-  printf("Current clk frequency (MHz): %.2f\n", float(clk_freq) / 1000000.0);
-
-  sys_clk_cfg();
-  clk_freq = get_sys_clk_freq();
-
-  printf("Current clk frequency (MHz): %.2f\n", float(clk_freq) / 1000000.0);
-  uint32_t is_prefetch_en = is_instruction_cache_prefetch_enabled();
-  printf("Is prefetch enabled: %li\n", is_prefetch_en);
-
-  enable_instruction_cache();
-
-  enable_instruction_cache_prefetch();
-
-  is_prefetch_en = is_instruction_cache_prefetch_enabled();
-  printf("Is prefetch enabled: %li\n\n", is_prefetch_en);
-
-  // Add Benchmark
-  add16x8_harness.run();
-  printf("Finished running add16x8 benchmark example with cache and prefetch enabled.\n\n");
-  add4x8_harness.run();
-  printf("Finished running add4x8 benchmark example with cache and prefetch enabled.\n\n");
-
-  printf("==========================\n\n");
-
-  disable_instruction_cache();
-
-  disable_instruction_cache_prefetch();
-
-  add16x8_harness.run();
-  printf("Finished running add16x8 benchmark example with cache and prefetch disabled.\n\n");
-  add4x8_harness.run();
-  printf("Finished running add4x8 benchmark example with cache and prefetch disabled.\n\n");
-  printf("==========================\n\n");
-
-  enable_instruction_cache();
-
-  add16x8_harness.run();
-  printf("Finished running add16x8 benchmark example with cache enabled and prefetch disabled.\n\n");
-  add4x8_harness.run();
-  printf("Finished running add4x8 benchmark example with cache enabled and prefetch disabled.\n\n");
   printf("==========================\n\n");
 
 
