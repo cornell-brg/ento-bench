@@ -5,9 +5,10 @@ if(STM32_BUILD)
   set(SRC_FILES
     led_util.c
     systick_config.c
-    flash_util.c
+    flash_util.cc
     clk_util.c
     pwr_util.c
+    cache_util.cc
   )
 
   message(STATUS "HAL RCC Target: ${HAL_RCC_TARGET}")
@@ -43,9 +44,16 @@ if(STM32_BUILD)
 
   set(TEST_FILES
       test_clock_cfg.cc
+      test_cache_cfg.cc
   )
 
   set(TEST_LIBRARIES_test_clock_cfg
+    mcu-util
+    ento_util
+    CMSIS::STM32::${STM_PRODUCT}
+  )
+
+  set(TEST_LIBRARIES_test_cache_cfg
     mcu-util
     ento_util
     CMSIS::STM32::${STM_PRODUCT}

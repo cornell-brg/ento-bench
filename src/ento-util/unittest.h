@@ -91,7 +91,7 @@ inline char __ento_cmdline_args_path_buffer[256] = {};
 
 #define ENTO_TEST_CHECK_FALSE(expr_) \
   EntoUtil::__int_expr0 = expr_; \
-  EntoUtil::__failure_condition = __int_expr0; \
+  EntoUtil::__failure_condition = EntoUtil::__int_expr0; \
   EntoUtil::__ento_test_check_and_print_uniop( __FILE__, __LINE__, #expr_ ); \
   if ( EntoUtil::__failure_condition ) return;
 
@@ -192,8 +192,6 @@ inline char __ento_cmdline_args_path_buffer[256] = {};
   for ( size_t i = 0; i < size_; i++ ) {                                \
     ENTO_TEST_CHECK_INT_EQ( expr0_[i], expr1_[i] );                     \
   }
-
-
 
 }
 

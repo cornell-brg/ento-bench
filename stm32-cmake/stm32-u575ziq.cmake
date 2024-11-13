@@ -46,7 +46,7 @@ if(NOT STM_FAMILY)
 endif()
 
 if(NOT STM_PRODUCT)
-  set(STM_PRODUCT U575xx)
+  set(STM_PRODUCT U575ZI)
   set(STM_TYPE U575xx)
 endif()
 
@@ -64,5 +64,5 @@ endif()
 
 set(CMAKE_SYSTEM_PROCESSOR armv7e-m)
 
-set(STM32_CHIP "STM32U575ZIQ" CACHE STRING "Specify the STM32 chip model")
+set(STM32_CHIP "STM32U575ZI" CACHE STRING "Specify the STM32 chip model")
 

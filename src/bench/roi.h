@@ -1,15 +1,9 @@
 #ifndef ROI_H
 #define ROI_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef STM32_BUILD
 #include <mcu-util/timing.h>
 #endif
-
-#include <stdio.h>
 
 #ifdef GEM5
 #include <sys/syscalls.c>
@@ -77,54 +71,86 @@ M5OP_FUNC(m5_exit, 0x21)
 #undef M5OP_FUNC
 #endif
 */
-// Add other m5op functions as needed
+// Add other m5op functions as needed below.
+//
+// ==============================================
 
 
-static int g_cycles = 0;
-static inline void start_roi(void) __attribute__((always_inline));
-static inline void end_roi(void) __attribute__ ((always_inline));
-static inline int  get_cycles(void) __attribute__((always_inline));
+// ==============================================
+// ROI
+
+// Struct to encapsulate all ROI metrics
+struct ROIMetrics {
+    uint32_t elapsed_cycles;
+    uint32_t delta_cpi;
+    uint32_t delta_fold;
+    uint32_t delta_lsu;
+    uint32_t delta_exc;
+};
+
+// Global last counts
+extern volatile uint32_t last_cycle_count;
+extern volatile uint32_t last_cpi_count;
+extern volatile uint32_t last_fold_count;
+extern volatile uint32_t last_lsu_count;
+extern volatile uint32_t last_exc_count;
+
+// Inline function prototypes
+static inline void init_roi_tracking();
+static inline void start_roi(void);
+static inline ROIMetrics end_roi(void);
 
 // Inline Implementations
+static inline
+void init_roi_tracking()
+{
+  if (!is_cycle_counter_enabled()) init_cycle_counter();
+  if (!is_cpi_counter_enabled()) init_cpi_counter();
+  if (!is_fold_counter_enabled()) init_fold_counter();
+  if (!is_lsu_counter_enabled()) init_lsu_counter();
+  if (!is_exc_counter_enabled()) init_exc_counter();
+}
+
+
 static inline
 void start_roi(void)
 {
 #ifdef STM32_BUILD
-  if (is_cycle_counter_init()) update_last_cycle_count();
-  else init_cycle_counter();
-  init_cycle_counter();
+  last_fold_count = get_fold_count();
+  last_exc_count = get_exc_count();
+  last_lsu_count = get_lsu_count();
+  last_cpi_count = get_cpi_count();
+  last_cycle_count = get_cycle_count();
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_RESET_STATS;
-  //m5_dump_reset_stats();
-   
 #endif
 }
 
 static inline
-void end_roi(void)
+ROIMetrics end_roi(void)
 {
 #ifdef STM32_BUILD
-  uint32_t cycles = get_elapsed_cycles();
-  g_cycles = cycles;
-  //printf("Cycles elapsed: %lu\n", cycles);
+    uint32_t current_cycle_count = get_cycle_count();
+    uint32_t current_cpi_count = get_cpi_count();
+    uint32_t current_fold_count = get_fold_count();
+    uint32_t current_lsu_count = get_lsu_count();
+    uint32_t current_exc_count = get_exc_count();
+
+    // Calculate deltas and populate the struct
+    ROIMetrics metrics = {
+        .elapsed_cycles = calculate_elapsed(last_cycle_count, current_cycle_count),
+        .delta_cpi = calculate_elapsed(last_cpi_count, current_cpi_count),
+        .delta_fold = calculate_elapsed(last_fold_count, current_fold_count),
+        .delta_lsu = calculate_elapsed(last_lsu_count, current_lsu_count),
+        .delta_exc = calculate_elapsed(last_exc_count, current_exc_count)
+    };
+
+    return metrics;
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_DUMP_RESET_STATS;
-  //m5_dump_reset_stats();
+  RoiMetrics metrics = {}; // gem5 returns empty metrics for now...
+  return metrics;
 #endif
 }
-
-static inline
-int get_cycles()
-{
-#ifdef STM32_BUILD
-  return g_cycles;
-#endif
-  return 0;
-
-}
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // ROI_H

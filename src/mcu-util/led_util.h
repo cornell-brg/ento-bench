@@ -12,7 +12,7 @@ extern "C" {
 #include <stm32g4xx_ll_cortex.h>
 #include <stm32g4xx_ll_rcc.h>
 
-#define USER_LED_PORT GPIOA
+#define USER_LED_GREEN_PORT GPIOA
 #define USER_LED_GREEN_PIN  LL_GPIO_PIN_5
 #define USER_LED_PORT_CLK_ENABLE() { RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN; }
 
@@ -22,7 +22,7 @@ extern "C" {
 #include <stm32h7xx_ll_rcc.h>
 #include <stm32h7xx_ll_bus.h>
 
-#define USER_LED_PORT GPIOB
+#define USER_LED_GREEN_PORT GPIOB
 #define USER_LED_GREEN_PIN  LL_GPIO_PIN_0
 #define USER_LED_PORT_CLK_ENABLE() LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOB)
 
@@ -32,7 +32,7 @@ extern "C" {
 #include <stm32f7xx_ll_rcc.h>
 #include <stm32f7xx_ll_bus.h>
 
-#define USER_LED_PORT      GPIOB
+#define USER_LED_GREEN_PORT      GPIOB
 #define USER_LED_GREEN_PIN LL_GPIO_PIN_0
 #define USER_LED_RED_PIN   LL_GPIO_PIN_7
 #define USER_LED_BLUE_PIN  LL_GPIO_PIN_14
@@ -45,7 +45,7 @@ extern "C" {
 #include <stm32g0xx_ll_rcc.h>
 #include <stm32g0xx_ll_bus.h>
 
-#define USER_LED_PORT      GPIOA
+#define USER_LED_GREEN_PORT      GPIOA
 #define USER_LED_GREEN_PIN LL_GPIO_PIN_5
 
 #define USER_LED_PORT_CLK_ENABLE() LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
@@ -63,7 +63,7 @@ extern "C" {
 #define USER_LED_GREEN_PIN     LL_GPIO_PIN_7
 #define USER_LED_BLUE_PIN      LL_GPIO_PIN_7
 
-#define USER_LED_PORT_CLK_ENABLE()   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+#define USER_LED_PORT_CLK_ENABLE()   LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
 
 #endif
 

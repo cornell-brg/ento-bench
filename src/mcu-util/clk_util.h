@@ -46,7 +46,7 @@ extern "C" {
 #include <stm32g0xx_ll_utils.h>
 #include <stm32g0xx_ll_pwr.h>
 
-#elif defined(STM32G0)
+#elif defined(STM32U5)
 
 #include <stm32u5xx.h>
 #include <stm32u5xx_ll_bus.h>

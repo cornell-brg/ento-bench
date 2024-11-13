@@ -24,15 +24,57 @@ set(COMPILE_COMMANDS_DIR "${CMAKE_BINARY_DIR}")
 
 # Path to the .clangd file
 set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
-
 message(STATUS ".clangd file: ${CLANGD_FILE}")
 
-# Custom target to update .clangd with the correct CompilationDatabase path
+# Path to the .clangd file
+set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
+message(STATUS ".clangd file: ${CLANGD_FILE}")
+
+# Start building the .clangd file with the compilation database path
 add_custom_target(update_clangd ALL
   COMMAND ${CMAKE_COMMAND} -E echo "CompileFlags:" > ${CLANGD_FILE}
   COMMAND ${CMAKE_COMMAND} -E echo "  CompilationDatabase: ${COMPILE_COMMANDS_DIR}" >> ${CLANGD_FILE}
-  COMMENT "Updating .clangd file to use compile_commands.json from ${COMPILE_COMMANDS_DIR}"
+  COMMENT "Updating .clangd file with compile_commands.json path"
 )
+
+# Conditionally add ARM-specific include paths if STM32_BUILD is set
+if(STM32_BUILD)
+  # Find the ARM toolchain executable
+  find_program(ARM_GCC arm-none-eabi-gcc)
+  find_program(ARM_GXX arm-none-eabi-g++)
+
+  if(ARM_GCC AND ARM_GXX)
+    get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_GCC}" DIRECTORY)
+    get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_TOOLCHAIN_BASE}" DIRECTORY)
+
+    # Retrieve the paths for newlib and GCC-specific includes
+    execute_process(
+      COMMAND ${ARM_GCC} -print-file-name=include
+      OUTPUT_VARIABLE ARM_GCC_INCLUDE
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    set(ARM_NEWLIB_INCLUDE "${ARM_TOOLCHAIN_BASE}/arm-none-eabi/include")
+    set(ARM_NEWLIB_CXX_INCLUDE "${ARM_TOOLCHAIN_BASE}/arm-none-eabi/include/c++/13.3.1")
+
+
+    message(STATUS "Found ${ARM_GCC}... \n ${ARM_GCC_INCLUDE}, ${ARM_NEWLIB_INCLUDE}")
+
+    # Append ARM-specific paths directly to .clangd within the same target
+    add_custom_command(
+      TARGET update_clangd
+      COMMAND ${CMAKE_COMMAND} -E echo "  Add:" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_INCLUDE}" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_CXX_INCLUDE}" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_GCC_INCLUDE}" >> ${CLANGD_FILE}
+      COMMENT "Appending ARM-specific include paths to .clangd"
+    )
+
+
+  else()
+    message(WARNING "arm-none-eabi-gcc not found; .clangd will not include ARM-specific include paths.")
+  endif()
+endif()
 
 # Ensure update_clangd runs after the project is built
 #:add_dependencies(update_clangd check)
@@ -233,3 +275,4 @@ if(BUILD_H7A3ZIQ)
         message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
     endif()
 endif()
+

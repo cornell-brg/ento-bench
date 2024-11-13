@@ -12,17 +12,17 @@
 
 #define DPRINTF(...) std::printf(__VA_ARGS__)
 
-#define ENTO_DEBUG( ... ) \
-  if ( EntoUtil::__n > 0 ) { \
-    std::printf(" - [ " YELLOW "-info-" RESET " ] File %s:%d: ",        \
-        EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__);      \
+#define ENTO_DEBUG(...) \
+  if (EntoUtil::__n > 0) { \
+    std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d: ", \
+                EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__); \
     std::printf(__VA_ARGS__); \
     std::printf("\n"); \
   }
 
 #define ENTO_DEBUG_ARRAY_INT(array_, size_)                         \
   if ( EntoUtil::__n > 0 ) {                                                      \
-    std::printf(" - [ " YELLOW "-info-" RESET " ] %s:%d: %s = { ",      \
+    std::printf(" - [ " __YELLOW "-info-" __RESET " ] %s:%d: %s = { ",      \
       EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__, #array_);            \
     for ( size_t i = 0; i < size_; i++ ) {                              \
       std::printf( "%d", array_[i] );                                   \
@@ -37,7 +37,7 @@
 
 #define ENTO_DEBUG_EIGEN_MATRIX(matrix_, rows_, cols_, scalar_type_) \
   if ( EntoUtil::__n > 0 ) { \
-    std::printf(" - [ " YELLOW "-info-" RESET " ] %s:%d: \n%s =",      \
+    std::printf(" - [ " __YELLOW "-info-" __RESET " ] %s:%d: \n%s =",      \
       EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__, #matrix_);\
     constexpr int width = 10;                                           \
     constexpr const char* indent = "\t";                          \

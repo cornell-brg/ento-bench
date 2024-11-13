@@ -35,7 +35,8 @@ if(NOT STM_FAMILY)
 endif()
 
 if(NOT STM_PRODUCT)
-  set(STM_PRODUCT G01BRE)
+  set(STM_PRODUCT G0B1RE)
+  set(STM_TYPE G0B1xx)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM_FAMILY_LONG_NAME)
@@ -48,7 +49,4 @@ set(CMAKE_SYSTEM_PROCESSOR armv7e-m)
 
 
 # Set the chip model (e.g., STM32G01BRE) if not explicitly provided
-set(STM32_CHIP "STM32G01BRE" CACHE STRING "Specify the STM32 chip model (e.g., STM32G01BRE)")
-
-
-
+set(STM32_CHIP "STM32G0B1RE" CACHE STRING "Specify the STM32 chip model (e.g., STM32G0B1RE)")

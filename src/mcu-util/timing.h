@@ -1,10 +1,11 @@
 #ifndef TIMING_H
 #define TIMING_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+//#ifdef __cplusplus
+//extern "C" {
+//#endif
 
+#include <cstdint>
 #include <stdint.h>
 #if defined(STM32G4)
 
@@ -12,15 +13,17 @@ extern "C" {
 #include <stm32g4xx_ll_gpio.h>
 #include <stm32g4xx_ll_rcc.h>
 
+#include <core_cm4.h>
+
 #elif defined(STM32H7)
 
 #include <stm32h7xx_ll_cortex.h>
 #include <stm32h7xx_ll_gpio.h>
 #include <stm32h7xx_ll_rcc.h>
 
-#ifndef __CORE_CM7_H_GENERIC
+//#ifndef __CORE_CM7_H_GENERIC
 #include <core_cm7.h>
-#endif
+//#endif
 
 #elif defined(STM32F7)
 
@@ -28,64 +31,105 @@ extern "C" {
 #include <stm32f7xx_ll_gpio.h>
 #include <stm32f7xx_ll_rcc.h>
 
-#ifndef __CORE_CM7_H_GENERIC
+//#ifndef __CORE_CM7_H_GENERIC
 #include <core_cm7.h>
 
-#endif
-#endif
+#elif defined(STM32G0)
 
-static volatile uint32_t global_last_cycle_count;
+#include <stm32g0xx_ll_cortex.h>
+#include <stm32g0xx_ll_gpio.h>
+#include <stm32g0xx_ll_rcc.h>
 
-static inline void     init_cycle_counter(void) __attribute__((always_inline));
-static inline int      is_cycle_counter_init(void) __attribute__((always_inline));
-static inline uint32_t read_cycle_counter(void) __attribute__((always_inline));
-static inline void     update_last_cycle_count(void) __attribute__((always_inline));
-static inline uint32_t get_elapsed_cycles(void) __attribute__((always_inline));
+#include <core_cm4.h>
 
-// Inline Implementations
-static inline
-void init_cycle_counter() {
-  global_last_cycle_count = 0; // Initialize the global variable
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
-  DWT->CYCCNT = 0; // Reset cycle counter
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Enable cycle counter
+#elif defined(STM32U5)
+
+#include <stm32u5xx_ll_cortex.h>
+#include <stm32u5xx_ll_gpio.h>
+#include <stm32u5xx_ll_rcc.h>
+
+#include <core_cm33.h>
+
+//#endif
+
+#endif // defined(STM{STM_FAMILY})
+
+// Initialization functions to enable counters
+static inline void init_cycle_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->CYCCNT = 0;                                // Reset cycle counter
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // Enable cycle counter
 }
 
-static inline
-int is_cycle_counter_init()
-{
-  return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk);
+static inline void init_cpi_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->CPICNT = 0;                                // Reset CPI counter
+    DWT->CTRL |= DWT_CTRL_CPIEVTENA_Msk;            // Enable CPI tracking
 }
 
-static inline
-uint32_t read_cycle_counter() {
-  return DWT->CYCCNT;
+static inline void init_fold_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->FOLDCNT = 0;                               // Reset folded instruction counter
+    DWT->CTRL |= DWT_CTRL_FOLDEVTENA_Msk;           // Enable folded instruction tracking
 }
 
-static inline
-void update_last_cycle_count() {
-  global_last_cycle_count = DWT->CYCCNT; // Update the global variable with the current cycle count
+static inline void init_lsu_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->LSUCNT = 0;                                // Reset LSU counter
+    DWT->CTRL |= DWT_CTRL_LSUEVTENA_Msk;            // Enable LSU tracking
 }
 
-static inline
-uint32_t get_elapsed_cycles()
-{
-  uint32_t current_cycle_count = DWT->CYCCNT;
-  uint32_t elapsed_cycles;
-  
-  if (current_cycle_count >= global_last_cycle_count) {
-      elapsed_cycles = current_cycle_count - global_last_cycle_count;
-  } else {
-      // Handle rollover
-      elapsed_cycles = (UINT32_MAX - global_last_cycle_count) + current_cycle_count + 1;
-  }
-
-  global_last_cycle_count = current_cycle_count; // Update last cycle count for next measurement
-  return elapsed_cycles;
+static inline void init_sleep_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->SLEEPCNT = 0;                              // Reset sleep counter
+    DWT->CTRL |= DWT_CTRL_SLEEPEVTENA_Msk;          // Enable sleep tracking
 }
 
-#ifdef __cplusplus
+static inline void init_exc_counter() {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Enable DWT
+    DWT->EXCCNT = 0;                                // Reset exception counter
+    DWT->CTRL |= DWT_CTRL_EXCEVTENA_Msk;            // Enable exception tracking
 }
-#endif
+
+// Check if each counter is enabled
+static inline bool is_cycle_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk);
+}
+
+static inline bool is_cpi_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk);
+}
+
+static inline bool is_fold_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk);
+}
+
+static inline bool is_lsu_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk);
+}
+
+static inline bool is_sleep_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk);
+}
+
+static inline bool is_exc_counter_enabled() {
+    return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk);
+}
+
+// Functions to read current metric values
+static inline uint32_t get_cycle_count() { return DWT->CYCCNT; }
+static inline uint32_t get_cpi_count() { return DWT->CPICNT; }
+static inline uint32_t get_fold_count() { return DWT->FOLDCNT; }
+static inline uint32_t get_lsu_count() { return DWT->LSUCNT; }
+static inline uint32_t get_sleep_count() { return DWT->SLEEPCNT; }
+static inline uint32_t get_exc_count() { return DWT->EXCCNT; }
+
+// Calculate elapsed cycles between two values
+static inline uint32_t calculate_elapsed(uint32_t start, uint32_t end) {
+    return (end >= start) ? (end - start) : (UINT32_MAX - start + end + 1);
+}
+//#ifdef __cplusplus
+//}
+//#endif
 
 #endif // TIMING_H

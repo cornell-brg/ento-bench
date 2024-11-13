@@ -25,7 +25,7 @@ void disable_instruction_cache()
 void enable_instruction_cache_prefetch()
 {
 #if defined(STM32G4)
- LL_FLASH_EnablePrefetch();
+  LL_FLASH_EnablePrefetch();
 #elif defined(STM32H7)
 #endif
 }
@@ -38,15 +38,15 @@ void disable_instruction_cache_prefetch()
 #endif
 }
 
-uint32_t is_instruction_cache_prefetch_enabled()
+bool is_instruction_cache_prefetch_enabled()
 {
 #if defined(STM32G4)
-  return LL_FLASH_IsPrefetchEnabled();
+  return static_cast<bool>(LL_FLASH_IsPrefetchEnabled());
 #elif defined(STM32H7)
   //@TODO: Add enum for return values? Or just use the LL_ENUM?
-  return 0;
+  return false;
 #else
-  return 0;
+  return false;
 #endif
 }
 

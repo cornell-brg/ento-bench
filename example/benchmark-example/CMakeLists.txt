@@ -8,7 +8,7 @@ if (STM32_BUILD)
     bench
     mcu-util
     Eigen
-
+    CMSIS::STM32::${STM_PRODUCT}
   )
 
   message("Building benchmark_example")

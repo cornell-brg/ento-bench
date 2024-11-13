@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
-add_library(bench INTERFACE) # No src files for now
+set(SRC_FILES
+  roi.cc
+)
+
+add_library(bench 
+  ${SRC_FILES}
+) # No src files for now
 
 if (GEM5_BUILD)
   set(GEM5_PATH $ENV{GEM5_INSTALL_PATH})
@@ -20,7 +26,13 @@ if (GEM5_BUILD)
     #INTERFACE
     #${GEM5_PATH}/util/m5/build/${TARGET_ISA}/out/libm5.a
     #)
+elseif (STM32_BUILD)
+  target_link_libraries(bench
+    PUBLIC
+    mcu-util
+  )
 endif()
+
 
 # Include directories for this module
 #target_include_directories(util_lib PUBLIC 
