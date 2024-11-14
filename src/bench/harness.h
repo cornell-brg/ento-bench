@@ -102,15 +102,18 @@ public:
   auto run(Args&&... args) {
     printf("Running benchmark %s for %i iterations...\n", name_, Iters);
 
-    if constexpr (!std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>) {
+    if constexpr (!std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>)
+    {
       using ResultType = decltype(callable_(std::forward<Args>(args)...));
       std::array<ResultType, Iters> results;
 
-      for (int i = 0; i < Iters; ++i) {
+      for (int i = 0; i < Iters; ++i)
+      {
         start_roi();
         auto result = callable_(std::forward<Args>(args)...);
-        ROIMetrics metrics = end_roi();
-        // @TODO: Separate get end roi and get stats.
+        end_roi();
+
+        ROIMetrics metrics = get_roi_stats();
         handle_mode(metrics, i);
         results[i] = result;
       }
@@ -120,8 +123,9 @@ public:
       for (int i = 0; i < Iters; ++i) {
         start_roi();
         callable_(std::forward<Args>(args)...);
-        ROIMetrics metrics = end_roi();
+        end_roi();
 
+        ROIMetrics metrics = get_roi_stats();
         handle_mode(metrics, i);
       }
       print_summary();
@@ -143,7 +147,8 @@ private:
   std::conditional_t<Mode == ProfileMode::Full || Mode == ProfileMode::Sample, MetricsArray, std::monostate> metrics_;
 
   // Update aggregate stats for each metric
-  void update_aggregate(const ROIMetrics& metrics) {
+  void update_aggregate(const ROIMetrics& metrics)
+  {
     total_metrics_.elapsed_cycles += metrics.elapsed_cycles;
     total_metrics_.delta_cpi += metrics.delta_cpi;
     total_metrics_.delta_fold += metrics.delta_fold;
@@ -158,15 +163,23 @@ private:
 
   // Handle different profiling modes
   void handle_mode(const ROIMetrics& metrics, int iteration) {
-    if constexpr (Mode == ProfileMode::Full) {
+    if constexpr (Mode == ProfileMode::Full)
+    {
       metrics_[iteration] = metrics;
-    } else if constexpr (Mode == ProfileMode::Aggregate) {
+    }
+    else if constexpr (Mode == ProfileMode::Aggregate)
+    {
       update_aggregate(metrics);
-    } else if constexpr (Mode == ProfileMode::Sample) {
-      if (iteration % sample_interval_ == 0) {
+    }
+    else if constexpr (Mode == ProfileMode::Sample)
+    {
+      if (iteration % sample_interval_ == 0)
+      {
         metrics_[iteration / sample_interval_] = metrics;
       }
-    } else if constexpr (Mode == ProfileMode::PrintOnly) {
+    }
+    else if constexpr (Mode == ProfileMode::PrintOnly)
+    {
       print_metrics(metrics, iteration);
     }
   }

@@ -4,6 +4,7 @@
 #include "mcu-util/cache_util.h"
 #include "mcu-util/flash_util.h"
 #include "mcu-util/clk_util.h"
+#include <bench/roi.h>
 #include "mcu-util/pwr_util.h"
 #include <Eigen/Dense>
 
@@ -16,6 +17,7 @@ void __attribute__((noinline)) hello_host_computer()
 
 void __attribute__((noinline)) add64x8()
 {
+  start_roi();
   asm (
     ".rept 64        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -31,10 +33,12 @@ void __attribute__((noinline)) add64x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
+  end_roi();
 }
 
 void __attribute__((noinline)) add4x8()
 {
+  start_roi();
   asm volatile (
     ".rept 4        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -50,6 +54,7 @@ void __attribute__((noinline)) add4x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
+  end_roi();
 }
 
 int main()
@@ -60,7 +65,7 @@ int main()
   bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;
 
   printf("Is systick enabled: %i\n", is_systick_enabled);
-  constexpr int reps = 50;
+  constexpr int reps = 5;
 
   // Configure max clock rate and set flash latency
   sys_clk_cfg();
@@ -70,7 +75,7 @@ int main()
   enable_instruction_cache_prefetch();
   icache_enable();
 
-  printf("==========================");
+  printf("==========================\n");
   printf("Running example microbenchmarks.\n");
   printf("==========================\n\n");
 
@@ -80,9 +85,9 @@ int main()
 
   uint32_t flash_latency = get_flash_latency();
 
-  printf("Current flash latency: %li\n", flash_latency);
+  printf("Current flash latency: %i\n", flash_latency);
+  printf("ICache is enabled!\n\n");
   printf("==========================\n\n");
-  printf("Running examples from default startup parameters (see above).");
 
   auto add64x8_harness = make_harness<reps>(add64x8,
                                             "Add64x8 Benchmark Example");

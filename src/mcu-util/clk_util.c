@@ -237,7 +237,7 @@ void sys_clk_cfg()
   {
 
   }
-  LL_Init1msTick(216000000);
+  //LL_Init1msTick(216000000);
   LL_SetSystemCoreClock(216000000);
 
 #elif defined(STM32G0)
@@ -276,6 +276,13 @@ void sys_clk_cfg()
   LL_SetSystemCoreClock(64000000);
 
 #elif defined(STM32U5)
+  
+  LL_AHB3_GRP1_EnableClock(LL_AHB3_GRP1_PERIPH_PWR);
+  LL_PWR_SetRegulatorSupply(LL_PWR_SMPS_SUPPLY);
+
+  while(LL_PWR_IsActiveFlag_REGULATOR()!=1)
+  {
+  }
 
   LL_FLASH_SetLatency(LL_FLASH_LATENCY_4);
   while(LL_FLASH_GetLatency()!= LL_FLASH_LATENCY_4)

@@ -9,6 +9,7 @@ if(STM32_BUILD)
     clk_util.c
     pwr_util.c
     cache_util.cc
+    timing.cc
   )
 
   message(STATUS "HAL RCC Target: ${HAL_RCC_TARGET}")
