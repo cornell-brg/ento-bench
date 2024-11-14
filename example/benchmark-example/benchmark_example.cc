@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "bench/harness.h"
+#include "mcu-util/cache_util.h"
 #include "mcu-util/flash_util.h"
 #include "mcu-util/clk_util.h"
 #include "mcu-util/pwr_util.h"
@@ -61,6 +62,14 @@ int main()
   printf("Is systick enabled: %i\n", is_systick_enabled);
   constexpr int reps = 50;
 
+  // Configure max clock rate and set flash latency
+  sys_clk_cfg();
+
+  // Turn on caches if applicable
+  enable_instruction_cache();
+  enable_instruction_cache_prefetch();
+  icache_enable();
+
   printf("==========================");
   printf("Running example microbenchmarks.\n");
   printf("==========================\n\n");
@@ -69,23 +78,20 @@ int main()
 
   printf("Current clk frequency (MHz): %.2f\n", clk_freq / 1000000.0);
 
-  uint32_t vcore_range = get_vcore_range();
-
-  printf("Vcore Range: %li\n", vcore_range);
-
   uint32_t flash_latency = get_flash_latency();
 
   printf("Current flash latency: %li\n", flash_latency);
   printf("==========================\n\n");
   printf("Running examples from default startup parameters (see above).");
 
-  auto add16x8_harness = make_harness<reps>(add64x8,
+  auto add64x8_harness = make_harness<reps>(add64x8,
                                             "Add64x8 Benchmark Example");
-  auto add16x8_harness_agg = make_harness<reps, ProfileMode::Aggregate>(add64x8,
-                                                  "Add32x8 Benchmark Example");
-  add16x8_harness.run();
-  add16x8_harness_agg.run();
-  printf("Finished running add16x8 benchmark example with default parameters.\n\n");
+  auto add4x8_harness = make_harness<reps>(add4x8,
+                                           "Add4x8 Benchmark Example");
+  add64x8_harness.run();
+  printf("Finished running add64x8 benchmark example with default parameters.\n\n");
+  add4x8_harness.run();
+  printf("Finished running add4x8 benchmark example with default parameters.\n\n");
 
   printf("==========================\n\n");
 

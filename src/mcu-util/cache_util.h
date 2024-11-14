@@ -4,7 +4,7 @@
 #if defined(STM32G4)
     #include <stm32g4xx.h>
     #include <stm32g4xx_ll_bus.h>
-    #include <stm32g4xx_ll_cache.h>  // Assuming LL cache API is available
+    #include <stm32g4xx_ll_cortex.h>
 #elif defined(STM32H7)
     #include <stm32h7xx.h>
     #include <stm32h7xx_ll_cortex.h>

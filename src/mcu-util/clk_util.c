@@ -138,8 +138,6 @@ void sys_clk_cfg()
   LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
   LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
 
-  LL_Init1msTick(170000000);
-
   LL_SetSystemCoreClock(170000000);
 
 #elif defined(STM32H7)

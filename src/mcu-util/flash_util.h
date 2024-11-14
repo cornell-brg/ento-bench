@@ -15,13 +15,15 @@
 #include <stm32u5xx_ll_system.h>
 #endif
 
+// @TODO: Convert enable icache below to be enable
+//  art instead
 void     enable_art();
 void     disable_art();
 bool     is_art_enabled();
-
 void     enable_art_prefetch();
 void     disable_art_prefetch();
 bool     is_art_prefetch_enabled();
+
 
 void     enable_instruction_cache();
 void     disable_instruction_cache();

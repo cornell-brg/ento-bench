@@ -14,7 +14,7 @@ option(BUILD_H7A3ZIQ "Build for Nucleo board STM32H7A3ZI..." ON)
 
 
 set(CMSIS_FIND_COMPONENTS "STM32H7A3ZI_M7")
-set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32H7A3ZIQ_M7")
+set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32H7A3ZI_M7")
 
 include(stm32/common)
 include(stm32/devices)
@@ -46,7 +46,7 @@ if(NOT STM_FAMILY)
 endif()
 
 if(NOT STM_PRODUCT)
-  set(STM_PRODUCT H7A3xx)
+  set(STM_PRODUCT H7A3ZI::M7)
   set(STM_TYPE H7A3xx)
 endif()
 
