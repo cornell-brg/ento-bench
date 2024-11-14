@@ -139,7 +139,7 @@ void updateWindow(UnicycleSlidingWindow<Scalar, WindowSize>& window,
         Eigen::Matrix<Scalar, 4, 1> predicted_state = unicycleStateTransition(previous_state, dt);
 
         // Compute the Jacobians for the new state
-        Eigen::Matrix<Scalar, 4, 4> kinematicsJacobianX = computeStateTransitionJacobian(previous_state, dt);
+        Eigen::Matrix<Scalar, 4, 4> kinematicsJacobian = computeStateTransitionJacobian(previous_state, dt);
         window.push_kinematics_jacobian(kinematicsJacobian);
 
         Eigen::Matrix<Scalar, 2, 4> observationJacobian = computePositionObservationJacobian();

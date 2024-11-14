@@ -59,4 +59,5 @@ target_include_directories(ento_util
 
 add_subdirectory(control)
 add_subdirectory(planning)
+add_subdirectory(state_est)
 

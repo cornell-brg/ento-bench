@@ -1,19 +1,20 @@
-#ifndef _CIRCULAR_BUFFER_H__
-#define _CIRCULAR_BUFFER_H__
+#ifndef __LINEAR_BUFFER_H__
+#define __LINEAR_BUFFER_H__
 
 #include <array>
+#include <cassert>
 
-template <typename T, int Size>
-class CircularBuffer
+template <typename T, int Size, int Storage>
+class LinearBuffer
 {
   private:
-    std::array<T, Size> m_buffer;
+    std::array< T, Storage > m_buffer;
     int m_head;
     int m_tail;
     int m_count;
 
   public:
-    CircularBuffer() :
+    LinearBuffer() :
         m_head(0),
         m_tail(0),
         m_count(0)
@@ -21,20 +22,21 @@ class CircularBuffer
 
     void push( const T& value )
     {
+        assert( m_head < Storage );
         m_buffer[m_head] = value;
-        m_head = ( m_head + 1 ) % Size;
+        m_head++;
         if ( m_count < Size )
         {
             m_count++;
         }
         else {
-            m_tail = ( m_tail + 1 ) % Size;
+            m_tail++;
         }
     }
 
     T& operator[]( int index )
     {
-        int true_index = ( index + m_tail ) % Size;
+        int true_index = ( index + m_tail );
         return m_buffer[true_index];
     }
 
@@ -42,6 +44,11 @@ class CircularBuffer
     {
         return m_count;
     }
+
+    std::array< T, Storage >& get_array()
+    {
+        return m_buffer;
+    }
 };
 
-#endif // __CIRCULAR_BUFFER_H__
+#endif // __LINEAR_BUFFER_H__
