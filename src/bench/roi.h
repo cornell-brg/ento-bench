@@ -111,6 +111,9 @@ void init_roi_tracking()
   if (!is_fold_counter_enabled()) init_fold_counter();
   if (!is_lsu_counter_enabled()) init_lsu_counter();
   if (!is_exc_counter_enabled()) init_exc_counter();
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+  latency_pin_enable();
+#endif
 }
 
 
@@ -125,6 +128,7 @@ void start_roi(void)
   last_lsu_count = 0;
   last_cpi_count = 0;
   last_cycle_count = 0;
+  latency_pin_high();
   enable_all_counters();
   //last_fold_count = get_fold_count();
   //last_exc_count = get_exc_count();
@@ -142,6 +146,7 @@ void end_roi(void)
 #ifdef STM32_BUILD
     //@TODO Disable all in one go.
     disable_all_counters();
+    latency_pin_low();
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_DUMP_RESET_STATS;
 #endif

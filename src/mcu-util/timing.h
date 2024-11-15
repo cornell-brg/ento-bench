@@ -1,59 +1,14 @@
 #ifndef TIMING_H
 #define TIMING_H
 
-//#ifdef __cplusplus
-//extern "C" {
-//#endif
 
 #include "systick_config.h"
 #include <cstdint>
 #include <stdint.h>
-#if defined(STM32G4)
 
-#include <stm32g4xx_ll_cortex.h>
-#include <stm32g4xx_ll_gpio.h>
-#include <stm32g4xx_ll_rcc.h>
+#include <mcu-util/conf.h>
+#include <mcu-util/gpio_util.h>
 
-#include <core_cm4.h>
-
-#elif defined(STM32H7)
-
-#include <stm32h7xx_ll_cortex.h>
-#include <stm32h7xx_ll_gpio.h>
-#include <stm32h7xx_ll_rcc.h>
-
-//#ifndef __CORE_CM7_H_GENERIC
-#include <core_cm7.h>
-//#endif
-
-#elif defined(STM32F7)
-
-#include <stm32f7xx_ll_cortex.h>
-#include <stm32f7xx_ll_gpio.h>
-#include <stm32f7xx_ll_rcc.h>
-
-//#ifndef __CORE_CM7_H_GENERIC
-#include <core_cm7.h>
-
-#elif defined(STM32G0)
-
-#include <stm32g0xx_ll_cortex.h>
-#include <stm32g0xx_ll_gpio.h>
-#include <stm32g0xx_ll_rcc.h>
-
-#include <core_cm0plus.h>
-
-#elif defined(STM32U5)
-
-#include <stm32u5xx_ll_cortex.h>
-#include <stm32u5xx_ll_gpio.h>
-#include <stm32u5xx_ll_rcc.h>
-
-#include <core_cm33.h>
-
-//#endif
-
-#endif // defined(STM{STM_FAMILY})
 
 constexpr uint32_t SYSTICK_INTERVAL_US = 100;
 extern volatile uint32_t lsu_overflow_count;
@@ -150,7 +105,8 @@ inline void SysTick_Handler()
 }
 
 // Check if each counter is enabled
-static inline bool is_dwt_enabled()
+static inline
+bool is_dwt_enabled()
 {
 #if !defined(STM32G0)
   bool en = (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk);
@@ -163,7 +119,8 @@ static inline bool is_dwt_enabled()
 #endif
 }
 
-static inline bool is_cycle_counter_enabled()
+static inline
+bool is_cycle_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk);
@@ -172,7 +129,8 @@ static inline bool is_cycle_counter_enabled()
 #endif
 }
 
-static inline bool is_cpi_counter_enabled()
+static inline
+bool is_cpi_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk);
@@ -181,7 +139,8 @@ static inline bool is_cpi_counter_enabled()
 #endif
 }
 
-static inline bool is_fold_counter_enabled()
+static inline
+bool is_fold_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk);
@@ -190,7 +149,8 @@ static inline bool is_fold_counter_enabled()
 #endif
 }
 
-static inline bool is_lsu_counter_enabled()
+static inline
+bool is_lsu_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk);
@@ -199,7 +159,8 @@ static inline bool is_lsu_counter_enabled()
 #endif
 }
 
-static inline bool is_sleep_counter_enabled()
+static inline
+bool is_sleep_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk);
@@ -208,7 +169,8 @@ static inline bool is_sleep_counter_enabled()
 #endif
 }
 
-static inline bool is_exc_counter_enabled()
+static inline
+bool is_exc_counter_enabled()
 {
 #if !defined(STM32G0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk);
@@ -217,9 +179,8 @@ static inline bool is_exc_counter_enabled()
 #endif
 }
 
-
-
-static inline void init_cycle_counter() {
+static inline
+void init_cycle_counter() {
 #if !defined(STM32G0)
   enable_dwt();
   DWT->CYCCNT = 0;                                // Reset cycle counter
@@ -227,7 +188,8 @@ static inline void init_cycle_counter() {
 #endif
 }
 
-static inline void init_cpi_counter() {
+static inline
+void init_cpi_counter() {
 #if !defined(STM32G0)
   enable_dwt();
   DWT->CPICNT = 0;                                // Reset CPI counter
@@ -235,7 +197,8 @@ static inline void init_cpi_counter() {
 #endif
 }
 
-static inline void init_fold_counter() {
+static inline
+void init_fold_counter() {
 #if !defined(STM32G0)
   enable_dwt();
   DWT->FOLDCNT = 0;                               // Reset folded instruction counter
@@ -243,7 +206,8 @@ static inline void init_fold_counter() {
 #endif
 }
 
-static inline void init_lsu_counter() {
+static inline
+void init_lsu_counter() {
 #if !defined(STM32G0)
   enable_dwt();
   DWT->LSUCNT = 0;                                // Reset LSU counter
@@ -251,7 +215,8 @@ static inline void init_lsu_counter() {
 #endif
 }
 
-static inline void init_sleep_counter()
+static inline
+void init_sleep_counter()
 {
 #if !defined(STM32G0)
   enable_dwt();
@@ -260,7 +225,8 @@ static inline void init_sleep_counter()
 #endif
 }
 
-static inline void init_exc_counter()
+static inline
+void init_exc_counter()
 {
 #if !defined(STM32G0)
   enable_dwt();
@@ -269,10 +235,9 @@ static inline void init_exc_counter()
 #endif
 }
 
-
-
 // Functions to read current metric values
-static inline uint32_t get_cycle_count()
+static inline
+uint32_t get_cycle_count()
 {
 #if !defined(STM32G0)
   return DWT->CYCCNT;
@@ -280,7 +245,9 @@ static inline uint32_t get_cycle_count()
   return 0;
 #endif
 }
-static inline uint32_t get_cpi_count()
+
+static inline
+uint32_t get_cpi_count()
 {
 #if !defined(STM32G0)
   return DWT->CPICNT;
@@ -288,7 +255,9 @@ static inline uint32_t get_cpi_count()
   return 0;
 #endif
 }
-static inline uint32_t get_fold_count()
+
+static inline
+uint32_t get_fold_count()
 { 
 #if !defined(STM32G0)
   return DWT->FOLDCNT;
@@ -296,7 +265,9 @@ static inline uint32_t get_fold_count()
   return 0;
 #endif
 }
-static inline uint32_t get_lsu_count()
+
+static inline
+uint32_t get_lsu_count()
 {
 #if !defined(STM32G0)
   return DWT->LSUCNT;
@@ -304,7 +275,9 @@ static inline uint32_t get_lsu_count()
   return 0;
 #endif
 }
-static inline uint32_t get_sleep_count()
+
+static inline
+uint32_t get_sleep_count()
 {
 #if !defined(STM32G0)
   return DWT->SLEEPCNT;
@@ -312,7 +285,8 @@ static inline uint32_t get_sleep_count()
   return 0;
 #endif
 }
-static inline uint32_t get_exc_count()
+static inline
+uint32_t get_exc_count()
 {
 #if !defined(STM32G0)
   return DWT->EXCCNT;
@@ -321,39 +295,46 @@ static inline uint32_t get_exc_count()
 #endif
 }
 
-static inline uint32_t get_total_lsu_count(void)
+static inline
+uint32_t get_total_lsu_count(void)
 {
   return (lsu_overflow_count * 256) + DWT->LSUCNT;
 }
 
-static inline uint32_t get_total_cpi_count(void)
+static inline
+uint32_t get_total_cpi_count(void)
 {
   return (cpi_overflow_count * 256) + DWT->CPICNT;
 }
 
-static inline uint32_t get_total_fold_count(void)
+static inline
+uint32_t get_total_fold_count(void)
 {
   return (fold_overflow_count * 256) + DWT->FOLDCNT;
 }
 
-static inline uint32_t get_total_sleep_count(void)
+static inline
+uint32_t get_total_sleep_count(void)
 {
   return (sleep_overflow_count * 256) + DWT->SLEEPCNT;
 }
 
-static inline uint32_t get_total_exc_count(void)
+static inline
+uint32_t get_total_exc_count(void)
 {
   return (exc_overflow_count * 256) + DWT->EXCCNT;
 }
 
-static inline void reset_lsu_count()
+static inline
+void reset_lsu_count()
 {
 #if !defined(STM32G0)
   DWT->LSUCNT = 0;
 #endif
 }
 
-static inline void reset_cpi_count()
+static inline
+void reset_cpi_count()
 {
 #if !defined(STM3G0)
   DWT->CPICNT = 0;
@@ -361,13 +342,39 @@ static inline void reset_cpi_count()
 }
 
 // Calculate elapsed cycles between two values
-static inline uint32_t calculate_elapsed(uint32_t start, uint32_t end) {
+static inline
+uint32_t calculate_elapsed(uint32_t start, uint32_t end) {
   return (end >= start) ? (end - start) : (UINT32_MAX - start + end + 1);
 }
 
-static inline uint8_t calculate_elapsed(uint8_t start, uint8_t end) 
+static inline
+uint8_t calculate_elapsed(uint8_t start, uint8_t end) 
 {
   return (end >= start) ? (end - start) : (UINT8_MAX - start + end + 1);
 }
+
+// ================================================
+// GPIO Latency Pin Setup
+
+void latency_pin_enable();
+void latency_pin_disable();
+
+inline void latency_pin_toggle()
+{
+  latency_gpio_port->ODR ^= latency_gpio_pin;
+}
+
+inline void latency_pin_high()
+{
+  latency_gpio_port->BSRR = latency_gpio_pin;
+}
+
+inline void latency_pin_low()
+{
+  latency_gpio_port->BSRR = latency_gpio_pin << 16;
+}
+
+void software_delay_cycles(uint32_t cycles);
+
 
 #endif // TIMING_H

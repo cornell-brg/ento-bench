@@ -1,6 +1,7 @@
 #ifndef HARNESS_HH
 #define HARNESS_HH
 
+#include "mcu-util/timing.h"
 #include <concepts>
 #include <tuple>
 #include <cstdio>
@@ -127,6 +128,8 @@ public:
 
         ROIMetrics metrics = get_roi_stats();
         handle_mode(metrics, i);
+
+        software_delay_cycles(100000);
       }
       print_summary();
     }

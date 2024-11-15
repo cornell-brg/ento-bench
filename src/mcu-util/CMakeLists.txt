@@ -10,6 +10,7 @@ if(STM32_BUILD)
     pwr_util.c
     cache_util.cc
     timing.cc
+    gpio_util.cc
   )
 
   message(STATUS "HAL RCC Target: ${HAL_RCC_TARGET}")

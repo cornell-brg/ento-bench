@@ -43,6 +43,10 @@ if(STM32_BUILD)
   find_program(ARM_GCC arm-none-eabi-gcc)
   find_program(ARM_GXX arm-none-eabi-g++)
 
+  if(LATENCY_MEASUREMENT)
+    add_definitions(-DLATENCY_MEASUREMENT)
+  endif()
+
   if(ARM_GCC AND ARM_GXX)
     get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_GCC}" DIRECTORY)
     get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_TOOLCHAIN_BASE}" DIRECTORY)
