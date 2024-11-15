@@ -123,11 +123,13 @@ void start_roi(void)
 #ifdef STM32_BUILD
   //@TODO Disable Clear it Enable it. All in one go
   disable_and_reset_all_counters(); // Disables and resets counters
+#if !defined(STM32G0)
   last_fold_count = 0;
   last_exc_count = 0;
   last_lsu_count = 0;
   last_cpi_count = 0;
   last_cycle_count = 0;
+#endif
   latency_pin_high();
   enable_all_counters();
   //last_fold_count = get_fold_count();
@@ -162,6 +164,7 @@ ROIMetrics get_roi_stats(void)
   uint32_t current_lsu_count = get_lsu_count();
   uint32_t current_exc_count = get_exc_count();
 
+#if !defined(STM32G0)
   // Calculate deltas and populate the struct
   ROIMetrics metrics = {
     .elapsed_cycles = calculate_elapsed(last_cycle_count, current_cycle_count),
@@ -170,6 +173,9 @@ ROIMetrics get_roi_stats(void)
     .delta_lsu = calculate_elapsed(last_lsu_count, current_lsu_count),
     .delta_exc = calculate_elapsed(last_exc_count, current_exc_count)
   };
+#else
+  ROIMetrics metrics = {};
+#endif
   return metrics;
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   ROIMetrics metrics = {};

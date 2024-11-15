@@ -1,4 +1,5 @@
 #include "clk_util.h"
+#include <stm32g0xx_ll_bus.h>
 
 uint32_t get_sys_clk_freq(void)
 {
@@ -241,6 +242,8 @@ void sys_clk_cfg()
   LL_SetSystemCoreClock(216000000);
 
 #elif defined(STM32G0)
+  //LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
+  //LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
   LL_FLASH_SetLatency(LL_FLASH_LATENCY_2);
   while(LL_FLASH_GetLatency() != LL_FLASH_LATENCY_2)
   {

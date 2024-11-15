@@ -5,7 +5,6 @@
 #include "mcu-util/flash_util.h"
 #include "mcu-util/clk_util.h"
 #include <bench/roi.h>
-#include "mcu-util/pwr_util.h"
 #include <Eigen/Dense>
 
 extern "C" void initialise_monitor_handles(void);
@@ -27,11 +26,11 @@ void __attribute__((noinline)) add64x8()
     "add r4, r4, #1  \n"   // Add 1 to r4
     "add r5, r5, #1  \n"   // Add 1 to r5
     "add r6, r6, #1  \n"   // Add 1 to r6
-    "add r3, r3, #1  \n"   // Add 1 to r7
+    "add r7, r7, #1  \n"   // Add 1 to r7
     ".endr            \n"   // End repeat block
     : // No outputs
     : // No inputs
-    : "r0", "r1", "r2", "r3", "r4", "r5", "r6"   // Clobbered registers
+    : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
   end_roi();
 }
@@ -48,11 +47,11 @@ void __attribute__((noinline)) add4x8()
     "add r4, r4, #1  \n"   // Add 1 to r4
     "add r5, r5, #1  \n"   // Add 1 to r5
     "add r6, r6, #1  \n"   // Add 1 to r6
-    "add r3, r3, #1  \n"   // Add 1 to r7
+    "add r7, r7, #1  \n"   // Add 1 to r7
     ".endr            \n"   // End repeat block
     : // No outputs
     : // No inputs
-    : "r0", "r1", "r2", "r3", "r4", "r5", "r6"  // Clobbered registers
+    : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
   end_roi();
 }
@@ -60,10 +59,11 @@ void __attribute__((noinline)) add4x8()
 void __attribute__((noinline)) add4096x8()
 {
   start_roi();
+#if !defined(STM32G0)
   constexpr int reps = 128;
   for (int i = 0; i < reps; i++)
     asm volatile (
-      ".rept 64       \n"   // Repeat 8 times
+      ".rept 32       \n"   // Repeat 8 times
       "add r0, r0, #1  \n"   // Add 1 to r0
       "add r1, r1, #1  \n"   // Add 1 to r1
       "add r2, r2, #1  \n"   // Add 1 to r2
@@ -71,12 +71,32 @@ void __attribute__((noinline)) add4096x8()
       "add r4, r4, #1  \n"   // Add 1 to r4
       "add r5, r5, #1  \n"   // Add 1 to r5
       "add r6, r6, #1  \n"   // Add 1 to r6
-      "add r3, r3, #1  \n"   // Add 1 to r7
+      "add r7, r7, #1  \n"   // Add 1 to r7
       ".endr           \n"   // End repeat block
       : // No outputs
       : // No inputs
-      : "r0", "r1", "r2", "r3", "r4", "r5", "r6"  // Clobbered registers
+      : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
     );
+#else
+  constexpr int reps = 512;
+  for (int i = 0; i < reps; i++)
+    asm volatile (
+      ".rept 8       \n"   // Repeat 8 times
+      "add r0, r0, #1  \n"   // Add 1 to r0
+      "add r1, r1, #1  \n"   // Add 1 to r1
+      "add r2, r2, #1  \n"   // Add 1 to r2
+      "add r3, r3, #1  \n"   // Add 1 to r3
+      "add r4, r4, #1  \n"   // Add 1 to r4
+      "add r5, r5, #1  \n"   // Add 1 to r5
+      "add r6, r6, #1  \n"   // Add 1 to r6
+      "add r7, r7, #1  \n"   // Add 1 to r7
+      ".endr           \n"   // End repeat block
+      : // No outputs
+      : // No inputs
+      : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
+    );
+
+#endif
   end_roi();
 
 }

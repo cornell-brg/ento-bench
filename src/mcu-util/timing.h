@@ -1,8 +1,7 @@
 #ifndef TIMING_H
 #define TIMING_H
 
-
-#include "systick_config.h"
+//#include "systick_config.h"
 #include <cstdint>
 #include <stdint.h>
 
@@ -37,6 +36,7 @@ static inline void disable_dwt()
 
 static inline void enable_all_counters()
 {
+#if !defined(STM32G0)
   enable_dwt();
   DWT->CTRL = (DWT_CTRL_CYCCNTENA_Msk  |
                DWT_CTRL_EXCEVTENA_Msk  |
@@ -44,6 +44,7 @@ static inline void enable_all_counters()
                DWT_CTRL_LSUEVTENA_Msk  |
                DWT_CTRL_FOLDEVTENA_Msk |
                DWT_CTRL_SLEEPEVTENA_Msk);
+#endif
 }
 
 static inline void disable_all_counters()
@@ -75,6 +76,7 @@ inline void init_systick(void)
 
 inline void SysTick_Handler()
 {
+#if !defined(STM32G0)
   static uint8_t last_lsu_count = 0;
   static uint8_t last_cpi_count = 0;
   static uint8_t last_exc_count = 0;
@@ -102,6 +104,7 @@ inline void SysTick_Handler()
   last_sleep_count = DWT->SLEEPCNT;
 
   enable_all_counters();
+#endif
 }
 
 // Check if each counter is enabled
@@ -298,31 +301,51 @@ uint32_t get_exc_count()
 static inline
 uint32_t get_total_lsu_count(void)
 {
+#if !defined(STM32G0)
   return (lsu_overflow_count * 256) + DWT->LSUCNT;
+#else
+  return 0;
+#endif
 }
 
 static inline
 uint32_t get_total_cpi_count(void)
 {
+#if !defined(STM32G0)
   return (cpi_overflow_count * 256) + DWT->CPICNT;
+#else
+  return 0;
+#endif
 }
 
 static inline
 uint32_t get_total_fold_count(void)
 {
+#if !defined(STM32G0)
   return (fold_overflow_count * 256) + DWT->FOLDCNT;
+#else
+  return 0;
+#endif
 }
 
 static inline
 uint32_t get_total_sleep_count(void)
 {
+#if !defined(STM32G0)
   return (sleep_overflow_count * 256) + DWT->SLEEPCNT;
+#else
+  return 0;
+#endif
 }
 
 static inline
 uint32_t get_total_exc_count(void)
 {
+#if !defined(STM32G0)
   return (exc_overflow_count * 256) + DWT->EXCCNT;
+#else
+  return 0;
+#endif
 }
 
 static inline
@@ -336,7 +359,7 @@ void reset_lsu_count()
 static inline
 void reset_cpi_count()
 {
-#if !defined(STM3G0)
+#if !defined(STM32G0)
   DWT->CPICNT = 0;
 #endif
 }

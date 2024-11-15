@@ -2,7 +2,6 @@
 #define GPIO_UTIL_H
 
 #include <mcu-util/conf.h>
-#include <stm32u575xx.h>
 
 enum GPIO_Mode {
   Input,

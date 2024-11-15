@@ -13,8 +13,8 @@
 
 #include <core_cm4.h>
 
-inline const GPIO_TypeDef* latency_gpio_port = GPIOA;
-inline const uint32_t      latency_gpio_pin  = 8;
+inline GPIO_TypeDef*       latency_gpio_port = GPIOA;
+inline uint32_t            latency_gpio_pin  = LL_GPIO_PIN_8;
 inline const uint32_t      gpio_port_a_rcc   = RCC_AHB2ENR_GPIOAEN;
 inline const uint32_t      gpio_port_b_rcc   = RCC_AHB2ENR_GPIOBEN;
 inline const uint32_t      gpio_port_c_rcc   = RCC_AHB2ENR_GPIOCEN;
@@ -35,8 +35,8 @@ inline const uint32_t      gpio_port_g_rcc   = RCC_AHB2ENR_GPIOGEN;
 
 #include <core_cm7.h>
 
-inline const GPIO_TypeDef* latency_gpio_port = GPIOG:
-inline const uint32_t      latency_gpio_pin  = 12;
+inline GPIO_TypeDef*       latency_gpio_port = GPIOG:
+inline uint32_t            latency_gpio_pin  = LL_GPIO_PIN_12;
 inline const uint32_t      gpio_port_a_rcc   = RCC_AHB4ENR_GPIOAEN;
 inline const uint32_t      gpio_port_b_rcc   = RCC_AHB4ENR_GPIOBEN;
 inline const uint32_t      gpio_port_c_rcc   = RCC_AHB4ENR_GPIOCEN;
@@ -62,8 +62,8 @@ inline const uint32_t      gpio_port_k_rcc   = RCC_AHB4ENR_GPIOKEN;
 
 #include <core_cm7.h>
 
-inline const GPIO_TypeDef* latency_gpio_port = GPIOF;
-inline const uint32_t      latency_gpio_pin  = 13;
+inline GPIO_TypeDef*       latency_gpio_port  = GPIOF;
+inline uint32_t            latency_gpio_pin   = LL_GPIO_PIN_13;
 inline const uint32_t      gpio_port_a_rcc    = RCC_AHB1ENR_GPIOAEN;
 inline const uint32_t      gpio_port_b_rcc    = RCC_AHB1ENR_GPIOBEN;
 inline const uint32_t      gpio_port_c_rcc    = RCC_AHB1ENR_GPIOCEN;
@@ -87,16 +87,18 @@ inline const uint32_t      gpio_port_k_rcc    = RCC_AHB1ENR_GPIOKEN;
 #include <stm32g0xx_ll_utils.h>
 #include <stm32g0xx_ll_pwr.h>
 
-#include <core_cm4.h>
+#include <core_cm0plus.h>
 
-inline const GPIO_TypeDef* latency_gpio_port = GPIOA;
-inline const uint32_t      latency_gpio_pin  = 8;
-inline const uint32_t      gpio_port_a_rcc    = RCC_IOPENR_GPIOAEN;
-inline const uint32_t      gpio_port_b_rcc    = RCC_IOPENR_GPIOBEN;
-inline const uint32_t      gpio_port_c_rcc    = RCC_IOPENR_GPIOCEN;
-inline const uint32_t      gpio_port_d_rcc    = RCC_IOPENR_GPIODEN;
-inline const uint32_t      gpio_port_e_rcc    = RCC_IOPENR_GPIOEEN;
-inline const uint32_t      gpio_port_f_rcc    = RCC_IOPENR_GPIOFEN;
+// Assembler errors due to large offsets needed to access
+// global inline const vars. Stupid...
+#define latency_gpio_port GPIOA
+#define latency_gpio_pin LL_GPIO_PIN_8
+#define gpio_port_a_rcc RCC_IOPENR_GPIOAEN
+#define gpio_port_b_rcc RCC_IOPENR_GPIOBEN
+#define gpio_port_c_rcc RCC_IOPENR_GPIOCEN
+#define gpio_port_d_rcc RCC_IOPENR_GPIODEN
+#define gpio_port_e_rcc RCC_IOPENR_GPIOEEN
+#define gpio_port_f_rcc RCC_IOPENR_GPIOFEN
                             
 #elif defined(STM32U5)      
                             

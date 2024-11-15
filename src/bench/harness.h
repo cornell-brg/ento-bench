@@ -117,6 +117,9 @@ public:
         ROIMetrics metrics = get_roi_stats();
         handle_mode(metrics, i);
         results[i] = result;
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+        software_delay_cycles(100000);
+#endif
       }
       print_summary();
       return results;
@@ -129,7 +132,9 @@ public:
         ROIMetrics metrics = get_roi_stats();
         handle_mode(metrics, i);
 
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         software_delay_cycles(100000);
+#endif
       }
       print_summary();
     }
