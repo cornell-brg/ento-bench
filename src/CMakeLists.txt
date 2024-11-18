@@ -9,7 +9,7 @@ target_include_directories(image_io
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-add_subdirectory(mcu-util)
+add_subdirectory(ento-mcu)
 if(STM32_BUILD)
   target_include_directories(mcu-util
     PUBLIC
@@ -37,7 +37,7 @@ else()
   #)
 endif()
 # Bench is an interface for now, no source files, header only
-add_subdirectory(bench)
+add_subdirectory(ento-bench)
 target_include_directories(bench
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -50,7 +50,7 @@ target_include_directories(ento_math
   ${EIGEN_DIR}
 )
 
-add_subdirectory(feature2d)
+add_subdirectory(ento-feature2d)
 
 add_subdirectory(ento-util)
 target_include_directories(ento_util

@@ -15,6 +15,11 @@ function(add_arm_semihosting_executable TARGET_NAME)
     "-lrdimon"
   )
 
+  target_compile_definitions(${TARGET_NAME}
+    PRIVATE
+    SEMIHOSTING
+  )
+
   # Include Eigen if it's one of the libraries
   if("Eigen" IN_LIST ARG_LIBRARIES)
     target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
@@ -29,6 +34,35 @@ function(add_arm_semihosting_executable TARGET_NAME)
     mcu-util
   )
 endfunction()
+
+function(add_arm_executable TARGET_NAME)
+  # Extract source files and libs from arguments
+  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
+  
+  add_executable(${TARGET_NAME} ${ARG_SOURCES})
+
+  target_link_options(${TARGET_NAME}
+    PRIVATE
+    "--specs=nano.specs"
+    "--specs=nosys.specs"
+  )
+
+  # Include Eigen if it's one of the libraries
+  if("Eigen" IN_LIST ARG_LIBRARIES)
+    target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+  endif()
+
+  message(STATUS "[ARM non semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
+  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
+  target_link_libraries(${TARGET_NAME}
+    PUBLIC
+    ${ARG_LIBRARIES}
+    #mcu-util
+  )
+
+endfunction()
+
 
 
 function(add_arm_baremetal_gem5_se_executable TARGET_NAME)
@@ -102,6 +136,10 @@ function(add_benchmark TARGET_NAME)
       SOURCES ${SOURCE_FILE}
       LIBRARIES ${ARG_LIBRARIES}
     )
+    add_arm_executable(${TARGET_NAME}-no-semihosting
+      SOURCES ${SOURCE_FILE}
+      LIBRARIES ${ARG_LIBRARIES})
+
   elseif(GEM5_BUILD)
     add_arm_baremetal_gem5_se_executable(${TARGET_NAME}
       SOURCES ${SOURCE_FILE}
@@ -159,6 +197,35 @@ function(add_stm32_flash_and_debug_targets target_name)
       -c "reset halt"
     DEPENDS ${target_name}
     COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
+  )
+endfunction()
+
+function(add_stm32_no_semihosting_flash_targets target_name)
+  # Flash target without semihosting
+  add_custom_target(stm32-flash-${target_name}
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
+      -c "init"
+      -c "reset halt"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset run"
+      -c "exit"
+    DEPENDS ${target_name}
+    COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG}) without semihosting"
+  )
+
+  # Debug target without semihosting
+  add_custom_target(stm32-debug-${target_name}
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
+      -c "init"
+      -c "reset halt"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset halt"
+    DEPENDS ${target_name}
+    COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG} without semihosting"
   )
 endfunction()
 

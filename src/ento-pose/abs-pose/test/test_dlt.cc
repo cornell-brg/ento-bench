@@ -8,7 +8,7 @@
 #include <ento-util/pose_est_reader.h>
 
 #include <ento-pose/abs-pose/dlt.h>
-#include <feature2d/util.h>
+#include <ento-feature2d/feat2d_util.h>
 
 
 using namespace std;

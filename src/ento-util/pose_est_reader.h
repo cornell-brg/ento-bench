@@ -7,7 +7,7 @@
 
 #include <Eigen/Dense>
 
-#include "ento-util/debug.h"
+#include <ento-util/debug.h>
 
 enum DataLoaderExitCode
 {

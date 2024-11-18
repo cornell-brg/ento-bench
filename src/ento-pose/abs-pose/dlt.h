@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <ento-math/svd.h>
+#include <ento-math/core.h>
 
 
 template <typename Scalar, int N>

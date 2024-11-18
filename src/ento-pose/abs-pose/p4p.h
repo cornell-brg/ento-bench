@@ -2,6 +2,7 @@
 #define P4P_HH
 
 #include <Eigen/Dense>
+#include <ento-pose/pose_util.h>
 
 namespace EntoPose
 {
@@ -31,20 +32,7 @@ Eigen::Matrix<Scalar, 3, 3>
 p4p_dlt_ho(const Eigen::Matrix<Scalar, Eigen::Dynamic, 2, Order, MaxPoints, 2>& points2d,
               const Eigen::Matrix<Scalar, Eigen::Dynamic, 3, Order, MaxPoints, 3>& points3d);
 
-
-template <typename Scalar, int Order>
-Eigen::Matrix<Scalar, 3, 3>
-p4p_aca(const Eigen::Matrix<Scalar, 4, 2, Order>& xprime,
-        const Eigen::Matrix<Scalar, 4, 3, Order>& x);
-
-template <typename Scalar, int Order>
-Eigen::Matrix<Scalar, 3, 3>
-p4p_sks(const Eigen::Matrix<Scalar, 4, 2, Order> &xprime,
-        const Eigen::Matrix<Scalar, 4, 3, Order> &x);
-
-
-}
-
+} // namespace EntoPose
 
 
 

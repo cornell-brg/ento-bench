@@ -1,13 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "bench/harness.h"
-#include "mcu-util/cache_util.h"
-#include "mcu-util/flash_util.h"
-#include "mcu-util/clk_util.h"
-#include <bench/roi.h>
+#include <ento-bench/harness.h>
+#include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
+#include <ento-mcu/clk_util.h>
+#include <ento-bench/roi.h>
 #include <Eigen/Dense>
 
+#if defined(SEMIHOSTING)
 extern "C" void initialise_monitor_handles(void);
+#endif
 
 void __attribute__((noinline)) hello_host_computer()
 {
@@ -104,7 +106,9 @@ void __attribute__((noinline)) add4096x8()
 int main()
 {
   using namespace bench;
+#if defined(SEMIHOSTING)
   initialise_monitor_handles();
+#endif
 
   bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;
 
