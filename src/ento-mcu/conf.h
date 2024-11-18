@@ -70,7 +70,7 @@
 
 #include <core_cm7.h>
 
-#define latency_gpio_port GPIOF;
+#define latency_gpio_port GPIOF
 #define  latency_gpio_pin LL_GPIO_PIN_14
 
 #define trigger_gpio_port GPIOF

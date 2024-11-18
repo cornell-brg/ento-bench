@@ -156,15 +156,15 @@ bool gpio_is_clock_enabled(GPIO_TypeDef *gpio_port)
   else if (gpio_port == GPIOI) return LL_AHB2_GRP1_IsEnabledClock(LL_AHB4_GRP1_PERIPH_GPIOI);
   else                         return false;
 #elif defined(STM32F7)
-  if      (gpio_port == GPIOA) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOA);
-  else if (gpio_port == GPIOB) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOB);
-  else if (gpio_port == GPIOC) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOC);
-  else if (gpio_port == GPIOD) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOD);
-  else if (gpio_port == GPIOE) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOE);
-  else if (gpio_port == GPIOF) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOF);
-  else if (gpio_port == GPIOG) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOG);
-  else if (gpio_port == GPIOH) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOH);
-  else if (gpio_port == GPIOI) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOI);
+  if      (gpio_port == GPIOA) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOF);
+  else if (gpio_port == GPIOG) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOG);
+  else if (gpio_port == GPIOH) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOH);
+  else if (gpio_port == GPIOI) return LL_AHB1_GRP1_IsEnabledClock(LL_AHB1_GRP1_PERIPH_GPIOI);
   else                         return false;
 #elif defined(STM32U5)
   if      (gpio_port == GPIOA) return LL_AHB2_GRP2_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOA);
@@ -214,15 +214,15 @@ void gpio_enable_clock(GPIO_TypeDef *gpio_port)
   else if (gpio_port == GPIOI)  LL_AHB2_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOI);
   else                          return;
 #elif defined(STM32F7)
-  if      (gpio_port == GPIOA)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
-  else if (gpio_port == GPIOB)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
-  else if (gpio_port == GPIOC)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
-  else if (gpio_port == GPIOD)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOD);
-  else if (gpio_port == GPIOE)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOE);
-  else if (gpio_port == GPIOF)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOF);
-  else if (gpio_port == GPIOG)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOG);
-  else if (gpio_port == GPIOH)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOH);
-  else if (gpio_port == GPIOI)  LL_AHB1_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOI);
+  if      (gpio_port == GPIOA)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOF);
+  else if (gpio_port == GPIOG)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOG);
+  else if (gpio_port == GPIOH)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOH);
+  else if (gpio_port == GPIOI)  LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOI);
   else                          return;
 #elif defined(STM32U5)
   if      (gpio_port == GPIOA)  LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
@@ -273,15 +273,15 @@ void gpio_disable_clock(GPIO_TypeDef *gpio_port)
   else if (gpio_port == GPIOI)  LL_AHB2_GRP1_DisableClock(LL_AHB4_GRP1_PERIPH_GPIOI);
   else                          return;
 #elif defined(STM32F7)
-  if      (gpio_port == GPIOA)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
-  else if (gpio_port == GPIOB)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
-  else if (gpio_port == GPIOC)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOC);
-  else if (gpio_port == GPIOD)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOD);
-  else if (gpio_port == GPIOE)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOE);
-  else if (gpio_port == GPIOF)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOF);
-  else if (gpio_port == GPIOG)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOG);
-  else if (gpio_port == GPIOH)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOH);
-  else if (gpio_port == GPIOI)  LL_AHB1_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOI);
+  if      (gpio_port == GPIOA)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOF);
+  else if (gpio_port == GPIOG)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOG);
+  else if (gpio_port == GPIOH)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOH);
+  else if (gpio_port == GPIOI)  LL_AHB1_GRP1_DisableClock(LL_AHB1_GRP1_PERIPH_GPIOI);
   else                          return;
 #elif defined(STM32U5)
   if      (gpio_port == GPIOA)  LL_AHB2_GRP2_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
