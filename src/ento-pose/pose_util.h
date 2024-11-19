@@ -180,27 +180,43 @@ struct CameraPose
 {
   // Rotation is represented as a unit quaternion
   // with real part first, i.e. QW, QX, QY, QZ
-  Eigen::Vector4d q;
+  Vec4<Scalar> q;
   Vec3<Scalar> t;
 
   // Constructors (Defaults to identity camera)
   CameraPose() : q(1.0, 0.0, 0.0, 0.0), t(0.0, 0.0, 0.0) {}
   CameraPose(const Eigen::Vector4d &qq, const Vec3<Scalar> &tt) : q(qq), t(tt) {}
-  CameraPose(const Matrix3x3<Scalar> &R, const Vec3<Scalar> &tt) : q(rotmat_to_quat(R)), t(tt) {}
+  CameraPose(const Matrix3x3<Scalar> &R, const Vec3<Scalar> &tt) : q(rotmat_to_quat<Scalar>(R)), t(tt) {}
 
   // Helper functions
-  inline Matrix3x3<Scalar> R() const { return quat_to_rotmat(q); }
+  inline Matrix3x3<Scalar> R() const { return quat_to_rotmat<Scalar>(q); }
   inline Eigen::Matrix<Scalar, 3, 4> Rt() const {
       Eigen::Matrix<Scalar, 3, 4> tmp;
-      tmp.block<3, 3>(0, 0) = quat_to_rotmat(q);
+      tmp.block<3, 3>(0, 0) = quat_to_rotmat<Scalar>(q);
       tmp.col(3) = t;
       return tmp;
   }
-  inline Vec3<Scalar> rotate(const Vec3<Scalar> &p) const { return quat_rotate(q, p); }
-  inline Vec3<Scalar> derotate(const Vec3<Scalar> &p) const { return quat_rotate(quat_conj(q), p); }
+  inline Vec3<Scalar> rotate(const Vec3<Scalar> &p) const { return quat_rotate<Scalar>(q, p); }
+  inline Vec3<Scalar> derotate(const Vec3<Scalar> &p) const { return quat_rotate<Scalar>(quat_conj(q), p); }
   inline Vec3<Scalar> apply(const Vec3<Scalar> &p) const { return rotate(p) + t; }
 
   inline Vec3<Scalar> center() const { return -derotate(t); }
+};
+
+template <typename Scalar>
+struct alignas(32) ImagePair {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  // Struct simply holds information about two cameras and their relative pose
+  CameraPose<Scalar> pose;
+  Camera<Scalar> camera1;
+  Camera<Scalar> camera2;
+
+  // Constructors (Defaults to identity camera and poses)
+  ImagePair() : pose(CameraPose<Scalar>()),
+                camera1(Camera<Scalar>()),
+                camera2(Camera<Scalar>()) {}
+  ImagePair(CameraPose<Scalar> pose, Camera<Scalar> camera1, Camera<Scalar> camera2)
+      : pose(std::move(pose)), camera1(std::move(camera1)), camera2(std::move(camera2)) {}
 };
 
 // =======================================================
@@ -355,7 +371,7 @@ inline bool root2real(Scalar b,
   Scalar v = b * b - 4.0 * c;
   if (v < THRESHOLD)
   {
-    r1 = Scalar(r2) = Scalar(-0.5) * b;
+    r1 = r2 = Scalar(-0.5) * b;
     return v >= 0;
   }
   if (v > THRESHOLD && v < Scalar(0.0))
@@ -524,7 +540,7 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   Vt.row(2) = Vt.row(0).cross(Vt.row(1));
 
   CameraPose<Scalar> pose;
-  pose.q = rotmat_to_quat(UW * Vt);
+  pose.q = rotmat_to_quat<Scalar>(UW * Vt);
   pose.t = UW.col(2);
   if (check_cheirality(pose, x1, x2))
   {
@@ -538,7 +554,7 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
 
   // U * W.transpose()
   UW.block<3, 2>(0, 0) = -UW.block<3, 2>(0, 0);
-  pose.q = rotmat_to_quat(UW * Vt);
+  pose.q = rotmat_to_quat<Scalar>(UW * Vt);
   if (check_cheirality(pose, x1, x2)) 
   {
     relative_poses->emplace_back(pose);
@@ -567,7 +583,7 @@ void motion_from_essential_planar(Scalar e01,
   CameraPose<Scalar> pose;
   Matrix3x3<Scalar> R;
   R << z(0), 0.0, -z(1), 0.0, 1.0, 0.0, z(1), 0.0, z(0);
-  pose.q = rotmat_to_quat(R);
+  pose.q = rotmat_to_quat<Scalar>(R);
   pose.t << e21, 0.0, -e01;
   pose.t.normalize();
 
@@ -625,7 +641,7 @@ void motion_from_essential_svd(const Matrix3x3<Scalar> &E,
   if (relative_poses)
   {
     CameraPose<Scalar> pose;
-    pose.q = rotmat_to_quat(R[0]);
+    pose.q = rotmat_to_quat<Scalar>(R[0]);
     pose.t = t[0];
     if (check_cheirality(pose, x1, x2))
     {
@@ -638,7 +654,7 @@ void motion_from_essential_svd(const Matrix3x3<Scalar> &E,
       relative_poses->emplace_back(pose);
     }
 
-    pose.q = rotmat_to_quat(R[1]);
+    pose.q = rotmat_to_quat<Scalar>(R[1]);
     pose.t = t[0];
     if (check_cheirality(pose, x1, x2))
     {
