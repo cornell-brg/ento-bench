@@ -229,6 +229,7 @@ set(UB_DIR ubench)
 set(SANDBOX_DIR sandbox)
 set(BENCHMARK_DIR benchmark)
 set(EXAMPLE_DIR example)
+set(UBMARK_DIR ubmark)
 
 # Get GSL lib. This depends on the arch we are building for.
 # Figure out arch
@@ -254,6 +255,7 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
+add_subdirectory(${UBMARK_DIR})
 
 
 if(BUILD_H7A3ZIQ)
