@@ -13,9 +13,13 @@ int main()
     StatesType states_1;
     StatesType states_5;
     StatesType states_10;
-    FgChainUnicycleStateEst< float, 10, StatesType, 5 > estimator_1;
-    FgChainUnicycleStateEst< float, 10, StatesType, 5 > estimator_5;
-    FgChainUnicycleStateEst< float, 10, StatesType, 5 > estimator_10;
+    StatesType states_50;
+    StatesType states_100;
+    FgChainUnicycleStateEst< float, 10, StatesType,   1 > estimator_1;
+    FgChainUnicycleStateEst< float, 10, StatesType,   5 > estimator_5;
+    FgChainUnicycleStateEst< float, 10, StatesType,  10 > estimator_10;
+    FgChainUnicycleStateEst< float, 10, StatesType,  50 > estimator_50;
+    FgChainUnicycleStateEst< float, 10, StatesType, 100 > estimator_100;
 
     for ( int i = 0; i < path_len; i++ ) {
         estimator_1.update( states_1, observations[i], 1 );
@@ -27,6 +31,14 @@ int main()
 
     for ( int i = 0; i < path_len; i++ ) {
         estimator_10.update( states_10, observations[i], 1 );
+    }
+
+    for ( int i = 0; i < path_len; i++ ) {
+        estimator_50.update( states_50, observations[i], 1 );
+    }
+
+    for ( int i = 0; i < path_len; i++ ) {
+        estimator_100.update( states_100, observations[i], 1 );
     }
 
     auto state_array = states_1.get_array();
@@ -54,4 +66,23 @@ int main()
         printf( "  %10f %10f %10f %10f\n",
                 state_array[i](0), state_array[i](1), state_array[i](2), state_array[i](3) );
     }
+    printf( "\n" );
+
+    state_array = states_50.get_array();
+    printf( "final state iter=50:\n" );
+    printf( "           x          y          v      theta\n" );
+    for ( int i = 0; i < state_array.size(); i++ ) {
+        printf( "  %10f %10f %10f %10f\n",
+                state_array[i](0), state_array[i](1), state_array[i](2), state_array[i](3) );
+    }
+    printf( "\n" );
+
+    state_array = states_100.get_array();
+    printf( "final state iter=100:\n" );
+    printf( "           x          y          v      theta\n" );
+    for ( int i = 0; i < state_array.size(); i++ ) {
+        printf( "  %10f %10f %10f %10f\n",
+                state_array[i](0), state_array[i](1), state_array[i](2), state_array[i](3) );
+    }
+    printf( "\n" );
 }

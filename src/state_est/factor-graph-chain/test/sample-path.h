@@ -90,4 +90,5 @@ std::array< Eigen::Matrix< float, 2, 1 >, path_len > observations = {{
     { 21.95859411,   0.659641641 },
     { 22.52301526,   0.030159376 }
 }};
+
 #endif // __SIMPLE_PATH_H__

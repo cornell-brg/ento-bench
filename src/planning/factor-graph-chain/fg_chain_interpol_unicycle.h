@@ -3,6 +3,8 @@
 
 #include <Eigen/Dense>
 
+#define M_PI 3.14159265358979323846
+
 template< typename Scalar, int nstates >
 class FgChainInterpolUnicycle
 {
