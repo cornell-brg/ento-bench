@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 3.16.0)
 get_filename_component(STM32_CMAKE_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 list(APPEND CMAKE_MODULE_PATH ${STM32_CMAKE_DIR})
 
+add_definitions(-DSTM32G4)
+add_definitions(-DPWR)
+add_definitions(-DLL_USE_FULL_DRIVER)
+add_definitions(-DUSE_FULL_LL_DRIVER)
+
 include(stm32/common)
 include(stm32/devices)
 
@@ -31,24 +36,22 @@ endif()
 
 if(NOT STM_PRODUCT)
   set(STM_PRODUCT G474RE)
+  set(STM_TYPE G474xx)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM_FAMILY_LONG_NAME)
-message("STM_FAMILY_LONG_NAME=${STM_FAMILY_LONG_NAME}")
-
-message("FETCH_ST_SOURCES=${FETCH_ST_SOURCES}")
 if (FETCH_ST_SOURCES)
   stm32_fetch_cmsis(G4)
   stm32_fetch_hal(G4)
 endif()
 
-message("LONG_NAME ${STM_FAMILY_LONG_NAME}")
-
 set(CMAKE_SYSTEM_PROCESSOR armv7e-m)
 
-add_definitions(-DSTM32G4)
 # Ensure we have the HAL and CMSIS libraries
 #find_package(CMSIS REQUIRED ${STM_FAMILY_LONG_NAME})
 #find_package(HAL REQUIRED ${STM_FAMILY_LONG_NAME})
+
+# Set the chip model (e.g., STM32G474RE) if not explicitly provided
+set(STM32_CHIP "STM32G474RE" CACHE STRING "Specify the STM32 chip model (e.g., STM32G474RE)")
 
 

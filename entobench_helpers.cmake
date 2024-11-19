@@ -15,10 +15,15 @@ function(add_arm_semihosting_executable TARGET_NAME)
     "-lrdimon"
   )
 
+  target_compile_definitions(${TARGET_NAME}
+    PRIVATE
+    SEMIHOSTING
+  )
+
   # Include Eigen if it's one of the libraries
   if("Eigen" IN_LIST ARG_LIBRARIES)
     target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
-    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
   message("[ARM semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
@@ -29,6 +34,35 @@ function(add_arm_semihosting_executable TARGET_NAME)
     mcu-util
   )
 endfunction()
+
+function(add_arm_executable TARGET_NAME)
+  # Extract source files and libs from arguments
+  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
+  
+  add_executable(${TARGET_NAME} ${ARG_SOURCES})
+
+  target_link_options(${TARGET_NAME}
+    PRIVATE
+    "--specs=nano.specs"
+    "--specs=nosys.specs"
+  )
+
+  # Include Eigen if it's one of the libraries
+  if("Eigen" IN_LIST ARG_LIBRARIES)
+    target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
+  endif()
+
+  message(STATUS "[ARM non semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
+  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
+  target_link_libraries(${TARGET_NAME}
+    PUBLIC
+    ${ARG_LIBRARIES}
+    #mcu-util
+  )
+
+endfunction()
+
 
 
 function(add_arm_baremetal_gem5_se_executable TARGET_NAME)
@@ -102,6 +136,10 @@ function(add_benchmark TARGET_NAME)
       SOURCES ${SOURCE_FILE}
       LIBRARIES ${ARG_LIBRARIES}
     )
+    add_arm_executable(${TARGET_NAME}-no-semihosting
+      SOURCES ${SOURCE_FILE}
+      LIBRARIES ${ARG_LIBRARIES})
+
   elseif(GEM5_BUILD)
     add_arm_baremetal_gem5_se_executable(${TARGET_NAME}
       SOURCES ${SOURCE_FILE}
@@ -136,31 +174,58 @@ function(add_stm32_flash_and_debug_targets target_name)
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
       -c "reset halt"
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify reset"
-      -c "arm semihosting_cmdline --shutdown-on-exit"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset"
     DEPENDS ${target_name}
-    COMMENT "Flashing ${target_name} to target (${STM32_DEVICE})"
+    COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
   )
 
-  # Debug target
+  # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${STM32_DEVICE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
       -c "reset halt"
+      -c "arm semihosting_cmdline '12'" # 12 to see how strings are passed by semihosting
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify reset halt"
-    COMMAND arm-none-eabi-gdb
-      -ex "target remote localhost:3333"
-      -ex "monitor reset halt"
-      -ex "load" $<TARGET_FILE:${target_name}>
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset halt"
     DEPENDS ${target_name}
-    COMMENT "Starting debug session for ${target_name} on ${STM32_DEVICE}"
+    COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
+  )
+endfunction()
+
+function(add_stm32_no_semihosting_flash_targets target_name)
+  # Flash target without semihosting
+  add_custom_target(stm32-flash-${target_name}
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
+      -c "init"
+      -c "reset halt"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset run"
+      -c "exit"
+    DEPENDS ${target_name}
+    COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG}) without semihosting"
+  )
+
+  # Debug target without semihosting
+  add_custom_target(stm32-debug-${target_name}
+    COMMAND openocd
+      -f ${OPENOCD_INTERFACE}
+      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
+      -c "init"
+      -c "reset halt"
+      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "reset halt"
+    DEPENDS ${target_name}
+    COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG} without semihosting"
   )
 endfunction()
 
@@ -177,3 +242,30 @@ function(add_ento_test TARGET_NAME)
     add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
   endif()
 endfunction()
+
+
+## Get all properties that cmake supports
+execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)
+## Convert command output into a CMake list
+STRING(REGEX REPLACE ";" "\\\\;" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+STRING(REGEX REPLACE "\n" ";" CMAKE_PROPERTY_LIST "${CMAKE_PROPERTY_LIST}")
+
+list(REMOVE_DUPLICATES CMAKE_PROPERTY_LIST)
+
+function(print_target_properties tgt)
+    if(NOT TARGET ${tgt})
+      message("There is no target named '${tgt}'")
+      return()
+    endif()
+
+    foreach (prop ${CMAKE_PROPERTY_LIST})
+        string(REPLACE "<CONFIG>" "${CMAKE_BUILD_TYPE}" prop ${prop})
+        get_target_property(propval ${tgt} ${prop})
+        if (propval)
+            message ("${tgt} ${prop} = ${propval}")
+        endif()
+    endforeach(prop)
+endfunction(print_target_properties)
+
+
+

@@ -5,13 +5,16 @@
 
 set(CMSIS_RTOS RTOS RTOS_V2)
 
+message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 if(NOT CMSIS_FIND_COMPONENTS)
+    message(STATUS "Not found CMSIS_FIND_COMPONENTS. Adding ${STM32_SUPPORTED_FAMILIES_LONG_NAME}")
     set(CMSIS_FIND_COMPONENTS ${STM32_SUPPORTED_FAMILIES_LONG_NAME})
 endif()
 
 if(STM32H7 IN_LIST CMSIS_FIND_COMPONENTS)
     list(REMOVE_ITEM CMSIS_FIND_COMPONENTS STM32H7)
     list(APPEND CMSIS_FIND_COMPONENTS STM32H7_M7 STM32H7_M4)
+    message(STATUS "Added STM32H7_M7 and _M4 to CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 endif()
 
 if(STM32WB IN_LIST CMSIS_FIND_COMPONENTS)
@@ -32,6 +35,7 @@ endif()
 list(REMOVE_DUPLICATES CMSIS_FIND_COMPONENTS)
 
 # This section fills the RTOS or family components list
+message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 foreach(COMP ${CMSIS_FIND_COMPONENTS})
     string(TOLOWER ${COMP} COMP_L)
     string(TOUPPER ${COMP} COMP)
@@ -39,13 +43,16 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS})
     # Component is RTOS component
     if(${COMP} IN_LIST CMSIS_RTOS)
         list(APPEND CMSIS_FIND_COMPONENTS_RTOS ${COMP})
+        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_RTOS")
         continue()
     endif()
 
     # Component is not RTOS component, so check whether it is a family component
+    message(STATUS "Regex on ${COMP} from ${CMSIS_FIND_COMPONENTS}")
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP ${COMP})
     if(CMAKE_MATCH_1)
         list(APPEND CMSIS_FIND_COMPONENTS_FAMILIES ${COMP})
+        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_FAMILIES")
     endif()
 endforeach()
 
@@ -61,6 +68,134 @@ message(STATUS "Search for CMSIS families: ${CMSIS_FIND_COMPONENTS_FAMILIES}")
 message(STATUS "Search for CMSIS RTOS: ${CMSIS_FIND_COMPONENTS_RTOS}")
 
 include(stm32/devices)
+
+function(cmsis_generate_parametrizable_linker_script FAMILY DEVICE CORE)
+    # Define keyword arguments with defaults
+    set(options "")
+    set(one_value_args
+        FLASH_ORIGIN RAM_ORIGIN CCRAM_ORIGIN RAM_SHARE_ORIGIN
+        FLASH_SIZE RAM_SIZE CCRAM_SIZE RAM_SHARE_SIZE STACK_SIZE HEAP_SIZE)
+    set(multi_value_args "")
+
+    cmake_parse_arguments(PARAMS "" "${one_value_args}" "" ${ARGN})
+
+    # Apply default values if keywords are not provided
+    set(FLASH_ORIGIN ${PARAMS_FLASH_ORIGIN})
+    set(RAM_ORIGIN ${PARAMS_RAM_ORIGIN})
+    set(CCRAM_ORIGIN ${PARAMS_CCRAM_ORIGIN})
+    set(RAM_SHARE_ORIGIN ${PARAMS_RAM_SHARE_ORIGIN})
+    set(FLASH_SIZE ${PARAMS_FLASH_SIZE})
+    set(RAM_SIZE ${PARAMS_RAM_SIZE})
+    set(CCRAM_SIZE ${PARAMS_CCRAM_SIZE})
+    set(RAM_SHARE_SIZE ${PARAMS_RAM_SHARE_SIZE})
+    set(STACK_SIZE ${PARAMS_STACK_SIZE})
+    set(HEAP_SIZE ${PARAMS_HEAP_SIZE})
+
+    # Fallbacks for any parameters not passed
+    if(NOT FLASH_ORIGIN)
+        set(FLASH_ORIGIN "0x08000000")
+    endif()
+    if(NOT RAM_ORIGIN)
+        set(RAM_ORIGIN "0x20000000")
+    endif()
+    if(NOT CCRAM_ORIGIN)
+        set(CCRAM_ORIGIN "0x10000000")
+    endif()
+    if(NOT RAM_SHARE_ORIGIN)
+        set(RAM_SHARE_ORIGIN "0x24000000")
+    endif()
+    if(NOT FLASH_SIZE)
+        set(FLASH_SIZE "128K")
+    endif()
+    if(NOT RAM_SIZE)
+        set(RAM_SIZE "64K")
+    endif()
+    if(NOT CCRAM_SIZE)
+        set(CCRAM_SIZE "64K")
+    endif()
+    if(NOT RAM_SHARE_SIZE)
+        set(RAM_SHARE_SIZE "32K")
+    endif()
+    if(NOT STACK_SIZE)
+        set(STACK_SIZE "0x400")
+    endif()
+    if(NOT HEAP_SIZE)
+        set(HEAP_SIZE "0x200")
+    endif()
+
+    if(CORE)
+      message(STATUS "CORE ${CORE}")
+      set(CORE_C "::${CORE}")
+      set(CORE_U "_${CORE}")
+    endif()
+
+    set(OUTPUT_LD_FILE "${CMAKE_CURRENT_BINARY_DIR}/${DEVICE}${CORE_U}.ld")
+
+    if(${FAMILY} STREQUAL MP1)
+        string(TOLOWER ${FAMILY} FAMILY_L)
+        find_file(CMSIS_${FAMILY}${CORE_U}_LD_SCRIPT
+            NAMES stm32mp15xx_m4.ld
+            PATHS "${CMSIS_${FAMILY}${CORE_U}_PATH}/Source/Templates/gcc/linker"
+            NO_DEFAULT_PATH
+        )
+        add_custom_command(OUTPUT "${OUTPUT_LD_FILE}"
+            COMMAND ${CMAKE_COMMAND}
+                -E copy ${CMSIS_${FAMILY}${CORE_U}_LD_SCRIPT} ${OUTPUT_LD_FILE})
+    else()
+        # Only call stm32_get_memory_info if variables are not already defined
+        if(NOT DEFINED FLASH_ORIGIN)
+            stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} FLASH SIZE FLASH_SIZE ORIGIN FLASH_ORIGIN)
+        endif()
+        if(NOT DEFINED RAM_ORIGIN)
+            stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} RAM SIZE RAM_SIZE ORIGIN RAM_ORIGIN)
+        endif()
+        if(NOT DEFINED CCRAM_ORIGIN)
+            stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} CCRAM SIZE CCRAM_SIZE ORIGIN CCRAM_ORIGIN)
+        endif()
+        if(NOT DEFINED RAM_SHARE_ORIGIN)
+            stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} RAM_SHARE SIZE RAM_SHARE_SIZE ORIGIN RAM_SHARE_ORIGIN)
+        endif()
+        if(NOT DEFINED STACK_SIZE)
+          stm32_get_memory_info(
+              STACK
+              FAMILY ${STM32_FAMILY}
+              DEVICE ${STM32_DEVICE}
+              SIZE STACK_SIZE
+              ORIGIN STACK_ORIGIN
+          )
+        endif()
+        if(NOT DEFINED HEAP_SIZE)
+          stm32_get_memory_info(
+              STACK
+              FAMILY ${STM32_FAMILY}
+              DEVICE ${STM32_DEVICE}
+              SIZE HEAP_SIZE
+              ORIGIN HEAP_ORIGIN
+          )
+        endif()
+        message(STATUS "Using STACK_SIZE: ${STACK_SIZE}")
+        add_custom_command(OUTPUT "${OUTPUT_LD_FILE}"
+            COMMAND ${CMAKE_COMMAND} 
+                -DFLASH_ORIGIN="${FLASH_ORIGIN}" 
+                -DRAM_ORIGIN="${RAM_ORIGIN}" 
+                -DCCRAM_ORIGIN="${CCRAM_ORIGIN}" 
+                -DRAM_SHARE_ORIGIN="${RAM_SHARE_ORIGIN}" 
+                -DFLASH_SIZE="${FLASH_SIZE}" 
+                -DRAM_SIZE="${RAM_SIZE}" 
+                -DCCRAM_SIZE="${CCRAM_SIZE}"
+                -DRAM_SHARE_SIZE="${RAM_SHARE_SIZE}" 
+                -DSTACK_SIZE="${STACK_SIZE}" 
+                -DHEAP_SIZE="${HEAP_SIZE}" 
+                -DLINKER_SCRIPT="${OUTPUT_LD_FILE}"
+                -P "${STM32_CMAKE_DIR}/stm32/linker_ld.cmake"
+        )
+    endif()
+
+    add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
+    add_dependencies(CMSIS::STM32::${DEVICE}${CORE_C} CMSIS_LD_${DEVICE}${CORE_U})
+    message(STATUS "Linker script dependency: CMSIS::STM32::${DEVICE}${CORE_C}")
+    stm32_add_linker_script(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE "${OUTPUT_LD_FILE}")
+endfunction()
 
 function(cmsis_generate_default_linker_script FAMILY DEVICE CORE)
     if(CORE)
@@ -88,6 +223,7 @@ function(cmsis_generate_default_linker_script FAMILY DEVICE CORE)
         stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} HEAP SIZE HEAP_SIZE)
         stm32_get_memory_info(FAMILY ${FAMILY} DEVICE ${DEVICE} CORE ${CORE} STACK SIZE STACK_SIZE)
 
+        message(STATUS "STACK_SIZE: ${STACK_SIZE}")
         add_custom_command(OUTPUT "${OUTPUT_LD_FILE}"
             COMMAND ${CMAKE_COMMAND} 
                 -DFLASH_ORIGIN="${FLASH_ORIGIN}" 
@@ -104,31 +240,35 @@ function(cmsis_generate_default_linker_script FAMILY DEVICE CORE)
                 -P "${STM32_CMAKE_DIR}/stm32/linker_ld.cmake"
         )
     endif()
-    add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
+    if (NOT (TARGET CMSIS_LD_${DEVICE}${CORE_U}))
+      add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
+    endif()
     add_dependencies(CMSIS::STM32::${DEVICE}${CORE_C} CMSIS_LD_${DEVICE}${CORE_U})
+    message(STATUS "Linker script dependency: CMSIS::STM32::${DEVICE}${CORE_C}")
     stm32_add_linker_script(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE "${OUTPUT_LD_FILE}")
 endfunction() 
 
 foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
     string(TOLOWER ${COMP} COMP_L)
     string(TOUPPER ${COMP} COMP)
+    message(STATUS "CMSIS find components families: ${CMSIS_FIND_COMPONENTS_FAMILIES}")
+    message(STATUS "For each comp loop (COMP): ${COMP}")
     
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP ${COMP})
     # CMAKE_MATCH_<n> contains n'th subexpression
     # CMAKE_MATCH_0 contains full match
 
-    if((NOT CMAKE_MATCH_1) AND (NOT CMAKE_MATCH_2))
-        message(FATAL_ERROR "Unknown CMSIS component: ${COMP}")
-    endif()
     
     if(CMAKE_MATCH_2)
         set(FAMILY ${CMAKE_MATCH_1})
         set(STM_DEVICES "${CMAKE_MATCH_1}${CMAKE_MATCH_2}")
         message(TRACE "FindCMSIS: full device name match for COMP ${COMP}, STM_DEVICES is ${STM_DEVICES}")
+        message(STATUS "FindCMSIS: full device name match for COMP ${COMP}, STM_DEVICES is ${STM_DEVICES}")
     else()
         set(FAMILY ${CMAKE_MATCH_1})
         stm32_get_devices_by_family(STM_DEVICES FAMILY ${FAMILY})
         message(TRACE "FindCMSIS: family only match for COMP ${COMP}, STM_DEVICES is ${STM_DEVICES}")
+        message(STATUS "FindCMSIS: family only match for COMP ${COMP}, STM_DEVICES is ${STM_DEVICES}")
     endif()
     
     if(CMAKE_MATCH_3)
@@ -138,11 +278,13 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         set(CORE_Ucm "_c${CORE}")
         string(TOLOWER ${CORE_Ucm} CORE_Ucm)
         message(TRACE "FindCMSIS: core match in component name for COMP ${COMP}. CORE is ${CORE}")
+        message(STATUS "FindCMSIS: core match in component name for COMP ${COMP}. CORE is ${CORE}")
     else()
         unset(CORE)
         unset(CORE_C)
         unset(CORE_U)
         unset(CORE_Ucm)
+        message(STATUS "Unset core?")
     endif()
     
     string(TOLOWER ${FAMILY} FAMILY_L)
@@ -169,6 +311,7 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         continue()
     endif()
 	
+    message(STATUS "CMSIS FAMILY PATH: ${STM32_CMSIS_${FAMILY}_PATH}. CUBE FAMILY PATH: ${STM32_CUBE_${FAMILY}_PATH}")
     # search for Include/stm32[XX]xx.h
     find_path(CMSIS_${FAMILY}${CORE_U}_PATH
         NAMES Include/stm32${FAMILY_L}xx.h
@@ -202,6 +345,7 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
 
     if(NOT (TARGET CMSIS::STM32::${FAMILY}${CORE_C}))
         message(TRACE "FindCMSIS: creating library CMSIS::STM32::${FAMILY}${CORE_C}")
+        message(STATUS "FindCMSIS: creating library CMSIS::STM32::${FAMILY}${CORE_C}")
         add_library(CMSIS::STM32::${FAMILY}${CORE_C} INTERFACE IMPORTED)
         #STM32::${FAMILY}${CORE_C} contains compile options and is define in <family>.cmake
         target_link_libraries(CMSIS::STM32::${FAMILY}${CORE_C} INTERFACE STM32::${FAMILY}${CORE_C})
@@ -238,6 +382,7 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         
         get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
         if(NOT "ASM" IN_LIST languages)
+            message(STATUS "Languages: ${languages}")
             message(STATUS "FindCMSIS: Not generating target for startup file and linker script because ASM language is not enabled")
             continue()
         endif()
@@ -257,14 +402,19 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         
         if(NOT (TARGET CMSIS::STM32::${TYPE}${CORE_C}))
             message(TRACE "FindCMSIS: creating library CMSIS::STM32::${TYPE}${CORE_C}")
+            message(STATUS "FindCMSIS: creating library CMSIS::STM32::${TYPE}${CORE_C}")
             add_library(CMSIS::STM32::${TYPE}${CORE_C} INTERFACE IMPORTED)
             target_link_libraries(CMSIS::STM32::${TYPE}${CORE_C} INTERFACE CMSIS::STM32::${FAMILY}${CORE_C} STM32::${TYPE}${CORE_C})
             target_sources(CMSIS::STM32::${TYPE}${CORE_C} INTERFACE "${CMSIS_${FAMILY}${CORE_U}_${TYPE}_STARTUP}")
             target_sources(CMSIS::STM32::${TYPE}${CORE_C} INTERFACE "${CMSIS_${FAMILY}${CORE_U}_SYSTEM}")
         endif()
         
-        add_library(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE IMPORTED)
+        message(STATUS "Creating library CMSIS::STM32::${DEVICE}${CORE_C}")
+        if (NOT (TARGET CMSIS::STM32::${DEVICE}${CORE_C}))
+          add_library(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE IMPORTED)
+        endif()
         target_link_libraries(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE CMSIS::STM32::${TYPE}${CORE_C})
+        message(STATUS "Generating default linker script for ${FAMILY}, ${DEVICE}, ${CORE}")
         cmsis_generate_default_linker_script(${FAMILY} ${DEVICE} "${CORE}")
     endforeach()
 
@@ -303,6 +453,7 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
 
         if(NOT (TARGET CMSIS::STM32::${FAMILY}${CORE_C}::${RTOS_COMP}))
             add_library(CMSIS::STM32::${FAMILY}${CORE_C}::${RTOS_COMP} INTERFACE IMPORTED)
+      xxdd_library(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE IMPORTED)
             target_link_libraries(CMSIS::STM32::${FAMILY}${CORE_C}::${RTOS_COMP} INTERFACE CMSIS::STM32::${FAMILY}${CORE_C})
             target_include_directories(CMSIS::STM32::${FAMILY}${CORE_C}::${RTOS_COMP} INTERFACE "${CMSIS_${FAMILY}${CORE_U}_${RTOS_COMP}_PATH}")
             target_sources(CMSIS::STM32::${FAMILY}${CORE_C}::${RTOS_COMP} INTERFACE "${CMSIS_${FAMILY}${CORE_U}_${RTOS_COMP}_SOURCE}")

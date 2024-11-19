@@ -16,10 +16,10 @@
 namespace EntoUtil 
 {
 
-#define RED    "\033[31m"
-#define GREEN  "\033[32m"
-#define YELLOW "\033[33m"
-#define RESET  "\033[0m"
+#define __RED    "\033[31m"
+#define __GREEN  "\033[32m"
+#define __YELLOW "\033[33m"
+#define __RESET  "\033[0m"
 
 constexpr float __rel_tol_pct = 0.01;
 
@@ -55,7 +55,15 @@ void  __ento_test_check_and_print_float_binop(const char*, int, const char*, con
 
 // Other helper functions
 bool  __ento_test_num(int, int);
+int   __ento_get_test_num_from_file(const char*);
+bool  __ento_is_mcu_test();
+void  __ento_replace_file_suffix(const char*, const char*);
 
+// Constexpr Helpers
+// Define a global buffer within the header for internal use
+inline char __ento_cmdline_args_path_buffer[256] = {};
+
+// Define the function that modifies this internal buffer directly
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_FAIL()
 //------------------------------------------------------------------------
@@ -83,7 +91,7 @@ bool  __ento_test_num(int, int);
 
 #define ENTO_TEST_CHECK_FALSE(expr_) \
   EntoUtil::__int_expr0 = expr_; \
-  EntoUtil::__failure_condition = __int_expr0; \
+  EntoUtil::__failure_condition = EntoUtil::__int_expr0; \
   EntoUtil::__ento_test_check_and_print_uniop( __FILE__, __LINE__, #expr_ ); \
   if ( EntoUtil::__failure_condition ) return;
 
@@ -120,6 +128,59 @@ bool  __ento_test_num(int, int);
 #define ENTO_TEST_CHECK_FLOAT_EQ(expr0_, expr1_)                      \
   ENTO_TEST_CHECK_APPROX_EQ(expr0_, expr1_, EntoUtil::__rel_tol_pct)  
 
+//------------------------------------------------------------------------
+// ENTO_TEST_CHECK_EIGEN_MATRIX_EQ( expr0_, expr1_ )
+//------------------------------------------------------------------------
+// Checks to see if two float experssions are within the predefined rel.
+// tolerance of each other.
+#define ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(matrix0_, matrix1_, rows_, cols_) \
+  do { \
+    bool __has_mismatch = false; \
+    /* Check matrix dimensions */ \
+    if ((matrix0_.rows() != matrix1_.rows()) || (matrix0_.cols() != matrix1_.cols())) { \
+      std::printf(__RED "Matrix dimension mismatch! %s is %dx%d, but %s is %dx%d\n" __RESET, \
+                  #matrix0_, (int) matrix0_.rows(), (int) matrix0_.cols(), #matrix1_, (int) matrix1_.rows(), (int) matrix1_.cols()); \
+      return; \
+    } \
+    /* Precompute mismatches and display side-by-side output */ \
+    constexpr int width = 8; \
+    int mid_row = rows_ / 2; \
+    for (int i = 0; i < rows_; i++) { \
+      /* Print row from matrix0_ */ \
+      std::printf("["); \
+      for (int j = 0; j < cols_; j++) { \
+        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
+        if (EntoUtil::__failure_condition) { \
+          __has_mismatch = true; \
+          std::printf(__RED "%*.*f" __RESET, width, 3, matrix0_(i, j)); \
+        } else { \
+          std::printf("%*.*f", width, 3, matrix0_(i, j)); \
+        } \
+        if (j != cols_ - 1) std::printf(", "); \
+      } \
+      std::printf("]"); \
+      /* Print equality sign */ \
+      if (i == mid_row) std::printf("\t=\t"); \
+      else std::printf("\t\t"); \
+      /* Print row from matrix1_ */ \
+      std::printf("["); \
+      for (int j = 0; j < cols_; j++) { \
+        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
+        if (EntoUtil::__failure_condition) { \
+          std::printf(__RED "%*.*f" __RESET, width, 3, matrix1_(i, j)); \
+        } else { \
+          std::printf("%*.*f", width, 3, matrix1_(i, j)); \
+        } \
+        if (j != cols_ - 1) std::printf(", "); \
+      } \
+      std::printf("]\n"); \
+    } \
+    if (__has_mismatch) { \
+      std::printf(__RED "Matrices %s and %s do not match.\n" __RESET, #matrix0_, #matrix1_); \
+    } else { \
+      std::printf("Matrices %s and %s match.\n", #matrix0_, #matrix1_); \
+    } \
+  } while (0)    
 
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_ARRAY_INT_EQ( expr0_, expr1_, size_ )
@@ -131,8 +192,6 @@ bool  __ento_test_num(int, int);
   for ( size_t i = 0; i < size_; i++ ) {                                \
     ENTO_TEST_CHECK_INT_EQ( expr0_[i], expr1_[i] );                     \
   }
-
-
 
 }
 

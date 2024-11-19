@@ -7,7 +7,8 @@ if (STM32_BUILD)
   set(MODULES
     bench
     mcu-util
-    CMSIS::STM32::G474RE
+    Eigen
+    CMSIS::STM32::${STM_PRODUCT}
   )
 
   message("Building benchmark_example")
@@ -16,4 +17,5 @@ if (STM32_BUILD)
                 LIBRARIES ${MODULES})
 
   add_stm32_flash_and_debug_targets(benchmark-example)
+  add_stm32_no_semihosting_flash_targets(benchmark-example-no-semihosting)
 endif()

@@ -1,0 +1,40 @@
+#ifndef P4P_HH
+#define P4P_HH
+
+#include <Eigen/Dense>
+#include <ento-pose/pose_util.h>
+
+namespace EntoPose
+{
+
+
+template <typename Scalar, int N, int Order>
+Eigen::Matrix<Scalar, 3, 3>
+p4p_dlt(const Eigen::Matrix<Scalar, N, 2>& points2d, 
+        const Eigen::Matrix<Scalar, N, 3>& points3d);
+
+
+template <typename Scalar, int MaxPoints, int Order>
+Eigen::Matrix<Scalar, 3, 3>
+p4p_dlt(const Eigen::Matrix<Scalar, Eigen::Dynamic, 2, 0, MaxPoints, 2>& points2d,
+        const Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxPoints, 3>& points3d,
+        const int N);
+
+
+template <typename Scalar, int N, int Order>
+Eigen::Matrix<Scalar, 3, 3>
+p4p_dlt_ho(Eigen::Matrix<Scalar, N, 2, Order>& points2d,
+              Eigen::Matrix<Scalar, N, 2, Order>& points3d);
+
+
+template <typename Scalar, int MaxPoints, int Order>
+Eigen::Matrix<Scalar, 3, 3>
+p4p_dlt_ho(const Eigen::Matrix<Scalar, Eigen::Dynamic, 2, Order, MaxPoints, 2>& points2d,
+              const Eigen::Matrix<Scalar, Eigen::Dynamic, 3, Order, MaxPoints, 3>& points3d);
+
+} // namespace EntoPose
+
+
+
+#endif
+

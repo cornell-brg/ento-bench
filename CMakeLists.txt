@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(ento-bench C CXX ASM)
+project(ento-bench CXX C ASM)
 set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(entobench_helpers.cmake)
+
+get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+message(STATUS "Languages in main CMakeLists.txt after project(): ${languages}")
 
 option(FETCH_ST_SOURCES "Fetch STMicro CMSIS/HAL Libraries." OFF)
 option(STM32_BUILD "Build for STM32." OFF)
@@ -19,19 +24,68 @@ set(COMPILE_COMMANDS_DIR "${CMAKE_BINARY_DIR}")
 
 # Path to the .clangd file
 set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
+message(STATUS ".clangd file: ${CLANGD_FILE}")
 
-# Custom target to update .clangd with the correct CompilationDatabase path
+# Path to the .clangd file
+set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
+message(STATUS ".clangd file: ${CLANGD_FILE}")
+
+# Start building the .clangd file with the compilation database path
 add_custom_target(update_clangd ALL
   COMMAND ${CMAKE_COMMAND} -E echo "CompileFlags:" > ${CLANGD_FILE}
   COMMAND ${CMAKE_COMMAND} -E echo "  CompilationDatabase: ${COMPILE_COMMANDS_DIR}" >> ${CLANGD_FILE}
-  COMMENT "Updating .clangd file to use compile_commands.json from ${COMPILE_COMMANDS_DIR}"
+  COMMENT "Updating .clangd file with compile_commands.json path"
 )
 
+# Conditionally add ARM-specific include paths if STM32_BUILD is set
+if(STM32_BUILD)
+  # Find the ARM toolchain executable
+  find_program(ARM_GCC arm-none-eabi-gcc)
+  find_program(ARM_GXX arm-none-eabi-g++)
+
+  if(LATENCY_MEASUREMENT)
+    add_definitions(-DLATENCY_MEASUREMENT)
+  endif()
+
+  if(ARM_GCC AND ARM_GXX)
+    get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_GCC}" DIRECTORY)
+    get_filename_component(ARM_TOOLCHAIN_BASE "${ARM_TOOLCHAIN_BASE}" DIRECTORY)
+
+    # Retrieve the paths for newlib and GCC-specific includes
+    execute_process(
+      COMMAND ${ARM_GCC} -print-file-name=include
+      OUTPUT_VARIABLE ARM_GCC_INCLUDE
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    set(ARM_NEWLIB_INCLUDE "${ARM_TOOLCHAIN_BASE}/arm-none-eabi/include")
+    set(ARM_NEWLIB_CXX_INCLUDE "${ARM_TOOLCHAIN_BASE}/arm-none-eabi/include/c++/13.3.1")
+
+
+    message(STATUS "Found ${ARM_GCC}... \n ${ARM_GCC_INCLUDE}, ${ARM_NEWLIB_INCLUDE}")
+
+    # Append ARM-specific paths directly to .clangd within the same target
+    add_custom_command(
+      TARGET update_clangd
+      COMMAND ${CMAKE_COMMAND} -E echo "  Add:" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_INCLUDE}" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_CXX_INCLUDE}" >> ${CLANGD_FILE}
+      COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_GCC_INCLUDE}" >> ${CLANGD_FILE}
+      COMMENT "Appending ARM-specific include paths to .clangd"
+    )
+
+
+  else()
+    message(WARNING "arm-none-eabi-gcc not found; .clangd will not include ARM-specific include paths.")
+  endif()
+endif()
+
 # Ensure update_clangd runs after the project is built
-add_dependencies(update_clangd check)
+#:add_dependencies(update_clangd check)
 
 # Needed to use inline versions of critical routines in GSL
-add_definitions(-DHAVE_INLINE)
+# add_definitions(-DHAVE_INLINE)
+
 add_definitions(-DDATASET_PATH="${CMAKE_SOURCE_DIR}/datasets")
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -42,16 +96,81 @@ add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
+  add_definitions(-DSTM32_BUILD=1)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
   message(STATUS "HAL FAMILY PATH ${HAL_${FAMILY}_PATH}")
-  find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
-  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME} LL_RCC LL_GPIO LL_UTILS LL_PWR REQUIRED)
+
+  message(STATUS "STM Product: ${STM_PRODUCT}")
+  message(STATUS "STM Family: ${STM_FAMILY}")
+
+  # Set HAL and CMSIS target library variables dynamically
+  if(${STM_FAMILY} STREQUAL "H7")
+    # Special case for H7 family which requires an additional M7
+    set(CORE_U M7)
+    set(CORE_C "::M7")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}${CORE_C}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_TYPE}${CORE_C}")
+    set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_RCC")
+    set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_GPIO")
+    set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_FLASH")
+    set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_UTILS")
+    set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_PWR")
+    set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::M7::CORTEX")
+    set(STM_FAMILY_LONG_NAME ${STM_FAMILY_LONG_NAME}_M7)
+    set(STM32_TARGET "STM32::${STM_TYPE}::M7")
+  else()
+    set(CORE_U "")
+    set(CORE_C "")
+    set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}")
+    set(CMSIS_TYPE_TARGET "CMSIS::STM32::${STM_TYPE}")
+    set(HAL_RCC_TARGET "HAL::STM32::${STM_FAMILY}::LL_RCC")
+    set(HAL_GPIO_TARGET "HAL::STM32::${STM_FAMILY}::LL_GPIO")
+    set(HAL_FLASH_TARGET "HAL::STM32::${STM_FAMILY}::LL_FLASH")
+    set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::LL_UTILS")
+    set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::LL_PWR")
+    set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::CORTEX")
+    set(STM32_TARGET "STM32::${STM_TYPE}${CORE_C}")
+  endif()
+
+
+  # Log HAL and CMSIS target library variables
+  message(STATUS "CMSIS family target: ${CMSIS_FAMILY_TARGET}")
+  message(STATUS "CMSIS type target: ${CMSIS_TYPE_TARGET}")
+  message(STATUS "HAL RCC target: ${HAL_RCC_TARGET}")
+  message(STATUS "HAL GPIO target: ${HAL_GPIO_TARGET}")
+  message(STATUS "HAL FLASH target: ${HAL_FLASH_TARGET}")
+  message(STATUS "HAL UTILS target: ${HAL_UTILS_TARGET}")
+  message(STATUS "HAL PWR target: ${HAL_PWR_TARGET}")
+
+  #if (FETCH_ST_SOURCES)
+  #  stm32_fetch_cmsis(${STM32_FAMILY})
+  #  stm32_fetch_hal(${STM32_FAMILY})
+  #endif()
+
+
+
+  #find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME} REQUIRED)
+  find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME}::${CORE_C} REQUIRED)
+  #find_package(CMSIS COMPONENTS CMSIS::STM32::H7::M7 REQUIRED)
+  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME}::${CORE_C} REQUIRED)
+
+
+  get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
+
+  #cmsis_generate_parametrizable_linker_script(
+  #  ${STM_FAMILY}
+  #  ${STM_PRODUCT}
+  #  ""
+  #  STACK_SIZE ${STACK_SIZE}
+  #  )
+
   set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 
-  add_definitions(-DSTM32_BUILD=1)
-
+  # ========================================================
   # Setup OpenOCD flash and debug targets.
-  option(STM32_DEVICE "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
+  # ========================================================
+
+  option(OPENOCD_CFG "STM32 device target (e.g., st32g4x.cfg)" "stm32g4x.cfg")
 
   if(DEFINED ENV{OPENOCD_HOME})
       set(OPENOCD_ROOT "$ENV{OPENOCD_HOME}")
@@ -77,10 +196,10 @@ if(STM32_BUILD)
   endif()
 
   # The STM32 device configuration must be passed in manually
-  if(NOT DEFINED STM32_DEVICE)
-    message(FATAL_ERROR "Please provide the STM32_DEVICE configuration file (e.g., st_nucleo_g4.cfg).")
+  if(NOT DEFINED OPENOCD_CFG)
+    message(FATAL_ERROR "Please provide the OpenOCD configuration file (e.g., st_nucleo_g4.cfg).")
   else()
-    message(STATUS "Using STM32 device config: ${STM32_DEVICE}")
+    message(STATUS "Using STM32 device config: ${OPENOCD_CFG}")
   endif()
 
 
@@ -126,13 +245,6 @@ else()
   # Default or other specific configurations
 endif()
 
-
-# Setup Linking GSL
-set(GSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl/build/${GSL_BUILD} CACHE PATH "Path to compiled GSL")
-set(GSL_LIB ${GSL_DIR}/lib/libgsl.a CACHE PATH "Path to GSL static lib.")
-set(GSL_BLAS_LIB ${GSL_DIR}/lib/libgslcblas.a CACHE PATH "Path to GSL CBLAS static lib.")
-set(GSL_INC ${GSL_DIR}/include CACHE PATH "Path to include directory of GSL")
-
 set(EIGEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen CACHE PATH "Path to Eigen library")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
@@ -143,4 +255,28 @@ add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 
+
+if(BUILD_H7A3ZIQ)
+    # Set the path to the stm32h7xx.h file in the build directory
+    set(STM32H7_HEADER_PATH "${CMAKE_BINARY_DIR}/_deps/stm32-cmsis-h7-src/Include/stm32h7xx.h")
+
+    # Only attempt to patch if the file exists (i.e., after it has been downloaded or generated)
+    if(EXISTS "${STM32H7_HEADER_PATH}")
+        # Read the contents of stm32h7xx.h
+        file(READ "${STM32H7_HEADER_PATH}" FILE_CONTENTS)
+        if(FILE_CONTENTS MATCHES "#elif defined\\(STM32H7A3xx\\) && !defined\\(STM32H7A3xxQ\\)")
+            message(STATUS "The file ${STM32H7_HEADER_PATH} has already been patched. Skipping modification.")
+        else()
+            # Perform the replacement if the line hasn't been modified
+            string(REPLACE "#elif defined(STM32H7A3xx)" "#elif defined(STM32H7A3xx) && !defined(STM32H7A3xxQ)" FILE_CONTENTS "${FILE_CONTENTS}")
+
+            # Write the modified content back to stm32h7xx.h
+            file(WRITE "${STM32H7_HEADER_PATH}" "${FILE_CONTENTS}")
+
+            message(STATUS "Patched ${STM32H7_HEADER_PATH} for H7A3ZIQ build.")
+        endif()
+    else()
+        message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
+    endif()
+endif()
 

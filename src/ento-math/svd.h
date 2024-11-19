@@ -9,18 +9,6 @@
 namespace EntoMath
 {
 
-constexpr float eps = 1e-6;
-
-//template <typename Scalar, int MaxM, int MaxN, int Order=0>
-//void osj_svd_bounded(BoundedMatrix<Scalar, MaxM, MaxN>& A,
-                     //BoundedMatrix<Scalar, MaxN, MaxN>& V,
-                     //BoundedColVector<Scalar, MaxN>& min_v);
-
-inline float sign (const float x){
-	return (x > 0.0f) - (x < 0.0f);
-}
-
-
 template <typename Scalar, int MaxM, int MaxN, int Order=0>
 void osj_svd_bounded(Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order, MaxM, MaxN>& A,
                      Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order, MaxN, MaxN>& V,
@@ -107,12 +95,10 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
 
   // @TODO: Add a allocator? Or caller is in charge of allocating this?
   constexpr int NUM_PAIRS = (N * (N-1)) / 2;
-  DPRINTF("NUM_PAIRS: %i\n", NUM_PAIRS);
   static Scalar work_ab[N];
   static Scalar work_gamma[NUM_PAIRS];
   static uint8_t rotated[N] = {0};
 
-  DPRINTF("Setting up work_ab!\n");
   Scalar* aj, *ai, *vi, *vj;
   for (int i = 0; i < N; i++)
   {
@@ -141,10 +127,10 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
     iterations++;
     if (iterations > max_iters)
     {
-      printf("reached max iters!\n");
+      //printf("reached max iters!\n");
       break;
     }
-    DPRINTF("Iterations: %i", iterations);
+    //DPRINTF("Iterations: %i", iterations);
     gamma_idx = 2;
     for (int j = N - 1; j>=1; --j)
     {
@@ -152,7 +138,7 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
       {
         //Scalar* ai = A.row(i).data();
         //Scalar* aj = A.row(j).data();
-        DPRINTF("New sweep for cols i,j = %i, %i\n", i, j);
+        //DPRINTF("New sweep for cols i,j = %i, %i\n", i, j);
         alpha = work_ab[i];
         beta = work_ab[j];
 
@@ -160,7 +146,7 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
         aj = A.data() + M * j;
         if (rotated[i] || rotated[j])
         {
-          DPRINTF("Recomputing gamma!\n");
+          //DPRINTF("Recomputing gamma!\n");
           work_gamma[gamma_idx] = custom_dot_product_f32(ai, aj, M);
         }
         gamma = work_gamma[gamma_idx];
@@ -170,9 +156,9 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
         //DPRINTF("alpha * beta: %.30f\n", alpha * beta);
         //DPRINTF("off_diag: %.30f\n", off_diag);
         //DPRINTF("gamma: %.30f, eps*off_diag: %.30f\n", gamma, eps*off_diag);
-        if (fabsf(gamma) >= EntoMath::eps * off_diag)
+        if (fabsf(gamma) >= EntoMath::ENTO_EPS * off_diag)
         {
-          DPRINTF("Rotating!\n");
+          //DPRINTF("Rotating!\n");
           exit = 0;
 
           // Givens rotation calculations
@@ -247,7 +233,7 @@ void osj_svd_c(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
             min_idx = j;
           }
         }
-        DPRINTF("Moving onto next sweep!\n\n");
+        //DPRINTF("Moving onto next sweep!\n\n");
         --gamma_idx;  // Move to the next pair in work_gamma
       }
     }
@@ -305,34 +291,35 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
   {
     exit = true;
     iterations++;
-    DPRINTF("Iterations: %i", iterations);
-    gamma_idx = 2;
+    //DPRINTF("Iterations: %i", iterations);
+    gamma_idx = NUM_PAIRS - 1;
     for (int j = N - 1; j>=1; --j)
     {
       for (int i = j - 1; i>=0; --i)
       {
         //Scalar* ai = A.row(i).data();
         //Scalar* aj = A.row(j).data();
-        DPRINTF("New sweep for cols i,j = %i, %i\n", i, j);
+        //ENTO_DEBUG("New sweep for cols i,j = %i, %i", i, j);
+        //ENTO_DEBUG("Gamma idx: %i", gamma_idx);
         alpha = work_ab[i];
         beta = work_ab[j];
 
-        //if (rotated[i] || rotated[j])
-       // {
+        if (rotated[i] || rotated[j])
+        {
           //DPRINTF("Recomputing gamma!\n");
-         // work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
-        //}
-        work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
+          work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
+        }
+        //work_gamma[gamma_idx] = A.col(i).dot(A.col(j));
         gamma = work_gamma[gamma_idx];
 
         off_diag = sqrtf(alpha * beta);
-        DPRINTF("alpha, beta: %.30f, %.30f\n", alpha, beta);
-        DPRINTF("alpha * beta: %.30f\n", alpha * beta);
-        DPRINTF("off_diag: %.30f\n", off_diag);
-        DPRINTF("gamma: %.30f, eps*off_diag: %.30f\n", gamma, EntoMath::eps*off_diag);
-        if (fabsf(gamma) >= EntoMath::eps * off_diag)
+        //DPRINTF("alpha, beta: %.30f, %.30f\n", alpha, beta);
+        //DPRINTF("alpha * beta: %.30f\n", alpha * beta);
+        //DPRINTF("off_diag: %.30f\n", off_diag);
+        //DPRINTF("gamma: %.30f, eps*off_diag: %.30f\n", gamma, EntoMath::ENTO_EPS*off_diag);
+        if (fabsf(gamma) >= EntoMath::ENTO_EPS * off_diag)
         {
-          DPRINTF("Rotating!\n");
+          //DPRINTF("Rotating!\n");
           exit = 0;
 
           // Givens rotation calculations
@@ -355,18 +342,18 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
             
             // Update A(i, k)
             A(k, i) = c * tmp - s * A(k, j);
-            DPRINTF("Updating A(%i, %i)=%f\n", k, i, A(k, i));
+            //DPRINTF("Updating A(%i, %i)=%f\n", k, i, A(k, i));
             alpha_sum += (A(k, i) * A(k, i));
-            DPRINTF("Alpha sum intermediary: %f\n", alpha_sum);
+            //DPRINTF("Alpha sum intermediary: %f\n", alpha_sum);
             
             // Update A(j, k)
-            DPRINTF("Updating A(%i, %i)=%f\n", k, j, A(k, j));
+            //DPRINTF("Updating A(%i, %i)=%f\n", k, j, A(k, j));
             A(k, j) = s * tmp + c * A(k, j);
             beta_sum += (A(k, j) * A(k, j));
-            DPRINTF("Beta sum intermediary: %f\n", beta_sum);
+            //DPRINTF("Beta sum intermediary: %f\n", beta_sum);
             
             // Update dot product
-            DPRINTF("Updating gamma_sum with i,j,k=(%d, %d, %d)\n", i, j, k);
+            //DPRINTF("Updating gamma_sum with i,j,k=(%d, %d, %d)\n", i, j, k);
             gamma_sum += (A(k, i) * A(k, j));
 
             // Apply rotations to V
@@ -382,16 +369,16 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
           }
 
           // Update the precomputed values
-          DPRINTF("Alpha sum for work_ab[%i]: %.10f\n", i, alpha_sum);
-          DPRINTF("Beta sum for work_ab[%i]: %.10f\n", j, beta_sum);
+          //ENTO_DEBUG("Alpha sum for work_ab[%i]: %.10f", i, alpha_sum);
+          //ENTO_DEBUG("Beta sum for work_ab[%i]: %.10f", j, beta_sum);
           work_ab[i] = alpha_sum;
           work_ab[j] = beta_sum;
           work_gamma[gamma_idx] = gamma_sum;
-          DPRINTF("work_gamma[%i] = %.10f\n", gamma_idx, gamma_sum);
+          //ENTO_DEBUG("work_gamma[%i] = %.10f", gamma_idx, gamma_sum);
           rotated[i] = 1;
           rotated[j] = 1;
-          DPRINTF("Alpha sum for work_ab[%i]: %.10f\n", i, work_ab[i]);
-          DPRINTF("Beta sum for work_ab[%i]: %.10f\n", j, work_ab[j]);
+          //ENTO_DEBUG("Alpha sum for work_ab[%i]: %.10f", i, work_ab[i]);
+          //ENTO_DEBUG("Beta sum for work_ab[%i]: %.10f", j, work_ab[j]);
         }
         else
         {
@@ -407,15 +394,19 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
             min_idx = j;
           }
         }
-        DPRINTF("Moving onto next sweep!\n\n");
+        //ENTO_DEBUG("Moving onto next sweep!\n");
         --gamma_idx;  // Move to the next pair in work_gamma
       }
     }
   }
-  DPRINTF("Exited out of sweeps loop!\n");
-  min_v = V.col(min_idx);
+  ENTO_DEBUG("Exited out of sweeps loop!");
+  ENTO_DEBUG("Found min singular value index of: %i", min_idx);
+  ENTO_DEBUG("V has dimensions %dx%d", V.rows(), V.cols());
+  ENTO_DEBUG("min_idx value: %d", min_idx);
+  ENTO_DEBUG_EIGEN_MATRIX(V, N, N, Scalar);
+  min_v = V.row(min_idx).eval();
+  ENTO_DEBUG("Finished osj svd. Total iterations: %i", iterations);
   return;
-
 }
 
 template <typename Scalar, int MaxM, int MaxN, int Order>
@@ -481,7 +472,7 @@ void osj_svd_bounded(Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order
         gamma = work_gamma[gamma_idx];
 
         off_diag = sqrtf(alpha * beta);
-        if (fabs(gamma) >= EntoMath::eps * off_diag)
+        if (fabs(gamma) >= EntoMath::ENTO_EPS * off_diag)
         {
           exit = 0;
 
@@ -612,7 +603,7 @@ void osj_svd_generic(Eigen::DenseBase<Derived>& A,
         gamma = work_gamma[gamma_idx];
 
         off_diag = sqrtf(alpha * beta);
-        if (fabs(gamma) >= EntoMath::eps * off_diag)
+        if (fabs(gamma) >= EntoMath::ENTO_EPS * off_diag)
         {
           exit = 0;
 
