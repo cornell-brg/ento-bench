@@ -2,7 +2,7 @@
 #define FIVE_PT_UTIL_H
 
 #include <Eigen/Dense>
-#include <ento-pose/pose-util.h>
+#include <ento-pose/pose_util.h>
 #include <ento-math/core.h>
 
 // Constructs the quotients needed for evaluating the sturm sequence.
