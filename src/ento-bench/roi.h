@@ -10,6 +10,7 @@
 //#include <gem5/m5ops.h>
 #endif
 
+#include <cstdint>
   
 #ifdef ARM_GEM5
 #define M5OP_RESET_STATS \
@@ -105,12 +106,14 @@ static inline ROIMetrics get_roi_stats();
 static inline
 void init_roi_tracking()
 {
+#if defined(STM32_BUILD)
   disable_dwt();
   if (!is_cycle_counter_enabled()) init_cycle_counter();
   if (!is_cpi_counter_enabled()) init_cpi_counter();
   if (!is_fold_counter_enabled()) init_fold_counter();
   if (!is_lsu_counter_enabled()) init_lsu_counter();
   if (!is_exc_counter_enabled()) init_exc_counter();
+#endif
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
   latency_pin_enable();
   trigger_pin_enable();
