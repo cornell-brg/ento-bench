@@ -31,6 +31,10 @@ elseif (STM32_BUILD)
     PUBLIC
     mcu-util
   )
+else()
+  target_link_libraries(bench
+    PUBLIC
+  )
 endif()
 
 

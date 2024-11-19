@@ -37,9 +37,10 @@ else()
   #)
 endif()
 # Bench is an interface for now, no source files, header only
+
 add_subdirectory(ento-bench)
 target_include_directories(bench
-  INTERFACE
+  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
@@ -59,6 +60,12 @@ target_include_directories(ento_util
 )
 
 add_subdirectory(ento-pose)
+
+target_include_directories(ento-pose
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
 target_include_directories(ento_abs_pose
   PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
