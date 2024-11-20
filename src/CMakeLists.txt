@@ -69,3 +69,5 @@ target_include_directories(ento_abs_pose
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   ${EIGEN_DIR}
 )
+
+add_subdirectory(ento-state-est)
