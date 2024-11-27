@@ -238,7 +238,6 @@ void branch_predictor_disable()
   constexpr uintptr_t ACTLR_ADDRESS = 0xE000E008U;  // Address of the ACTLR register
   volatile uint32_t &ACTLR = *reinterpret_cast<volatile uint32_t *>(ACTLR_ADDRESS);
 
-  // Clear is set to 1
   ACTLR |= ((1 << 13) | (1 << 14));   // Set DISBTACREAD and DISBTACALLOC bits
   __DSB();                            // Data Synchronization Barrier
   __ISB();                            // Instruction Synchronization Barrier
