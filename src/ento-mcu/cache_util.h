@@ -62,4 +62,8 @@ void      dcache_disable(void);
 bool      dcache_is_enabled(void);
 void      dcache_invalidate(void);
 
+// Branch Predictor Functions
+void      branch_predictor_enable(void);
+void      branch_predictor_disable(void);
+
 #endif // CACHE_UTIL_H

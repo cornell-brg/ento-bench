@@ -219,3 +219,21 @@ void dcache_invalidate()
   return;
 #endif
 }
+
+void branch_predictor_enable()
+{
+#if defined(STM32F7) || defined(STM32H7)
+  SCB->ACTLR |= (1 << 0);  // Set BRANCHPREDICT bit
+  __DSB();
+  __ISB();
+#endif
+}
+
+void branch_predictor_disable()
+{
+#if defined(STM32F7) || defined(STM32H7)
+  SCB->ACTLR &= ~(1 << 0);  // Clear BRANCHPREDICT bit
+  __DSB();
+  __ISB();
+#endif
+}
