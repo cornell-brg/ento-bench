@@ -223,17 +223,24 @@ void dcache_invalidate()
 void branch_predictor_enable()
 {
 #if defined(STM32F7) || defined(STM32H7)
-  SCB->ACTLR |= (1 << 0);  // Set BRANCHPREDICT bit
-  __DSB();
-  __ISB();
+  constexpr uintptr_t ACTLR_ADDRESS = 0xE000E008U;  // Address of the ACTLR register
+  volatile uint32_t &ACTLR = *reinterpret_cast<volatile uint32_t *>(ACTLR_ADDRESS);
+
+  ACTLR &= ~((1 << 13) | (1 << 14));  // Clear DISBTACREAD and DISBTACALLOC bits
+  __DSB();                            // Data Synchronization Barrier
+  __ISB();                            // Instruction Synchronization Barrier
 #endif
 }
 
 void branch_predictor_disable()
 {
 #if defined(STM32F7) || defined(STM32H7)
-  SCB->ACTLR &= ~(1 << 0);  // Clear BRANCHPREDICT bit
-  __DSB();
-  __ISB();
+  constexpr uintptr_t ACTLR_ADDRESS = 0xE000E008U;  // Address of the ACTLR register
+  volatile uint32_t &ACTLR = *reinterpret_cast<volatile uint32_t *>(ACTLR_ADDRESS);
+
+  // Clear is set to 1
+  ACTLR |= ((1 << 13) | (1 << 14));   // Set DISBTACREAD and DISBTACALLOC bits
+  __DSB();                            // Data Synchronization Barrier
+  __ISB();                            // Instruction Synchronization Barrier
 #endif
 }
