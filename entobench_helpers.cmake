@@ -154,23 +154,26 @@ function(add_benchmark TARGET_NAME)
 
   # Set output directory based on the target's category
   get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)
-  if(BENCHMARK_PATH MATCHES "kernels")
-    set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/kernels/bin)
-  elseif(BENCHMARK_PATH MATCHES "microbenchmarks")
-    set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/microbenchmarks/bin)
-  elseif(BENCHMARK_PATH MATCHES "scenarios")
-    set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/scenarios/bin)
-  elseif(BENCHMARK_PATH MATCHES "workloads")
-    set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/workloads/bin)
-  else()
-    set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/other/bin)
-  endif()
+  #if(BENCHMARK_PATH MATCHES "kernels")
+  #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/kernels/bin)
+  #elseif(BENCHMARK_PATH MATCHES "ubmarks")
+  #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/microbenchmarks/bin)
+  #elseif(BENCHMARK_PATH MATCHES "scenarios")
+  #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/scenarios/bin)
+  #elseif(BENCHMARK_PATH MATCHES "workloads")
+  #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/workloads/bin)
+    #else()
+    #set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/other/bin)
+    #endif()
 endfunction()
 
 
 # Helper function to create custom targets for flashing and debugging STM32 binaries using OpenOCD
 function(add_stm32_flash_and_debug_targets target_name)
   # Flash target
+  get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
+  file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
+
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
@@ -178,7 +181,7 @@ function(add_stm32_flash_and_debug_targets target_name)
       -c "init"
       -c "reset halt"
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "program bin/${target_name}.elf verify"
       -c "reset"
     DEPENDS ${target_name}
     COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
@@ -193,11 +196,12 @@ function(add_stm32_flash_and_debug_targets target_name)
       -c "reset halt"
       -c "arm semihosting_cmdline '12'" # 12 to see how strings are passed by semihosting
       -c "arm semihosting enable"
-      -c "program $<TARGET_FILE:${target_name}> verify"
+      -c "program bin/${target_name}.elf verify"
       -c "reset halt"
     DEPENDS ${target_name}
     COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
   )
+
 endfunction()
 
 function(add_stm32_no_semihosting_flash_targets target_name)
