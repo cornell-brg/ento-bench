@@ -5,17 +5,23 @@
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
 #include <ento-bench/roi.h>
-#include <Eigen/Dense>
-
 
 extern "C" void initialise_monitor_handles(void);
 
 // Dense GEMM
 template<int N>
-void __attribute__((noinline)) dense_gemm(const Eigen::Matrix<int, N, N>& A, const Eigen::Matrix<int, N, N>& B, Eigen::Matrix<int, N, N>& C) {
+void __attribute__((noinline)) dense_gemm(const int A[N][N], const int B[N][N], int C[N][N]) {
     if constexpr (N > 0) {
         start_roi();
-        C.noalias() = A * B;
+        // Perform matrix multiplication C = A * B
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                C[i][j] = 0;
+                for (int k = 0; k < N; ++k) {
+                    C[i][j] += A[i][k] * B[k][j];
+                }
+            }
+        }
         end_roi();
     }
 }
@@ -23,10 +29,17 @@ void __attribute__((noinline)) dense_gemm(const Eigen::Matrix<int, N, N>& A, con
 // Templated function to initialize matrices
 template<int size>
 void matrix_init() {
-    Eigen::Matrix<int, size, size> A = Eigen::Matrix<int, size, size>::Ones();
-    Eigen::Matrix<int, size, size> B = Eigen::Matrix<int, size, size>::Ones();
-    Eigen::Matrix<int, size, size> C;
-    C.noalias();
+    int A[size][size];
+    int B[size][size];
+    int C[size][size];
+
+    // Initialize matrices A and B to ones
+    for (int i = 0; i < size; ++i) {
+        for (int j = 0; j < size; ++j) {
+            A[i][j] = 1;
+            B[i][j] = 1;
+        }
+    }
 
     constexpr int reps = 5;
     printf("Matrix size N: %d\n", size);
@@ -75,21 +88,9 @@ int main() {
     run_matrix_init<2>(); 
     // matrix_init<58>();
 
-    printf("Finished running Eigen GEMM dense benchmark example!\n");
+    printf("Finished running custom GEMM dense benchmark example!\n");
 
     exit(1);
 
     return 0;
 }
-
-
-    // constexpr int size = 10;
-    // Eigen::Matrix<int, size, size> A = Eigen::Matrix<int, size, size>::Ones();
-    // Eigen::Matrix<int, size, size> B = Eigen::Matrix<int, size, size>::Ones();
-    // Eigen::Matrix<int, size, size> C;
-    // C.noalias();
-
-    // constexpr int reps = 5;
-    // printf("Matrix size N: %d\n", size);
-    // auto dense_harness = bench::make_harness<reps>([&]() { dense_gemm<size>(A, B, C); },
-    //                                         "GEMM Dense Benchmark Example");

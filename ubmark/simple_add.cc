@@ -38,7 +38,9 @@ void __attribute__((noinline)) add1x8()
 int main()
 {
   using namespace bench;
-  initialise_monitor_handles();
+  #if defined(SEMIHOSTING)
+    initialise_monitor_handles();
+  #endif
 
   bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;
 

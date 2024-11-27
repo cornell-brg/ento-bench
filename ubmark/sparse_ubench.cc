@@ -1,12 +1,13 @@
-
-#include "/Users/amyle/entomoton-bench/external/eigen/Eigen/Sparse"
 #include <stdlib.h>
 #include <stdio.h>
-#include "bench/harness.h"
-#include "mcu-util/cache_util.h"
-#include "mcu-util/flash_util.h"
-#include "mcu-util/clk_util.h"
-#include "mcu-util/pwr_util.h"
+#include <ento-bench/harness.h>
+#include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
+#include <ento-mcu/clk_util.h>
+#include <ento-bench/roi.h>
+#include <set> 
+
+#include <Eigen/Sparse>
 
 extern "C" void initialise_monitor_handles(void);
 
@@ -21,10 +22,22 @@ void initialize_sparse_matrix(Eigen::SparseMatrix<int>& matrix, float sparsity) 
     int elements = size * size;
     int non_zero_elements = static_cast<int>(elements * (1.0f - sparsity)); // Number of non-zero elements
 
+    std::set<std::pair<int, int>> occupied_positions; // To track used positions
+
     for (int i = 0; i < non_zero_elements; ++i) {
-        int row = rand() % size;
-        int col = rand() % size;
-        matrix.insert(row, col) = 1; // Inserting non-zero elements at random positions
+        int row, col;
+        std::pair<int, int> position;
+
+        // Generate unique random positions
+        do {
+            row = rand() % size;
+            col = rand() % size;
+            position = {row, col};
+        } while (occupied_positions.find(position) != occupied_positions.end());
+
+        // Insert the position into the set and matrix
+        occupied_positions.insert(position);
+        matrix.insert(row, col) = 1;
     }
     matrix.makeCompressed(); 
 }

@@ -7,42 +7,31 @@
 #include <ento-bench/roi.h>
 #include <Eigen/Dense>
 
-
 extern "C" void initialise_monitor_handles(void);
 
-// Dense GEMM
 template<int N>
-void __attribute__((noinline)) dense_gemm(const Eigen::Matrix<int, N, N>& A, const Eigen::Matrix<int, N, N>& B, Eigen::Matrix<int, N, N>& C) {
+void __attribute__((noinline)) vvadd(const Eigen::Matrix<int, N, 1>& x, const Eigen::Matrix<int, N, 1>& y, Eigen::Matrix<int, N, 1>& z) {
     if constexpr (N > 0) {
         start_roi();
-        C.noalias() = A * B;
+        z.noalias() = x + y;
         end_roi();
     }
 }
 
-// Templated function to initialize matrices
 template<int size>
-void matrix_init() {
-    Eigen::Matrix<int, size, size> A = Eigen::Matrix<int, size, size>::Ones();
-    Eigen::Matrix<int, size, size> B = Eigen::Matrix<int, size, size>::Ones();
-    Eigen::Matrix<int, size, size> C;
-    C.noalias();
+void vector_init() {
+    static Eigen::Matrix<int, size, 1> x = Eigen::Matrix<int, size, 1>::Ones();
+    static Eigen::Matrix<int, size, 1> y = Eigen::Matrix<int, size, 1>::Ones();
+    static Eigen::Matrix<int, size, 1> z;
+    z.noalias();
 
     constexpr int reps = 5;
     printf("Matrix size N: %d\n", size);
-    auto dense_harness = bench::make_harness<reps>([&]() { dense_gemm<size>(A, B, C); },
-                                            "GEMM Dense Benchmark Example");
-    dense_harness.run();
+    auto vvadd_harness = bench::make_harness<reps>([&]() { vvadd<size>(x, y, z); },
+                                            "GEMV Dense Benchmark Example");
+    vvadd_harness.run();
 }
 
-// Base case to end recursion
-template<int size>
-void run_matrix_init() {
-    if constexpr (size <= 100) {
-        matrix_init<size>();
-        run_matrix_init<size + 1>(); 
-    }
-}
 
 int main() {
     using namespace bench;
@@ -72,8 +61,7 @@ int main() {
     printf("==========================\n\n");
     printf("Running examples from default startup parameters (see above).");
 
-    run_matrix_init<2>(); 
-    // matrix_init<58>();
+    vector_init<8>(); 
 
     printf("Finished running Eigen GEMM dense benchmark example!\n");
 
@@ -81,15 +69,3 @@ int main() {
 
     return 0;
 }
-
-
-    // constexpr int size = 10;
-    // Eigen::Matrix<int, size, size> A = Eigen::Matrix<int, size, size>::Ones();
-    // Eigen::Matrix<int, size, size> B = Eigen::Matrix<int, size, size>::Ones();
-    // Eigen::Matrix<int, size, size> C;
-    // C.noalias();
-
-    // constexpr int reps = 5;
-    // printf("Matrix size N: %d\n", size);
-    // auto dense_harness = bench::make_harness<reps>([&]() { dense_gemm<size>(A, B, C); },
-    //                                         "GEMM Dense Benchmark Example");
