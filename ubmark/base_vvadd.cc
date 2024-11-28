@@ -5,24 +5,33 @@
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
 #include <ento-bench/roi.h>
-#include <Eigen/Dense>
 
 extern "C" void initialise_monitor_handles(void);
 
+// Vector addition without Eigen
 template<int N>
-void __attribute__((noinline)) vvadd(const Eigen::Matrix<int, N, 1>& x, const Eigen::Matrix<int, N, 1>& y, Eigen::Matrix<int, N, 1>& z) {
+void __attribute__((noinline)) vvadd(const int x[N], const int y[N], int z[N]) {
     if constexpr (N > 0) {
         start_roi();
-        z.noalias() = x + y;
+        for (int i = 0; i < N; ++i) {
+            z[i] = x[i] + y[i];
+        }
         end_roi();
     }
 }
 
 template<int size>
 void vector_init() {
-    static Eigen::Matrix<int, size, 1> x = Eigen::Matrix<int, size, 1>::Ones();
-    static Eigen::Matrix<int, size, 1> y = Eigen::Matrix<int, size, 1>::Ones();
-    static Eigen::Matrix<int, size, 1> z;
+    static int x[size];
+    static int y[size];
+    static int z[size];
+
+    // Initialize vectors
+    for (int i = 0; i < size; ++i) {
+        x[i] = 1;
+        y[i] = 1;
+        z[i] = 0;
+    }
 
     constexpr int reps = 5;
     printf("Vector size N: %d\n", size);
@@ -67,9 +76,9 @@ int main() {
     printf("==========================\n\n");
     printf("Running examples from default startup parameters (see above).\n");
 
-    sweep_vector_sizes<2>(); // Start sweeping vector sizes from 2x1 to 100x1
+    sweep_vector_sizes<2>(); 
 
-    printf("Finished running Eigen vvadd benchmark example!\n");
+    printf("Finished running custom GEMV dense benchmark example!\n");
 
     exit(1);
 

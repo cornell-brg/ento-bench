@@ -1,6 +1,6 @@
 include (${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
-set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/base_sparse_gemm.cc)
+set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/vector_add_ubench.cc)
 
 if (STM32_BUILD)
   set(MODULES

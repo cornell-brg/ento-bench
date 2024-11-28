@@ -22,21 +22,18 @@ void __attribute__((noinline)) sparse_gemm(const int A[N][N], const int B[N][N],
         }
     }
 
-    // Perform sparse matrix multiplication
+    // Perform matrix multiplication 
     start_roi();
     for (int i = 0; i < N; ++i) {
         for (int k = 0; k < N; ++k) {
-            if (A[i][k] != 0) { // Skip zero elements in A
-                for (int j = 0; j < N; ++j) {
-                    if (B[k][j] != 0) { // Skip zero elements in B
-                        C[i][j] += A[i][k] * B[k][j];
-                    }
-                }
+            for (int j = 0; j < N; ++j) {
+                C[i][j] += A[i][k] * B[k][j];
             }
         }
     }
     end_roi();
 }
+
 
 // Function to initialize sparse matrices with a given sparsity
 template<int N>
