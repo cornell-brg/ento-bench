@@ -60,7 +60,7 @@ inline Scalar polyval(const Scalar *f, Scalar x) {
 // Daniel Thul is responsible for this template-trickery :)
 template <typename Scalar, int D>
 inline unsigned int flag_negative(const Scalar *const f) {
-    return ((f[D] < 0) << D) | flag_negative<D - 1>(f);
+    return ((f[D] < 0) << D) | flag_negative<Scalar, D - 1>(f);
 }
 template <> inline unsigned int flag_negative<float, 0>(const float *const f) { return f[0] < 0; }
 template <> inline unsigned int flag_negative<double, 0>(const double *const f) { return f[0] < 0; }
@@ -78,7 +78,7 @@ inline int signchanges(const Scalar *svec, Scalar x) {
     }
 
     // In testing this turned out to be slightly faster compared to a naive loop
-    unsigned int S = flag_negative<N>(f);
+    unsigned int S = flag_negative<Scalar, N>(f);
 
     return __builtin_popcount((S ^ (S >> 1)) & ~(0xFFFFFFFF << N));
 }
@@ -120,8 +120,8 @@ inline Scalar get_bounds(const Scalar *fvec) {
 // Applies Ridder's bracketing method until we get close to root, followed by newton iterations
 template <typename Scalar, std::size_t N>
 void ridders_method_newton(const Scalar *fvec, Scalar a, Scalar b, Scalar *roots, int &n_roots, Scalar tol) {
-    Scalar fa = polyval<N>(fvec, a);
-    Scalar fb = polyval<N>(fvec, b);
+    Scalar fa = polyval<Scalar, N>(fvec, a);
+    Scalar fb = polyval<Scalar, N>(fvec, b);
 
     if (!((fa < 0) ^ (fb < 0)))
         return;
@@ -133,12 +133,12 @@ void ridders_method_newton(const Scalar *fvec, Scalar a, Scalar b, Scalar *roots
             break;
         }
         const Scalar c = (a + b) * 0.5;
-        const Scalar fc = polyval<N>(fvec, c);
+        const Scalar fc = polyval<Scalar, N>(fvec, c);
         const Scalar s = std::sqrt(fc * fc - fa * fb);
         if (!s)
             break;
         const Scalar d = (fa < fb) ? c + (a - c) * fc / s : c + (c - a) * fc / s;
-        const Scalar fd = polyval<N>(fvec, d);
+        const Scalar fd = polyval<Scalar, N>(fvec, d);
 
         if (fd >= 0 ? (fc < 0) : (fc > 0)) {
             a = c;
@@ -160,11 +160,11 @@ void ridders_method_newton(const Scalar *fvec, Scalar a, Scalar b, Scalar *roots
     Scalar fx, fpx, dx;
     const Scalar *fpvec = fvec + N + 1;
     for (int iter = 0; iter < 10; ++iter) {
-        fx = polyval<N>(fvec, x);
+        fx = polyval<Scalar, N>(fvec, x);
         if (std::abs(fx) < tol) {
             break;
         }
-        fpx = static_cast<Scalar>(N) * polyval<N - 1>(fpvec, x);
+        fpx = static_cast<Scalar>(N) * polyval<Scalar, N - 1>(fpvec, x);
         dx = fx / fpx;
         x = x - dx;
         if (std::abs(dx) < tol) {
@@ -185,11 +185,11 @@ void isolate_roots(const Scalar *fvec, const Scalar *svec, Scalar a, Scalar b, i
 
     if (n_rts > 1) {
         Scalar c = (a + b) * 0.5;
-        int sc = signchanges<N>(svec, c);
-        isolate_roots<N>(fvec, svec, a, c, sa, sc, roots, n_roots, tol, depth + 1);
-        isolate_roots<N>(fvec, svec, c, b, sc, sb, roots, n_roots, tol, depth + 1);
+        int sc = signchanges<Scalar, N>(svec, c);
+        isolate_roots<Scalar, N>(fvec, svec, a, c, sa, sc, roots, n_roots, tol, depth + 1);
+        isolate_roots<Scalar, N>(fvec, svec, c, b, sc, sb, roots, n_roots, tol, depth + 1);
     } else if (n_rts == 1) {
-        ridders_method_newton<N>(fvec, a, b, roots, n_roots, tol);
+        ridders_method_newton<Scalar, N>(fvec, a, b, roots, n_roots, tol);
     }
 }
 
@@ -217,22 +217,22 @@ inline int bisect_sturm(const Scalar *coeffs, Scalar *roots, Scalar tol = 1e-10)
     fvec[2 * N] = 1.0;
 
     // Compute sturm sequences
-    build_sturm_seq<N>(fvec, svec);
+    build_sturm_seq<Scalar ,N>(fvec, svec);
 
     // All real roots are in the interval [-r0, r0]
-    Scalar r0 = get_bounds<N>(fvec);
+    Scalar r0 = get_bounds<Scalar, N>(fvec);
     Scalar a = -r0;
     Scalar b = r0;
 
-    int sa = signchanges<N>(svec, a);
-    int sb = signchanges<N>(svec, b);
+    int sa = signchanges<Scalar, N>(svec, a);
+    int sb = signchanges<Scalar, N>(svec, b);
 
     int n_roots = sa - sb;
     if (n_roots == 0)
         return 0;
 
     n_roots = 0;
-    isolate_roots<N>(fvec, svec, a, b, sa, sb, roots, n_roots, tol, 0);
+    isolate_roots<Scalar, N>(fvec, svec, a, b, sa, sb, roots, n_roots, tol, 0);
 
     return n_roots;
 }

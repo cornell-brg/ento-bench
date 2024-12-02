@@ -255,7 +255,7 @@ Eigen::Matrix<Scalar, 3, 3> dlt_planar_ho(Eigen::Matrix<Scalar, N, 2, Order>& po
   // At is Nx2, A is 2xN
   Pt = points2d.transpose() * points2d;
 
-  float32_t detinv = 1.0f / (PPt(0)(0) * PPt(1)(1) - PPt(0)(1) * PPt(1)(0));
+  Scalar detinv = 1.0f / (PPt(0)(0) * PPt(1)(1) - PPt(0)(1) * PPt(1)(0));
 
   PPt *= detinv;
 

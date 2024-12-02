@@ -32,6 +32,7 @@
     std::printf(" }\n");                                                \
   }
 
+
 #define ENTO_DEBUG_NEWLINE \
   if ( __n > 0 ) { std::printf("\n"); }
 
@@ -45,12 +46,12 @@
       printf("%s[ ", indent);                                         \
       for (size_t j = 0; j < cols_; j++ ) {                             \
         if constexpr (std::is_integral_v<scalar_type_>) {                 \
-          printf("%*d", width, matrix_(i, j));                          \
+          std::printf("%*d", width, matrix_(i, j));                          \
         } else if constexpr (std::is_floating_point_v<scalar_type_>) {    \
-          printf("%*.*f", width, 3, matrix_(i, j));                     \
+          std::printf("%*.*f", width, 5, matrix_(i, j));                     \
         }                                                               \
         if ( j != cols_ - 1 )                         \
-          printf( ", ", width, 3);                                               \
+          std::printf( ", ", width, 3);                                               \
         else if ( i != rows_ - 1 )                                      \
           printf( "\t]\n" );                                               \
       }                                                                 \

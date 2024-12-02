@@ -10,7 +10,8 @@ namespace EntoUtil
 {
 
 template <typename T, std::size_t Capacity>
-class EntoArray {
+class EntoArray
+{
 public:
   constexpr EntoArray() : size_(0) {}
 
@@ -31,6 +32,19 @@ public:
     }
     data_[size_++] = std::move(value);
     return true;
+  }
+
+  template <typename... Args>
+  void emplace_back(Args&&... args)
+  {
+    if (size_ >= Capacity)
+    {
+      ENTO_DEBUG("Emplaced item into EntoArray that is at capacity!");
+    }
+
+    // Use placement new to construct the object in-place
+    data_[size_] = T(std::forward<Args>(args)...);
+    ++size_;
   }
 
   // Remove the last element from the array
@@ -88,6 +102,20 @@ private:
   std::array<T, Capacity> data_;
   std::size_t size_;
 };
+
+template <typename T, std::size_t Capacity>
+struct ContainerSelector
+{
+  using type = std::conditional_t<
+      Capacity == 0,       // If Capacity is 0
+      std::vector<T>,      // Use std::vector
+      EntoArray<T, Capacity>>; // Otherwise, use EntoArray
+};
+
+// Alias for convenience
+template <typename T, std::size_t Capacity = 0>
+using EntoContainer = typename ContainerSelector<T, Capacity>::type;
+
 
 } // namespace EntoUtil
   //

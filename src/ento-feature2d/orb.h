@@ -3,7 +3,7 @@
 
 #include <math.h>
 #include <stdint.h>
-#include <ento-feature2d/util.h>
+#include <ento-feature2d/feat2d_util.h>
 
 template <typename ImageType,
           int Threshold,

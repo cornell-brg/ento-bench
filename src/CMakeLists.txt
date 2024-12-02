@@ -66,8 +66,16 @@ target_include_directories(ento-pose
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   ${EIGEN_DIR}
 )
-target_include_directories(ento_abs_pose
-  PUBLIC
+target_include_directories(ento-abs-pose
+  INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   ${EIGEN_DIR}
 )
+
+add_subdirectory(ento-state-est)
+target_include_directories(ento-state-est-robobee-cekf
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
+

@@ -395,15 +395,18 @@ inline bool root2real(Scalar b,
   return true;
 }
 
-template <typename Scalar, std::size_t N>
+template <typename Scalar>
 void essential_from_motion(const CameraPose<Scalar> &pose, Matrix3x3<Scalar> *E)
 {
   *E << 0.0, -pose.t(2), pose.t(1), pose.t(2), 0.0, -pose.t(0), -pose.t(1), pose.t(0), 0.0;
   *E = (*E) * pose.R();
 }
 
-template <typename Scalar, std::size_t N>
-bool check_cheirality(const CameraPose<Scalar> &pose, const Vec3<Scalar> &x1, const Vec3<Scalar> &x2, Scalar min_depth) {
+template <typename Scalar>
+bool check_cheirality(const CameraPose<Scalar> &pose,
+                      const Vec3<Scalar> &x1,
+                      const Vec3<Scalar> &x2,
+                      Scalar min_depth = 0) {
   // This code assumes that x1 and x2 are unit vectors
   const Vec3<Scalar> Rx1 = pose.rotate(x1);
 
@@ -422,13 +425,13 @@ bool check_cheirality(const CameraPose<Scalar> &pose, const Vec3<Scalar> &x1, co
   return lambda1 > min_depth && lambda2 > min_depth;
 }
 
-template <typename Scalar, std::size_t N>
+template <typename Scalar>
 bool check_cheirality(const CameraPose<Scalar> &pose,
                       const Vec3<Scalar> &p1,
                       const Vec3<Scalar> &x1,
                       const Vec3<Scalar> &p2,
                       const Vec3<Scalar> &x2,
-                      Scalar min_depth)
+                      Scalar min_depth = 0)
 {
 
   // This code assumes that x1 and x2 are unit vectors
@@ -450,11 +453,11 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
 }
 
 // wrappers for vectors
-template <typename Scalar, std::size_t N>
+template <typename Scalar>
 bool check_cheirality(const CameraPose<Scalar> &pose,
                       const std::vector<Vec3<Scalar>> &x1,
                       const std::vector<Vec3<Scalar>> &x2,
-                      Scalar min_depth)
+                      Scalar min_depth = 0)
 {
   for (size_t i = 0; i < x1.size(); ++i) {
     if (!check_cheirality(pose, x1[i], x2[i], min_depth))
@@ -465,11 +468,11 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
   return true;
 }
 // Corresponding generalized version
-template <typename Scalar, std::size_t N>
+template <typename Scalar>
 bool check_cheirality(const CameraPose<Scalar> &pose,
                       const std::vector<Vec3<Scalar>> &p1,
                       const std::vector<Vec3<Scalar>> &x1, const std::vector<Vec3<Scalar>> &p2,
-                      const std::vector<Vec3<Scalar>> &x2, Scalar min_depth)
+                      const std::vector<Vec3<Scalar>> &x2, Scalar min_depth = 0)
 {
   for (size_t i = 0; i < x1.size(); ++i)
   {
@@ -481,11 +484,11 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
   return true;
 }
 
-template <typename Scalar, std::size_t N>
+template <typename Scalar, std::size_t N=0, std::size_t M=4>
 void motion_from_essential(const Matrix3x3<Scalar> &E,
-                           const std::vector<Vec3<Scalar>> &x1,
-                           const std::vector<Vec3<Scalar>> &x2,
-                           EntoArray<CameraPose<Scalar>, N> *relative_poses)
+                           const EntoContainer<Vec3<Scalar>, N> &x1,
+                           const EntoContainer<Vec3<Scalar>, N> &x2,
+                                 EntoContainer<CameraPose<Scalar>, M> *relative_poses)
 {
 
   // Compute the necessary cross products
@@ -553,7 +556,7 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   }
 
   // U * W.transpose()
-  UW.block<3, 2>(0, 0) = -UW.block<3, 2>(0, 0);
+  UW.template block<3, 2>(0, 0) = -UW.template block<3, 2>(0, 0);
   pose.q = rotmat_to_quat<Scalar>(UW * Vt);
   if (check_cheirality(pose, x1, x2)) 
   {
@@ -566,14 +569,14 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   }
 }
 
-template <typename Scalar, std::size_t N>
+template <typename Scalar, std::size_t N=0, std::size_t M=2>
 void motion_from_essential_planar(Scalar e01,
                                   Scalar e21,
                                   Scalar e10,
                                   Scalar e12,
-                                  const std::vector<Vec3<Scalar>> &x1,
-                                  const std::vector<Vec3<Scalar>> &x2,
-                                  EntoArray<CameraPose<Scalar>, N> *relative_poses)
+                                  const EntoContainer<Vec3<Scalar>, N> &x1,
+                                  const EntoContainer<Vec3<Scalar>, N> &x2,
+                                  EntoContainer<CameraPose<Scalar>, M> *relative_poses)
 {
 
   Vec2<Scalar> z;
@@ -611,11 +614,11 @@ void motion_from_essential_planar(Scalar e01,
     */
 }
 
-template <typename Scalar, std::size_t N>
+template <typename Scalar, std::size_t N=0>
 void motion_from_essential_svd(const Matrix3x3<Scalar> &E,
-                               const std::vector<Vec3<Scalar>> &x1,
-                               const std::vector<Vec3<Scalar>> &x2,
-                               EntoArray<CameraPose<Scalar>, N> *relative_poses)
+                               const EntoContainer<Vec3<Scalar>, N> &x1,
+                               const EntoContainer<Vec3<Scalar>, N> &x2,
+                               EntoArray<CameraPose<Scalar>, 4> *relative_poses)
 {
   Eigen::JacobiSVD<Matrix3x3<Scalar>> USV(E, Eigen::ComputeFullU | Eigen::ComputeFullV);
   Matrix3x3<Scalar> U = USV.matrixU();
