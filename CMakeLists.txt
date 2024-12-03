@@ -37,6 +37,15 @@ add_custom_target(update_clangd ALL
   COMMENT "Updating .clangd file with compile_commands.json path"
 )
 
+# Eigen Flags
+add_definitions(
+    -DEIGEN_DEFAULT_L1_CACHE_SIZE=0
+    -DEIGEN_DEFAULT_L2_CACHE_SIZE=0
+    -DEIGEN_DEFAULT_L3_CACHE_SIZE=0
+    -DEIGEN_UNROLLING_LIMIT=200
+    -DEIGEN_NO_MALLOC
+)
+
 # Conditionally add ARM-specific include paths if STM32_BUILD is set
 if(STM32_BUILD)
   # Find the ARM toolchain executable
