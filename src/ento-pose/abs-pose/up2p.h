@@ -17,7 +17,7 @@ namespace EntoPose
 template <typename Scalar, size_t N>
 int up2p(const EntoArray<Vec3<Scalar>, N> &x,
          const EntoArray<Vec3<Scalar>, N> &X,
-         EntoArray<CameraPose<Scalar>, 4>   &output);
+         EntoArray<CameraPose<Scalar>, 4> &output);
 
 // Wrapper for non-upright gravity (g_cam = R*g_world)
 template <typename Scalar, size_t N>
@@ -27,7 +27,7 @@ int up2p(const EntoArray<Vec3<Scalar>, N> &x,
          const Vec3<Scalar>               &g_world,
          EntoArray<CameraPose<Scalar>, 4> &output);
 
-#if defined(SEMIHOSTING)
+#if defined(NATIVE)
 #include <vector>
 template <typename Scalar>
 int up2p(const std::vector<Vec3<Scalar>> &x,
@@ -36,10 +36,10 @@ int up2p(const std::vector<Vec3<Scalar>> &x,
 
 // Wrapper for non-upright gravity (g_cam = R*g_world)
 template <typename Scalar>
-int up2p(const std::vector<Vec3<Scalar>, N> &x,
-         const std::vector<Vec3<Scalar>, N> &X,
-         const Vec3<Scalar>               &g_cam,
-         const Vec3<Scalar>               &g_world,
+int up2p(const std::vector<Vec3<Scalar>>       &x,
+         const std::vector<Vec3<Scalar>>       &X,
+         const Vec3<Scalar>                    &g_cam,
+         const Vec3<Scalar>                    &g_world,
                std::vector<CameraPose<Scalar>> &output);
 #endif // defined(SEMIHOSTING)
 
@@ -70,7 +70,7 @@ int up2p(const EntoArray<Vec3<Scalar>, N> &x,
     const Scalar c3 = b(3, 1);
 
     Scalar qq[2];
-    const int sols = solve_quadratic_real(1.0, c2, c3, qq);
+    const int sols = solve_quadratic_real(static_cast<Scalar>(1.0), c2, c3, qq);
 
     output->clear();
     for (int i = 0; i < sols; ++i) {
@@ -152,7 +152,7 @@ int up2p(const std::vector<Vec3<Scalar>> &x,
   const Scalar c3 = b(3, 1);
 
   Scalar qq[2];
-  const int sols = solve_quadratic_real(Scalar(1.0), c2, c3, qq);
+  const int sols = solve_quadratic_real(static_cast<Scalar>(1.0), c2, c3, qq);
 
   output->clear();
   for (int i = 0; i < sols; ++i)

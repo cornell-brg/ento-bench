@@ -12,14 +12,14 @@ namespace EntoPose
 {
 
 template <typename Scalar, std::size_t N>
-int relpose_upright_planar_3pt(const EntoArray<Vec3<Scalar>, N> &x1,
-                               const EntoArray<Vec3<Scalar>, N> &x2,
-                               EntoArray<CameraPose<Scalar>, 3> *output);
+int relpose_upright_planar_3pt(const EntoContainer<Vec3<Scalar>, N> &x1,
+                               const EntoContainer<Vec3<Scalar>, N> &x2,
+                               EntoContainer<CameraPose<Scalar>, N> *output);
 
-template <typename Scalar, std::size_t N>
-int relpose_upright_planar_3pt(const EntoArray<Vec3<Scalar>, N> &x1,
-                               const EntoArray<Vec3<Scalar>, N> &x2,
-                               EntoArray<CameraPose<Scalar>, 3> *output)
+template <typename Scalar, std::size_t N=0>
+int relpose_upright_planar_3pt(const EntoContainer<Vec3<Scalar>, N> &x1,
+                               const EntoContainer<Vec3<Scalar>, N> &x2,
+                               EntoContainer<CameraPose<Scalar>, 2> *output)
 {
     // Build the action matrix -> see (6,7) in the paper
     Eigen::Matrix<Scalar, 4, 3> A;
@@ -30,8 +30,8 @@ int relpose_upright_planar_3pt(const EntoArray<Vec3<Scalar>, N> &x1,
             -bearing_b_i.x() * bearing_a_i.y(), -bearing_b_i.z() * bearing_a_i.y();
     }
 
-    const Eigen::Matrix4d Q = A.householderQr().householderQ();
-    const Eigen::Vector4d nullspace = Q.col(3);
+    const Eigen::Matrix<Scalar, 4, 4> Q = A.householderQr().householderQ();
+    const Vec4<Scalar> nullspace = Q.col(3);
 
     output->clear();
     motion_from_essential_planar(nullspace(2), nullspace(3), -nullspace(0), nullspace(1), x1, x2, output);

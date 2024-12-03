@@ -12,7 +12,7 @@ set(NATIVE_SRC_FILES
 add_non_arm_executable(
   generate_pose_data
   SOURCES ${NATIVE_SRC_FILES}
-  LIBRARIES ento-pose
+  LIBRARIES ento-pose ento_util
 )
 
 target_compile_definitions(

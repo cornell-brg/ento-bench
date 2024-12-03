@@ -19,9 +19,9 @@ int p3p(const std::vector<Vec3<Scalar>> &x,
 #endif
 
 template <typename Scalar, size_t N>
-int p3p(const std::array<Vec3<Scalar>,    N> &x,
-        const std::array<Vec3<Scalar>,    N> &X,
-              std::array<CameraPose<Scalar>, 4>* output);
+int p3p(const EntoArray<Vec3<Scalar>,    N> &x,
+        const EntoArray<Vec3<Scalar>,    N> &X,
+              EntoArray<CameraPose<Scalar>, 4>* output);
 
 template <typename Scalar>
 inline std::array<Vec3<Scalar>, 2>
@@ -57,9 +57,9 @@ inline void refine_lambda(Scalar &lambda1, Scalar &lambda2, Scalar &lambda3, con
 // Function Implementations
 
 template <typename Scalar, size_t N>
-int p3p(const std::array<Vec3<Scalar>,    N> &x,
-        const std::array<Vec3<Scalar>,    N> &X,
-              std::array<CameraPose<Scalar>, 4>* output)
+int p3p(const EntoArray<Vec3<Scalar>, N> &x,
+        const EntoArray<Vec3<Scalar>, N> &X,
+              EntoArray<CameraPose<Scalar>, 4>* output)
 {
   Vec3<Scalar> X01 = X[0] - X[1];
   Vec3<Scalar> X02 = X[0] - X[2];
@@ -215,6 +215,7 @@ int p3p(const std::array<Vec3<Scalar>,    N> &x,
       if (n_sols > 0 && G)
           break;
   }
+  return output->size();
 }
 
 template <typename Scalar>

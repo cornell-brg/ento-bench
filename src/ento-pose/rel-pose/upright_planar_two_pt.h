@@ -11,10 +11,10 @@ using namespace EntoUtil;
 namespace EntoPose
 {
 
-template <typename Scalar, std::size_t N>
-int relpose_upright_planar_2pt(const EntoArray<Vec3<Scalar>, N> &x1,
-                               const EntoArray<Vec3<Scalar>, N> &x2,
-                               EntoArray<CameraPose<Scalar>, N> *output);
+template <typename Scalar, std::size_t N=0>
+int relpose_upright_planar_2pt(const EntoContainer<Vec3<Scalar>, N> &x1,
+                               const EntoContainer<Vec3<Scalar>, N> &x2,
+                               EntoArray<CameraPose<Scalar>, 4> *output);
 
 template <typename Scalar>
 inline bool recover_a_b(const Eigen::Matrix<Scalar, 2, 2> &C,
@@ -38,13 +38,13 @@ inline bool recover_a_b(const Eigen::Matrix<Scalar, 2, 2> &C,
 }
 
 template <typename Scalar, std::size_t N>
-int relpose_upright_planar_2pt(const EntoArray<Vec3<Scalar>, N> &x1,
-                               const EntoArray<Vec3<Scalar>, N> &x2,
-                               EntoArray<CameraPose<Scalar>, N> *output)
+int relpose_upright_planar_2pt(const EntoContainer<Vec3<Scalar>, N> &x1,
+                               const EntoContainer<Vec3<Scalar>, N> &x2,
+                               EntoArray<CameraPose<Scalar>, 4> *output)
 {
 
   Eigen::Matrix<Scalar, 2, 2> A, B, C;
-  Eigen::Vector2d a, b;
+  Vec2<Scalar> a, b;
 
   A << x2[0](1) * x1[0](0), -x2[0](1) * x1[0](2), x2[1](1) * x1[1](0), -x2[1](1) * x1[1](2);
   B << x2[0](0) * x1[0](1), x2[0](2) * x1[0](1), x2[1](0) * x1[1](1), x2[1](2) * x1[1](1);
@@ -71,7 +71,7 @@ int relpose_upright_planar_2pt(const EntoArray<Vec3<Scalar>, N> &x1,
     if (recover_a_b(C, -alphap * inv_norm, -beta * inv_norm, a, b))
     {
       b.normalize();
-      motion_from_essential_planar(b(0), b(1), -a(0), a(1), x1, x2, output);
+      motion_from_essential_planar<Scalar, N, 4>(b(0), b(1), -a(0), a(1), x1, x2, output);
     }
     return output->size();
   }
@@ -84,7 +84,7 @@ int relpose_upright_planar_2pt(const EntoArray<Vec3<Scalar>, N> &x1,
                   (-beta * gammap - alphap * disc) * inv_norm, a,
                   b))
   {
-      motion_from_essential_planar(b(0), b(1), -a(0), a(1), x1, x2, output);
+      motion_from_essential_planar<Scalar, N, 4>(b(0), b(1), -a(0), a(1), x1, x2, output);
   }
 
   // Second set of solutions
@@ -94,7 +94,7 @@ int relpose_upright_planar_2pt(const EntoArray<Vec3<Scalar>, N> &x1,
                   a,
                   b))
   {
-      motion_from_essential_planar(b(0), b(1), -a(0), a(1), x1, x2, output);
+      motion_from_essential_planar<Scalar, N, 4>(b(0), b(1), -a(0), a(1), x1, x2, output);
   }
 
   return output->size();

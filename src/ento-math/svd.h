@@ -1,3 +1,6 @@
+#ifndef SVD_H
+#define SVD_H
+
 #include <Eigen/Dense>
 
 #include <cmath>
@@ -20,7 +23,7 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
              Eigen::Matrix<Scalar, N, 1, Order, N, 1>& min_v);
 
 template <typename Derived>
-void osj_svd_generic(Eigen::DenseBase<Derived>& A,
+void osj_svd(Eigen::DenseBase<Derived>& A,
                      Eigen::DenseBase<Derived>& V,
                      Eigen::DenseBase<Derived>& min_v);
 
@@ -540,7 +543,7 @@ void osj_svd_bounded(Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Order
 
 
 template <typename Derived>
-void osj_svd_generic(Eigen::DenseBase<Derived>& A,
+void osj_svd(Eigen::DenseBase<Derived>& A,
                      Eigen::DenseBase<Derived>& V,
                      Eigen::DenseBase<Derived>& min_v)
 {
@@ -569,8 +572,6 @@ void osj_svd_generic(Eigen::DenseBase<Derived>& A,
 
   for (int i = 0; i < N; i++)
   {
-    work_ab[i] = A.col(i).squaredNorm();
-
   }
 
   int gamma_idx = 0;
@@ -671,3 +672,5 @@ void osj_svd_generic(Eigen::DenseBase<Derived>& A,
 
 
 }
+
+#endif // SVD_H

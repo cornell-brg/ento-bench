@@ -4,6 +4,7 @@
 #include <ento-util/containers.h>
 #include <ento-math/core.h>
 #include <ento-pose/pose_util.h>
+#include <ento-pose/rel-pose/five_pt_util.h>
 
 using namespace EntoUtil;
 using namespace EntoMath;
@@ -22,6 +23,19 @@ template <typename Scalar, std::size_t N>
 int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
                 const EntoArray<Vec3<Scalar>, N> &x2,
                 EntoArray<CameraPose<Scalar>, N>  *output);
+
+
+#if defined(NATIVE)
+template <typename Scalar>
+int relpose_5pt(const std::vector<Vec3<Scalar>> &x1,
+                const std::vector<Vec3<Scalar>> &x2,
+                EntoArray<Matrix3x3<Scalar>, 10>  *essential_matrices);
+
+template <typename Scalar>
+int relpose_5pt(const std::vector<Vec3<Scalar>> &x1,
+                const std::vector<Vec3<Scalar>> &x2,
+                EntoArray<CameraPose<Scalar>, 40>  *output);
+#endif
 
 // ==================================================================
 
@@ -202,23 +216,23 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
   // Compute equation coefficients for the trace constraints + determinant
   Eigen::Matrix<Scalar, 10, 20> coeffs;
   compute_trace_constraints(N_, coeffs);
-  coeffs.block<10, 10>(0, 10) = coeffs.block<10, 10>(0, 0).partialPivLu().solve(coeffs.block<10, 10>(0, 10));
+  coeffs.template block<10, 10>(0, 10) = coeffs.template block<10, 10>(0, 0).partialPivLu().solve(coeffs.template block<10, 10>(0, 10));
 
   // Perform eliminations using the 6 bottom rows
   Eigen::Matrix<Scalar, 3, 13> A;
   for (int i = 0; i < 3; ++i)
   {
     A(i, 0) = 0.0;
-    A.block<1, 3>(i, 1) = coeffs.block<1, 3>(4 + 2 * i, 10);
-    A.block<1, 3>(i, 0) -= coeffs.block<1, 3>(5 + 2 * i, 10);
+    A.template block<1, 3>(i, 1) = coeffs.template block<1, 3>(4 + 2 * i, 10);
+    A.template block<1, 3>(i, 0) -= coeffs.template block<1, 3>(5 + 2 * i, 10);
 
     A(i, 4) = 0.0;
-    A.block<1, 3>(i, 5) = coeffs.block<1, 3>(4 + 2 * i, 13);
-    A.block<1, 3>(i, 4) -= coeffs.block<1, 3>(5 + 2 * i, 13);
+    A.template block<1, 3>(i, 5) = coeffs.template block<1, 3>(4 + 2 * i, 13);
+    A.template block<1, 3>(i, 4) -= coeffs.template block<1, 3>(5 + 2 * i, 13);
 
     A(i, 8) = 0.0;
-    A.block<1, 4>(i, 9) = coeffs.block<1, 4>(4 + 2 * i, 16);
-    A.block<1, 4>(i, 8) -= coeffs.block<1, 4>(5 + 2 * i, 16);
+    A.template block<1, 4>(i, 9) = coeffs.template block<1, 4>(4 + 2 * i, 16);
+    A.template block<1, 4>(i, 8) -= coeffs.template block<1, 4>(5 + 2 * i, 16);
   }
 
   // Compute degree 10 poly representing determinant (equation 14 in the paper)
@@ -386,7 +400,7 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
 
   // Solve for the roots using sturm bracketing
   Scalar roots[10];
-  int n_sols = bisect_sturm<10>(c, roots);
+  int n_sols = bisect_sturm<Scalar, 10>(c, roots);
 
   // Back substitution to recover essential matrices
   Eigen::Matrix<Scalar, 3, 2> B;
@@ -402,13 +416,13 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
     const Scalar z3 = z2 * z;
     const Scalar z4 = z2 * z2;
 
-    B.col(0) = A.block<3, 1>(0, 0) * z3 + A.block<3, 1>(0, 1) * z2 + A.block<3, 1>(0, 2) * z + A.block<3, 1>(0, 3);
-    B.col(1) = A.block<3, 1>(0, 4) * z3 + A.block<3, 1>(0, 5) * z2 + A.block<3, 1>(0, 6) * z + A.block<3, 1>(0, 7);
-    b = A.block<3, 1>(0, 8) * z4 + A.block<3, 1>(0, 9) * z3 + A.block<3, 1>(0, 10) * z2 + A.block<3, 1>(0, 11) * z +
-        A.block<3, 1>(0, 12);
+    B.col(0) = A.template block<3, 1>(0, 0) * z3 + A.template block<3, 1>(0, 1) * z2 + A.template block<3, 1>(0, 2) * z + A.template block<3, 1>(0, 3);
+    B.col(1) = A.template block<3, 1>(0, 4) * z3 + A.template block<3, 1>(0, 5) * z2 + A.template block<3, 1>(0, 6) * z + A.template block<3, 1>(0, 7);
+    b = A.template block<3, 1>(0, 8) * z4 + A.template block<3, 1>(0, 9) * z3 + A.template block<3, 1>(0, 10) * z2 + A.template block<3, 1>(0, 11) * z +
+        A.template block<3, 1>(0, 12);
 
     // We try to solve using top two rows
-    xz = B.block<2, 2>(0, 0).inverse() * b.block<2, 1>(0, 0);
+    xz = B.template block<2, 2>(0, 0).inverse() * b.template block<2, 1>(0, 0);
 
     // If this fails we revert to more expensive QR solver using all three rows
     if (std::abs(B.row(2) * xz - b(2)) > 1e-6)
@@ -445,6 +459,272 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>,  N> &x1,
 
   return output->size();
 }
+
+#if defined(NATIVE)
+template <typename Scalar>
+int relpose_5pt(const std::vector<Vec3<Scalar>> &x1,
+                const std::vector<Vec3<Scalar>> &x2,
+                EntoArray<Matrix3x3<Scalar>, 10>  *essential_matrices)
+{
+    // Compute nullspace to epipolar constraints
+  Eigen::Matrix<Scalar, 9, 5> epipolar_constraints;
+  for (int i = 0; i < 5; ++i)
+  {
+    epipolar_constraints.col(i) << x1[i](0) * x2[i], x1[i](1) * x2[i], x1[i](2) * x2[i];
+  }
+  Eigen::Matrix<Scalar, 9, 9> Q = epipolar_constraints.fullPivHouseholderQr().matrixQ();
+  Eigen::Matrix<Scalar, 4, 9> N_ = Q.rightCols(4).transpose();
+
+  // Compute equation coefficients for the trace constraints + determinant
+  Eigen::Matrix<Scalar, 10, 20> coeffs;
+  compute_trace_constraints(N_, coeffs);
+  coeffs.template block<10, 10>(0, 10) = coeffs.template block<10, 10>(0, 0).partialPivLu().solve(coeffs.template block<10, 10>(0, 10));
+
+  // Perform eliminations using the 6 bottom rows
+  Eigen::Matrix<Scalar, 3, 13> A;
+  for (int i = 0; i < 3; ++i)
+  {
+    A(i, 0) = 0.0;
+    A.template block<1, 3>(i, 1) = coeffs.template block<1, 3>(4 + 2 * i, 10);
+    A.template block<1, 3>(i, 0) -= coeffs.template block<1, 3>(5 + 2 * i, 10);
+
+    A(i, 4) = 0.0;
+    A.template block<1, 3>(i, 5) = coeffs.template block<1, 3>(4 + 2 * i, 13);
+    A.template block<1, 3>(i, 4) -= coeffs.template block<1, 3>(5 + 2 * i, 13);
+
+    A(i, 8) = 0.0;
+    A.template block<1, 4>(i, 9) = coeffs.template block<1, 4>(4 + 2 * i, 16);
+    A.template block<1, 4>(i, 8) -= coeffs.template block<1, 4>(5 + 2 * i, 16);
+  }
+
+  // Compute degree 10 poly representing determinant (equation 14 in the paper)
+  Scalar c[11];
+  c[0] = A(0, 12) * A(1, 3) * A(2, 7) - A(0, 12) * A(1, 7) * A(2, 3) - A(0, 3) * A(2, 7) * A(1, 12) +
+         A(0, 7) * A(2, 3) * A(1, 12) + A(0, 3) * A(1, 7) * A(2, 12) - A(0, 7) * A(1, 3) * A(2, 12);
+  c[1] = A(0, 11) * A(1, 3) * A(2, 7) - A(0, 11) * A(1, 7) * A(2, 3) + A(0, 12) * A(1, 2) * A(2, 7) +
+         A(0, 12) * A(1, 3) * A(2, 6) - A(0, 12) * A(1, 6) * A(2, 3) - A(0, 12) * A(1, 7) * A(2, 2) -
+         A(0, 2) * A(2, 7) * A(1, 12) - A(0, 3) * A(2, 6) * A(1, 12) - A(0, 3) * A(2, 7) * A(1, 11) +
+         A(0, 6) * A(2, 3) * A(1, 12) + A(0, 7) * A(2, 2) * A(1, 12) + A(0, 7) * A(2, 3) * A(1, 11) +
+         A(0, 2) * A(1, 7) * A(2, 12) + A(0, 3) * A(1, 6) * A(2, 12) + A(0, 3) * A(1, 7) * A(2, 11) -
+         A(0, 6) * A(1, 3) * A(2, 12) - A(0, 7) * A(1, 2) * A(2, 12) - A(0, 7) * A(1, 3) * A(2, 11);
+  c[2] = A(0, 10) * A(1, 3) * A(2, 7) - A(0, 10) * A(1, 7) * A(2, 3) + A(0, 11) * A(1, 2) * A(2, 7) +
+         A(0, 11) * A(1, 3) * A(2, 6) - A(0, 11) * A(1, 6) * A(2, 3) - A(0, 11) * A(1, 7) * A(2, 2) +
+         A(1, 1) * A(0, 12) * A(2, 7) + A(0, 12) * A(1, 2) * A(2, 6) + A(0, 12) * A(1, 3) * A(2, 5) -
+         A(0, 12) * A(1, 5) * A(2, 3) - A(0, 12) * A(1, 6) * A(2, 2) - A(0, 12) * A(1, 7) * A(2, 1) -
+         A(0, 1) * A(2, 7) * A(1, 12) - A(0, 2) * A(2, 6) * A(1, 12) - A(0, 2) * A(2, 7) * A(1, 11) -
+         A(0, 3) * A(2, 5) * A(1, 12) - A(0, 3) * A(2, 6) * A(1, 11) - A(0, 3) * A(2, 7) * A(1, 10) +
+         A(0, 5) * A(2, 3) * A(1, 12) + A(0, 6) * A(2, 2) * A(1, 12) + A(0, 6) * A(2, 3) * A(1, 11) +
+         A(0, 7) * A(2, 1) * A(1, 12) + A(0, 7) * A(2, 2) * A(1, 11) + A(0, 7) * A(2, 3) * A(1, 10) +
+         A(0, 1) * A(1, 7) * A(2, 12) + A(0, 2) * A(1, 6) * A(2, 12) + A(0, 2) * A(1, 7) * A(2, 11) +
+         A(0, 3) * A(1, 5) * A(2, 12) + A(0, 3) * A(1, 6) * A(2, 11) + A(0, 3) * A(1, 7) * A(2, 10) -
+         A(0, 5) * A(1, 3) * A(2, 12) - A(0, 6) * A(1, 2) * A(2, 12) - A(0, 6) * A(1, 3) * A(2, 11) -
+         A(0, 7) * A(1, 1) * A(2, 12) - A(0, 7) * A(1, 2) * A(2, 11) - A(0, 7) * A(1, 3) * A(2, 10);
+  c[3] = A(0, 3) * A(1, 7) * A(2, 9) - A(0, 3) * A(1, 9) * A(2, 7) - A(0, 7) * A(1, 3) * A(2, 9) +
+         A(0, 7) * A(1, 9) * A(2, 3) + A(0, 9) * A(1, 3) * A(2, 7) - A(0, 9) * A(1, 7) * A(2, 3) +
+         A(0, 10) * A(1, 2) * A(2, 7) + A(0, 10) * A(1, 3) * A(2, 6) - A(0, 10) * A(1, 6) * A(2, 3) -
+         A(0, 10) * A(1, 7) * A(2, 2) + A(1, 0) * A(0, 12) * A(2, 7) + A(0, 11) * A(1, 1) * A(2, 7) +
+         A(0, 11) * A(1, 2) * A(2, 6) + A(0, 11) * A(1, 3) * A(2, 5) - A(0, 11) * A(1, 5) * A(2, 3) -
+         A(0, 11) * A(1, 6) * A(2, 2) - A(0, 11) * A(1, 7) * A(2, 1) + A(1, 1) * A(0, 12) * A(2, 6) +
+         A(0, 12) * A(1, 2) * A(2, 5) + A(0, 12) * A(1, 3) * A(2, 4) - A(0, 12) * A(1, 4) * A(2, 3) -
+         A(0, 12) * A(1, 5) * A(2, 2) - A(0, 12) * A(1, 6) * A(2, 1) - A(0, 12) * A(1, 7) * A(2, 0) -
+         A(0, 0) * A(2, 7) * A(1, 12) - A(0, 1) * A(2, 6) * A(1, 12) - A(0, 1) * A(2, 7) * A(1, 11) -
+         A(0, 2) * A(2, 5) * A(1, 12) - A(0, 2) * A(2, 6) * A(1, 11) - A(0, 2) * A(2, 7) * A(1, 10) -
+         A(0, 3) * A(2, 4) * A(1, 12) - A(0, 3) * A(2, 5) * A(1, 11) - A(0, 3) * A(2, 6) * A(1, 10) +
+         A(0, 4) * A(2, 3) * A(1, 12) + A(0, 5) * A(2, 2) * A(1, 12) + A(0, 5) * A(2, 3) * A(1, 11) +
+         A(0, 6) * A(2, 1) * A(1, 12) + A(0, 6) * A(2, 2) * A(1, 11) + A(0, 6) * A(2, 3) * A(1, 10) +
+         A(0, 7) * A(2, 0) * A(1, 12) + A(0, 7) * A(2, 1) * A(1, 11) + A(0, 7) * A(2, 2) * A(1, 10) +
+         A(0, 0) * A(1, 7) * A(2, 12) + A(0, 1) * A(1, 6) * A(2, 12) + A(0, 1) * A(1, 7) * A(2, 11) +
+         A(0, 2) * A(1, 5) * A(2, 12) + A(0, 2) * A(1, 6) * A(2, 11) + A(0, 2) * A(1, 7) * A(2, 10) +
+         A(0, 3) * A(1, 4) * A(2, 12) + A(0, 3) * A(1, 5) * A(2, 11) + A(0, 3) * A(1, 6) * A(2, 10) -
+         A(0, 4) * A(1, 3) * A(2, 12) - A(0, 5) * A(1, 2) * A(2, 12) - A(0, 5) * A(1, 3) * A(2, 11) -
+         A(0, 6) * A(1, 1) * A(2, 12) - A(0, 6) * A(1, 2) * A(2, 11) - A(0, 6) * A(1, 3) * A(2, 10) -
+         A(0, 7) * A(1, 0) * A(2, 12) - A(0, 7) * A(1, 1) * A(2, 11) - A(0, 7) * A(1, 2) * A(2, 10);
+  c[4] = A(0, 2) * A(1, 7) * A(2, 9) - A(0, 2) * A(1, 9) * A(2, 7) + A(0, 3) * A(1, 6) * A(2, 9) +
+         A(0, 3) * A(1, 7) * A(2, 8) - A(0, 3) * A(1, 8) * A(2, 7) - A(0, 3) * A(1, 9) * A(2, 6) -
+         A(0, 6) * A(1, 3) * A(2, 9) + A(0, 6) * A(1, 9) * A(2, 3) - A(0, 7) * A(1, 2) * A(2, 9) -
+         A(0, 7) * A(1, 3) * A(2, 8) + A(0, 7) * A(1, 8) * A(2, 3) + A(0, 7) * A(1, 9) * A(2, 2) +
+         A(0, 8) * A(1, 3) * A(2, 7) - A(0, 8) * A(1, 7) * A(2, 3) + A(0, 9) * A(1, 2) * A(2, 7) +
+         A(0, 9) * A(1, 3) * A(2, 6) - A(0, 9) * A(1, 6) * A(2, 3) - A(0, 9) * A(1, 7) * A(2, 2) +
+         A(0, 10) * A(1, 1) * A(2, 7) + A(0, 10) * A(1, 2) * A(2, 6) + A(0, 10) * A(1, 3) * A(2, 5) -
+         A(0, 10) * A(1, 5) * A(2, 3) - A(0, 10) * A(1, 6) * A(2, 2) - A(0, 10) * A(1, 7) * A(2, 1) +
+         A(1, 0) * A(0, 11) * A(2, 7) + A(1, 0) * A(0, 12) * A(2, 6) + A(0, 11) * A(1, 1) * A(2, 6) +
+         A(0, 11) * A(1, 2) * A(2, 5) + A(0, 11) * A(1, 3) * A(2, 4) - A(0, 11) * A(1, 4) * A(2, 3) -
+         A(0, 11) * A(1, 5) * A(2, 2) - A(0, 11) * A(1, 6) * A(2, 1) - A(0, 11) * A(1, 7) * A(2, 0) +
+         A(1, 1) * A(0, 12) * A(2, 5) + A(0, 12) * A(1, 2) * A(2, 4) - A(0, 12) * A(1, 4) * A(2, 2) -
+         A(0, 12) * A(1, 5) * A(2, 1) - A(0, 12) * A(1, 6) * A(2, 0) - A(0, 0) * A(2, 6) * A(1, 12) -
+         A(0, 0) * A(2, 7) * A(1, 11) - A(0, 1) * A(2, 5) * A(1, 12) - A(0, 1) * A(2, 6) * A(1, 11) -
+         A(0, 1) * A(2, 7) * A(1, 10) - A(0, 2) * A(2, 4) * A(1, 12) - A(0, 2) * A(2, 5) * A(1, 11) -
+         A(0, 2) * A(2, 6) * A(1, 10) - A(0, 3) * A(2, 4) * A(1, 11) - A(0, 3) * A(2, 5) * A(1, 10) +
+         A(0, 4) * A(2, 2) * A(1, 12) + A(0, 4) * A(2, 3) * A(1, 11) + A(0, 5) * A(2, 1) * A(1, 12) +
+         A(0, 5) * A(2, 2) * A(1, 11) + A(0, 5) * A(2, 3) * A(1, 10) + A(0, 6) * A(2, 0) * A(1, 12) +
+         A(0, 6) * A(2, 1) * A(1, 11) + A(0, 6) * A(2, 2) * A(1, 10) + A(0, 7) * A(2, 0) * A(1, 11) +
+         A(0, 7) * A(2, 1) * A(1, 10) + A(0, 0) * A(1, 6) * A(2, 12) + A(0, 0) * A(1, 7) * A(2, 11) +
+         A(0, 1) * A(1, 5) * A(2, 12) + A(0, 1) * A(1, 6) * A(2, 11) + A(0, 1) * A(1, 7) * A(2, 10) +
+         A(0, 2) * A(1, 4) * A(2, 12) + A(0, 2) * A(1, 5) * A(2, 11) + A(0, 2) * A(1, 6) * A(2, 10) +
+         A(0, 3) * A(1, 4) * A(2, 11) + A(0, 3) * A(1, 5) * A(2, 10) - A(0, 4) * A(1, 2) * A(2, 12) -
+         A(0, 4) * A(1, 3) * A(2, 11) - A(0, 5) * A(1, 1) * A(2, 12) - A(0, 5) * A(1, 2) * A(2, 11) -
+         A(0, 5) * A(1, 3) * A(2, 10) - A(0, 6) * A(1, 0) * A(2, 12) - A(0, 6) * A(1, 1) * A(2, 11) -
+         A(0, 6) * A(1, 2) * A(2, 10) - A(0, 7) * A(1, 0) * A(2, 11) - A(0, 7) * A(1, 1) * A(2, 10);
+  c[5] = A(0, 1) * A(1, 7) * A(2, 9) - A(0, 1) * A(1, 9) * A(2, 7) + A(0, 2) * A(1, 6) * A(2, 9) +
+         A(0, 2) * A(1, 7) * A(2, 8) - A(0, 2) * A(1, 8) * A(2, 7) - A(0, 2) * A(1, 9) * A(2, 6) +
+         A(0, 3) * A(1, 5) * A(2, 9) + A(0, 3) * A(1, 6) * A(2, 8) - A(0, 3) * A(1, 8) * A(2, 6) -
+         A(0, 3) * A(1, 9) * A(2, 5) - A(0, 5) * A(1, 3) * A(2, 9) + A(0, 5) * A(1, 9) * A(2, 3) -
+         A(0, 6) * A(1, 2) * A(2, 9) - A(0, 6) * A(1, 3) * A(2, 8) + A(0, 6) * A(1, 8) * A(2, 3) +
+         A(0, 6) * A(1, 9) * A(2, 2) - A(0, 7) * A(1, 1) * A(2, 9) - A(0, 7) * A(1, 2) * A(2, 8) +
+         A(0, 7) * A(1, 8) * A(2, 2) + A(0, 7) * A(1, 9) * A(2, 1) + A(0, 8) * A(1, 2) * A(2, 7) +
+         A(0, 8) * A(1, 3) * A(2, 6) - A(0, 8) * A(1, 6) * A(2, 3) - A(0, 8) * A(1, 7) * A(2, 2) +
+         A(0, 9) * A(1, 1) * A(2, 7) + A(0, 9) * A(1, 2) * A(2, 6) + A(0, 9) * A(1, 3) * A(2, 5) -
+         A(0, 9) * A(1, 5) * A(2, 3) - A(0, 9) * A(1, 6) * A(2, 2) - A(0, 9) * A(1, 7) * A(2, 1) +
+         A(0, 10) * A(1, 0) * A(2, 7) + A(0, 10) * A(1, 1) * A(2, 6) + A(0, 10) * A(1, 2) * A(2, 5) +
+         A(0, 10) * A(1, 3) * A(2, 4) - A(0, 10) * A(1, 4) * A(2, 3) - A(0, 10) * A(1, 5) * A(2, 2) -
+         A(0, 10) * A(1, 6) * A(2, 1) - A(0, 10) * A(1, 7) * A(2, 0) + A(1, 0) * A(0, 11) * A(2, 6) +
+         A(1, 0) * A(0, 12) * A(2, 5) + A(0, 11) * A(1, 1) * A(2, 5) + A(0, 11) * A(1, 2) * A(2, 4) -
+         A(0, 11) * A(1, 4) * A(2, 2) - A(0, 11) * A(1, 5) * A(2, 1) - A(0, 11) * A(1, 6) * A(2, 0) +
+         A(1, 1) * A(0, 12) * A(2, 4) - A(0, 12) * A(1, 4) * A(2, 1) - A(0, 12) * A(1, 5) * A(2, 0) -
+         A(0, 0) * A(2, 5) * A(1, 12) - A(0, 0) * A(2, 6) * A(1, 11) - A(0, 0) * A(2, 7) * A(1, 10) -
+         A(0, 1) * A(2, 4) * A(1, 12) - A(0, 1) * A(2, 5) * A(1, 11) - A(0, 1) * A(2, 6) * A(1, 10) -
+         A(0, 2) * A(2, 4) * A(1, 11) - A(0, 2) * A(2, 5) * A(1, 10) - A(0, 3) * A(2, 4) * A(1, 10) +
+         A(0, 4) * A(2, 1) * A(1, 12) + A(0, 4) * A(2, 2) * A(1, 11) + A(0, 4) * A(2, 3) * A(1, 10) +
+         A(0, 5) * A(2, 0) * A(1, 12) + A(0, 5) * A(2, 1) * A(1, 11) + A(0, 5) * A(2, 2) * A(1, 10) +
+         A(0, 6) * A(2, 0) * A(1, 11) + A(0, 6) * A(2, 1) * A(1, 10) + A(0, 7) * A(2, 0) * A(1, 10) +
+         A(0, 0) * A(1, 5) * A(2, 12) + A(0, 0) * A(1, 6) * A(2, 11) + A(0, 0) * A(1, 7) * A(2, 10) +
+         A(0, 1) * A(1, 4) * A(2, 12) + A(0, 1) * A(1, 5) * A(2, 11) + A(0, 1) * A(1, 6) * A(2, 10) +
+         A(0, 2) * A(1, 4) * A(2, 11) + A(0, 2) * A(1, 5) * A(2, 10) + A(0, 3) * A(1, 4) * A(2, 10) -
+         A(0, 4) * A(1, 1) * A(2, 12) - A(0, 4) * A(1, 2) * A(2, 11) - A(0, 4) * A(1, 3) * A(2, 10) -
+         A(0, 5) * A(1, 0) * A(2, 12) - A(0, 5) * A(1, 1) * A(2, 11) - A(0, 5) * A(1, 2) * A(2, 10) -
+         A(0, 6) * A(1, 0) * A(2, 11) - A(0, 6) * A(1, 1) * A(2, 10) - A(0, 7) * A(1, 0) * A(2, 10);
+  c[6] = A(0, 0) * A(1, 7) * A(2, 9) - A(0, 0) * A(1, 9) * A(2, 7) + A(0, 1) * A(1, 6) * A(2, 9) +
+         A(0, 1) * A(1, 7) * A(2, 8) - A(0, 1) * A(1, 8) * A(2, 7) - A(0, 1) * A(1, 9) * A(2, 6) +
+         A(0, 2) * A(1, 5) * A(2, 9) + A(0, 2) * A(1, 6) * A(2, 8) - A(0, 2) * A(1, 8) * A(2, 6) -
+         A(0, 2) * A(1, 9) * A(2, 5) + A(0, 3) * A(1, 4) * A(2, 9) + A(0, 3) * A(1, 5) * A(2, 8) -
+         A(0, 3) * A(1, 8) * A(2, 5) - A(0, 3) * A(1, 9) * A(2, 4) - A(0, 4) * A(1, 3) * A(2, 9) +
+         A(0, 4) * A(1, 9) * A(2, 3) - A(0, 5) * A(1, 2) * A(2, 9) - A(0, 5) * A(1, 3) * A(2, 8) +
+         A(0, 5) * A(1, 8) * A(2, 3) + A(0, 5) * A(1, 9) * A(2, 2) - A(0, 6) * A(1, 1) * A(2, 9) -
+         A(0, 6) * A(1, 2) * A(2, 8) + A(0, 6) * A(1, 8) * A(2, 2) + A(0, 6) * A(1, 9) * A(2, 1) -
+         A(0, 7) * A(1, 0) * A(2, 9) - A(0, 7) * A(1, 1) * A(2, 8) + A(0, 7) * A(1, 8) * A(2, 1) +
+         A(0, 7) * A(1, 9) * A(2, 0) + A(0, 8) * A(1, 1) * A(2, 7) + A(0, 8) * A(1, 2) * A(2, 6) +
+         A(0, 8) * A(1, 3) * A(2, 5) - A(0, 8) * A(1, 5) * A(2, 3) - A(0, 8) * A(1, 6) * A(2, 2) -
+         A(0, 8) * A(1, 7) * A(2, 1) + A(0, 9) * A(1, 0) * A(2, 7) + A(0, 9) * A(1, 1) * A(2, 6) +
+         A(0, 9) * A(1, 2) * A(2, 5) + A(0, 9) * A(1, 3) * A(2, 4) - A(0, 9) * A(1, 4) * A(2, 3) -
+         A(0, 9) * A(1, 5) * A(2, 2) - A(0, 9) * A(1, 6) * A(2, 1) - A(0, 9) * A(1, 7) * A(2, 0) +
+         A(0, 10) * A(1, 0) * A(2, 6) + A(0, 10) * A(1, 1) * A(2, 5) + A(0, 10) * A(1, 2) * A(2, 4) -
+         A(0, 10) * A(1, 4) * A(2, 2) - A(0, 10) * A(1, 5) * A(2, 1) - A(0, 10) * A(1, 6) * A(2, 0) +
+         A(1, 0) * A(0, 11) * A(2, 5) + A(1, 0) * A(0, 12) * A(2, 4) + A(0, 11) * A(1, 1) * A(2, 4) -
+         A(0, 11) * A(1, 4) * A(2, 1) - A(0, 11) * A(1, 5) * A(2, 0) - A(0, 12) * A(1, 4) * A(2, 0) -
+         A(0, 0) * A(2, 4) * A(1, 12) - A(0, 0) * A(2, 5) * A(1, 11) - A(0, 0) * A(2, 6) * A(1, 10) -
+         A(0, 1) * A(2, 4) * A(1, 11) - A(0, 1) * A(2, 5) * A(1, 10) - A(0, 2) * A(2, 4) * A(1, 10) +
+         A(0, 4) * A(2, 0) * A(1, 12) + A(0, 4) * A(2, 1) * A(1, 11) + A(0, 4) * A(2, 2) * A(1, 10) +
+         A(0, 5) * A(2, 0) * A(1, 11) + A(0, 5) * A(2, 1) * A(1, 10) + A(0, 6) * A(2, 0) * A(1, 10) +
+         A(0, 0) * A(1, 4) * A(2, 12) + A(0, 0) * A(1, 5) * A(2, 11) + A(0, 0) * A(1, 6) * A(2, 10) +
+         A(0, 1) * A(1, 4) * A(2, 11) + A(0, 1) * A(1, 5) * A(2, 10) + A(0, 2) * A(1, 4) * A(2, 10) -
+         A(0, 4) * A(1, 0) * A(2, 12) - A(0, 4) * A(1, 1) * A(2, 11) - A(0, 4) * A(1, 2) * A(2, 10) -
+         A(0, 5) * A(1, 0) * A(2, 11) - A(0, 5) * A(1, 1) * A(2, 10) - A(0, 6) * A(1, 0) * A(2, 10);
+  c[7] = A(0, 0) * A(1, 6) * A(2, 9) + A(0, 0) * A(1, 7) * A(2, 8) - A(0, 0) * A(1, 8) * A(2, 7) -
+         A(0, 0) * A(1, 9) * A(2, 6) + A(0, 1) * A(1, 5) * A(2, 9) + A(0, 1) * A(1, 6) * A(2, 8) -
+         A(0, 1) * A(1, 8) * A(2, 6) - A(0, 1) * A(1, 9) * A(2, 5) + A(0, 2) * A(1, 4) * A(2, 9) +
+         A(0, 2) * A(1, 5) * A(2, 8) - A(0, 2) * A(1, 8) * A(2, 5) - A(0, 2) * A(1, 9) * A(2, 4) +
+         A(0, 3) * A(1, 4) * A(2, 8) - A(0, 3) * A(1, 8) * A(2, 4) - A(0, 4) * A(1, 2) * A(2, 9) -
+         A(0, 4) * A(1, 3) * A(2, 8) + A(0, 4) * A(1, 8) * A(2, 3) + A(0, 4) * A(1, 9) * A(2, 2) -
+         A(0, 5) * A(1, 1) * A(2, 9) - A(0, 5) * A(1, 2) * A(2, 8) + A(0, 5) * A(1, 8) * A(2, 2) +
+         A(0, 5) * A(1, 9) * A(2, 1) - A(0, 6) * A(1, 0) * A(2, 9) - A(0, 6) * A(1, 1) * A(2, 8) +
+         A(0, 6) * A(1, 8) * A(2, 1) + A(0, 6) * A(1, 9) * A(2, 0) - A(0, 7) * A(1, 0) * A(2, 8) +
+         A(0, 7) * A(1, 8) * A(2, 0) + A(0, 8) * A(1, 0) * A(2, 7) + A(0, 8) * A(1, 1) * A(2, 6) +
+         A(0, 8) * A(1, 2) * A(2, 5) + A(0, 8) * A(1, 3) * A(2, 4) - A(0, 8) * A(1, 4) * A(2, 3) -
+         A(0, 8) * A(1, 5) * A(2, 2) - A(0, 8) * A(1, 6) * A(2, 1) - A(0, 8) * A(1, 7) * A(2, 0) +
+         A(0, 9) * A(1, 0) * A(2, 6) + A(0, 9) * A(1, 1) * A(2, 5) + A(0, 9) * A(1, 2) * A(2, 4) -
+         A(0, 9) * A(1, 4) * A(2, 2) - A(0, 9) * A(1, 5) * A(2, 1) - A(0, 9) * A(1, 6) * A(2, 0) +
+         A(0, 10) * A(1, 0) * A(2, 5) + A(0, 10) * A(1, 1) * A(2, 4) - A(0, 10) * A(1, 4) * A(2, 1) -
+         A(0, 10) * A(1, 5) * A(2, 0) + A(1, 0) * A(0, 11) * A(2, 4) - A(0, 11) * A(1, 4) * A(2, 0) -
+         A(0, 0) * A(2, 4) * A(1, 11) - A(0, 0) * A(2, 5) * A(1, 10) - A(0, 1) * A(2, 4) * A(1, 10) +
+         A(0, 4) * A(2, 0) * A(1, 11) + A(0, 4) * A(2, 1) * A(1, 10) + A(0, 5) * A(2, 0) * A(1, 10) +
+         A(0, 0) * A(1, 4) * A(2, 11) + A(0, 0) * A(1, 5) * A(2, 10) + A(0, 1) * A(1, 4) * A(2, 10) -
+         A(0, 4) * A(1, 0) * A(2, 11) - A(0, 4) * A(1, 1) * A(2, 10) - A(0, 5) * A(1, 0) * A(2, 10);
+  c[8] = A(0, 0) * A(1, 5) * A(2, 9) + A(0, 0) * A(1, 6) * A(2, 8) - A(0, 0) * A(1, 8) * A(2, 6) -
+         A(0, 0) * A(1, 9) * A(2, 5) + A(0, 1) * A(1, 4) * A(2, 9) + A(0, 1) * A(1, 5) * A(2, 8) -
+         A(0, 1) * A(1, 8) * A(2, 5) - A(0, 1) * A(1, 9) * A(2, 4) + A(0, 2) * A(1, 4) * A(2, 8) -
+         A(0, 2) * A(1, 8) * A(2, 4) - A(0, 4) * A(1, 1) * A(2, 9) - A(0, 4) * A(1, 2) * A(2, 8) +
+         A(0, 4) * A(1, 8) * A(2, 2) + A(0, 4) * A(1, 9) * A(2, 1) - A(0, 5) * A(1, 0) * A(2, 9) -
+         A(0, 5) * A(1, 1) * A(2, 8) + A(0, 5) * A(1, 8) * A(2, 1) + A(0, 5) * A(1, 9) * A(2, 0) -
+         A(0, 6) * A(1, 0) * A(2, 8) + A(0, 6) * A(1, 8) * A(2, 0) + A(0, 8) * A(1, 0) * A(2, 6) +
+         A(0, 8) * A(1, 1) * A(2, 5) + A(0, 8) * A(1, 2) * A(2, 4) - A(0, 8) * A(1, 4) * A(2, 2) -
+         A(0, 8) * A(1, 5) * A(2, 1) - A(0, 8) * A(1, 6) * A(2, 0) + A(0, 9) * A(1, 0) * A(2, 5) +
+         A(0, 9) * A(1, 1) * A(2, 4) - A(0, 9) * A(1, 4) * A(2, 1) - A(0, 9) * A(1, 5) * A(2, 0) +
+         A(0, 10) * A(1, 0) * A(2, 4) - A(0, 10) * A(1, 4) * A(2, 0) - A(0, 0) * A(2, 4) * A(1, 10) +
+         A(0, 4) * A(2, 0) * A(1, 10) + A(0, 0) * A(1, 4) * A(2, 10) - A(0, 4) * A(1, 0) * A(2, 10);
+  c[9] = A(0, 0) * A(1, 4) * A(2, 9) + A(0, 0) * A(1, 5) * A(2, 8) - A(0, 0) * A(1, 8) * A(2, 5) -
+         A(0, 0) * A(1, 9) * A(2, 4) + A(0, 1) * A(1, 4) * A(2, 8) - A(0, 1) * A(1, 8) * A(2, 4) -
+         A(0, 4) * A(1, 0) * A(2, 9) - A(0, 4) * A(1, 1) * A(2, 8) + A(0, 4) * A(1, 8) * A(2, 1) +
+         A(0, 4) * A(1, 9) * A(2, 0) - A(0, 5) * A(1, 0) * A(2, 8) + A(0, 5) * A(1, 8) * A(2, 0) +
+         A(0, 8) * A(1, 0) * A(2, 5) + A(0, 8) * A(1, 1) * A(2, 4) - A(0, 8) * A(1, 4) * A(2, 1) -
+         A(0, 8) * A(1, 5) * A(2, 0) + A(0, 9) * A(1, 0) * A(2, 4) - A(0, 9) * A(1, 4) * A(2, 0);
+  c[10] = A(0, 0) * A(1, 4) * A(2, 8) - A(0, 0) * A(1, 8) * A(2, 4) - A(0, 4) * A(1, 0) * A(2, 8) +
+          A(0, 4) * A(1, 8) * A(2, 0) + A(0, 8) * A(1, 0) * A(2, 4) - A(0, 8) * A(1, 4) * A(2, 0);
+
+  // Solve for the roots using sturm bracketing
+  Scalar roots[10];
+  int n_sols = bisect_sturm<Scalar, 10>(c, roots);
+
+  // Back substitution to recover essential matrices
+  Eigen::Matrix<Scalar, 3, 2> B;
+  Eigen::Matrix<Scalar, 3, 1> b;
+  Eigen::Matrix<Scalar, 2, 1> xz;
+  Eigen::Matrix<Scalar, 3, 3> E;
+  Eigen::Map<Eigen::Matrix<Scalar, 1, 9>> e(E.data());
+  //essential_matrices->reserve(n_sols);
+  for (int i = 0; i < n_sols; ++i)
+  {
+    const Scalar z = roots[i];
+    const Scalar z2 = z * z;
+    const Scalar z3 = z2 * z;
+    const Scalar z4 = z2 * z2;
+
+    B.col(0) = A.template block<3, 1>(0, 0) * z3 + A.template block<3, 1>(0, 1) * z2 + A.template block<3, 1>(0, 2) * z + A.template block<3, 1>(0, 3);
+    B.col(1) = A.template block<3, 1>(0, 4) * z3 + A.template block<3, 1>(0, 5) * z2 + A.template block<3, 1>(0, 6) * z + A.template block<3, 1>(0, 7);
+    b = A.template block<3, 1>(0, 8) * z4 + A.template block<3, 1>(0, 9) * z3 + A.template block<3, 1>(0, 10) * z2 + A.template block<3, 1>(0, 11) * z +
+        A.template block<3, 1>(0, 12);
+
+    // We try to solve using top two rows
+    xz = B.template block<2, 2>(0, 0).inverse() * b.template block<2, 1>(0, 0);
+
+    // If this fails we revert to more expensive QR solver using all three rows
+    if (std::abs(B.row(2) * xz - b(2)) > 1e-6)
+    {
+      xz = B.colPivHouseholderQr().solve(b);
+    }
+
+    const Scalar x = -xz(0), y = -xz(1);
+    e = N_.row(0) * x + N_.row(1) * y + N_.row(2) * z + N_.row(3);
+
+    // Since the rows of N_ are orthogonal unit vectors, we can normalize the coefficients instead
+    const Scalar inv_norm = 1.0 / std::sqrt(x * x + y * y + z * z + 1.0);
+    e *= inv_norm;
+
+    essential_matrices->push_back(E);
+  }
+
+  return n_sols;
+}
+
+
+template <typename Scalar>
+int relpose_5pt(const std::vector<Vec3<Scalar>> &x1,
+                const std::vector<Vec3<Scalar>> &x2,
+                EntoArray<CameraPose<Scalar>, 40>  *output)
+{
+  EntoArray<Matrix3x3<Scalar>, 10> essential_matrices;
+  //essential_matrices.reserve(10);
+  int n_sols = relpose_5pt<Scalar>(x1, x2, &essential_matrices);
+
+  output->clear();
+  for (int i = 0; i < n_sols; ++i)
+  {
+    motion_from_essential<Scalar, 0, 40>(essential_matrices[i], x1, x2, output);
+  }
+
+  return output->size();
+}
+#endif
+
 
 }
 

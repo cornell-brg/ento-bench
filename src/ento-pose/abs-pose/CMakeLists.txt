@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.16)
 
 set(SRC_FILES
-  dlt.cc
-  p3p.cc
-  p4p.cc
+  #dlt.cc
+  #p3p.cc
+  #p4p.cc
 )
 
-add_library(ento_abs_pose
-  STATIC
-  ${SRC_FILES}
+add_library(ento-abs-pose
+  INTERFACE
+  #${SRC_FILES}
 )
 
-target_link_libraries(ento_abs_pose
-  PUBLIC
+target_link_libraries(ento-abs-pose
+  INTERFACE
   ento_math
 )
 
@@ -23,16 +23,22 @@ target_link_libraries(ento_abs_pose
 include(CTest)
 
 set(TEST_FILES
+  test_p3p.cc
+  test_up2p.cc
   test_p4p.cc
-  test_dlt.cc
-)
-
-set(LIBRARIES_test_dlt
-  ento_util ento_abs_pose feature2d Eigen
+  #test_dlt.cc
 )
 
 set(LIBRARIES_test_p4p
-  ento_util ento_abs_pose feature2d Eigen
+  ento_util ento-abs-pose ento-pose Eigen
+)
+
+set(LIBRARIES_test_p3p
+  ento_util ento-abs-pose ento-pose Eigen
+)
+
+set(LIBRARIES_test_up2p
+  ento_util ento-abs-pose ento-pose Eigen
 )
 
 foreach(TEST_FILE ${TEST_FILES})
