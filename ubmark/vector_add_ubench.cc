@@ -13,7 +13,9 @@ template<int N>
 void __attribute__((noinline)) vvadd(const Eigen::Matrix<int, N, 1>& x, const Eigen::Matrix<int, N, 1>& y, Eigen::Matrix<int, N, 1>& z) {
     if constexpr (N > 0) {
         start_roi();
+        asm volatile( "" ::: "memory" );
         z.noalias() = x + y;
+        asm volatile( "" ::: "memory" );
         end_roi();
     }
 }

@@ -1,4 +1,3 @@
-#include "/Users/amyle/entomoton-bench/external/eigen/Eigen/Dense"
 #include <stdlib.h>
 #include <stdio.h>
 #include <ento-bench/harness.h>
@@ -6,6 +5,7 @@
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
 #include <ento-bench/roi.h>
+#include <Eigen/Dense>
 
 extern "C" void initialise_monitor_handles(void);
 
@@ -13,9 +13,9 @@ extern "C" void initialise_monitor_handles(void);
 template<int N>
 void __attribute__((noinline)) dense_gemv(const Eigen::Matrix<int, N, N>& A, const Eigen::Matrix<int, N, 1>& x, Eigen::Matrix<int, N, 1>& y) {
     if constexpr (N > 0) {
-        // printf("Start multiply\n");
+        start_roi();
         y.noalias() = A * x;
-        // printf("Finished multiply\n");
+        end_roi();
     }
 }
 

@@ -13,7 +13,9 @@ extern "C" void initialise_monitor_handles(void);
 
 // Sparse GEMM
 void __attribute__((noinline)) sparse_gemm(const Eigen::SparseMatrix<int>& A, const Eigen::SparseMatrix<int>& B, Eigen::SparseMatrix<int>& C) {
+    start_roi();
     C = A * B; // Sparse matrix multiplication
+    end_roi();
 }
 
 // Function to initialize sparse matrices with a given sparsity
