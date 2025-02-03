@@ -3,6 +3,11 @@ cmake_minimum_required(VERSION 3.16.0)
 get_filename_component(STM32_CMAKE_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 list(APPEND CMAKE_MODULE_PATH ${STM32_CMAKE_DIR})
 
+add_definitions(-DSTM32G4)
+add_definitions(-DPWR)
+add_definitions(-DLL_USE_FULL_DRIVER)
+add_definitions(-DUSE_FULL_LL_DRIVER)
+
 include(stm32/common)
 include(stm32/devices)
 
@@ -17,7 +22,7 @@ set(CMAKE_EXECUTABLE_SUFFIX_CXX .elf)
 set(CMAKE_EXECUTABLE_SUFFIX_ASM .elf)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -fno-exceptions -O3")
-set(CMAKE_CXX_FLAGS "-Wall -g -fno-exceptions -O3 -Wl,-Map,output.map -fno-rtti -std=c++20")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -fno-exceptions -O3 -Wl,-Map,output.map -fno-rtti -std=c++20")
 
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -31,24 +36,36 @@ endif()
 
 if(NOT STM_PRODUCT)
   set(STM_PRODUCT G474RE)
+  set(STM_TYPE G474xx)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM_FAMILY_LONG_NAME)
-message("STM_FAMILY_LONG_NAME=${STM_FAMILY_LONG_NAME}")
-
-message("FETCH_ST_SOURCES=${FETCH_ST_SOURCES}")
 if (FETCH_ST_SOURCES)
   stm32_fetch_cmsis(G4)
   stm32_fetch_hal(G4)
 endif()
 
-message("LONG_NAME ${STM_FAMILY_LONG_NAME}")
-
 set(CMAKE_SYSTEM_PROCESSOR armv7e-m)
 
-add_definitions(-DSTM32G4)
 # Ensure we have the HAL and CMSIS libraries
 #find_package(CMSIS REQUIRED ${STM_FAMILY_LONG_NAME})
 #find_package(HAL REQUIRED ${STM_FAMILY_LONG_NAME})
 
+# Set the chip model (e.g., STM32G474RE) if not explicitly provided
+set(STM32_CHIP "STM32G474RE" CACHE STRING "Specify the STM32 chip model (e.g., STM32G474RE)")
 
+# Eigen defs
+add_definitions(
+    -DEIGEN_MALLOC_ALREADY_ALIGNED=1
+    #-DEIGEN_MAX_ALIGN_BYTES=4
+    -DEIGEN_MAX_STATIC_ALIGN_BYTES=4
+    -DEIGEN_DONT_VECTORIZE
+    -DEIGEN_DEFAULT_L1_CACHE_SIZE=0
+    -DEIGEN_DEFAULT_L2_CACHE_SIZE=0
+    -DEIGEN_DEFAULT_L3_CACHE_SIZE=0
+    #-DEIGEN_STACK_ALLOCATION_LIMIT=512
+    -DEIGEN_UNROLLING_LIMIT=0 # No unrolling...
+    -DEIGEN_FAST_MATH=1
+    -DEIGEN_DONT_PARALLELIZE
+    -DEIGEN_NO_MALLOC
+)

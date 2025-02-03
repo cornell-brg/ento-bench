@@ -1,0 +1,13 @@
+#include <ento-mcu/led_util.h>
+
+void UserLED_Init(void)
+{
+  USER_LED_PORT_CLK_ENABLE();
+  LL_GPIO_SetPinMode(USER_LED_GREEN_PORT, USER_LED_GREEN_PIN, LL_GPIO_MODE_OUTPUT);
+  LL_GPIO_SetPinOutputType(USER_LED_GREEN_PORT, USER_LED_GREEN_PIN, LL_GPIO_OUTPUT_PUSHPULL);
+}
+
+void UserLED_Toggle(void)
+{
+  LL_GPIO_TogglePin(USER_LED_GREEN_PORT, USER_LED_GREEN_PIN);
+}

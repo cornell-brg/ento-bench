@@ -7,6 +7,7 @@
 *.a
 .DS_Store
 Thumbs.db
+.clangd
 
 # CMake Ignore
 CMakeFiles/
@@ -58,3 +59,8 @@ m5out/
 
 # Ignore eigen
 eigen/
+
+
+# Do not ignore CMakeLists.txt or datasets/*.txt
+!**/CMakeLists.txt
+!datasets/**/*.txt

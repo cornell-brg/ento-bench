@@ -1,23 +1,80 @@
+/* Entry Point */
 ENTRY(_Reset)
+
+/* Define the start and size of memory regions */
+MEMORY
+{
+  RAM    (xrw)    : ORIGIN = 0x10000, LENGTH = 128K
+}
+
+/* Minimum heap and stack sizes */
+_Min_Heap_Size = 0x200;   /* 512 bytes of heap */
+_Min_Stack_Size = 0x8000; /* 32KB of stack */
+
+/* Sections */
 SECTIONS
 {
-    . = 0x10000;
-    .boot . : { *(.text) }
-    .text : { *(.text) }
-    .data : { *(.data) }
-    .bss : { *(.bss COMMON) }
+  /* Code section */
+  .text :
+  {
+    . = ALIGN(4);
+    *(.text)           /* All .text sections */
+    *(.text*)          /* All .text* sections */
+    . = ALIGN(4);
+    _etext = .;        /* End of code section */
+  } > RAM
+
+
+  /* Read-only data */
+  .rodata :
+  {
+    . = ALIGN(4);
+    *(.rodata)         /* All .rodata sections */
+    *(.rodata*)        /* All .rodata* sections */
+    . = ALIGN(4);
+  } > RAM
+
+  /* Initialized data */
+  .data :
+  {
+    . = ALIGN(4);
+    _sdata = .;        /* Start of data section */
+    *(.data)           /* All .data sections */
+    *(.data*)          /* All .data* sections */
+    . = ALIGN(4);
+    _edata = .;        /* End of data section */
+  } > RAM
+
+  /* Uninitialized data (BSS) */
+  .bss :
+  {
+    . = ALIGN(4);
+    _sbss = .;         /* Start of bss section */
+    *(.bss)            /* All .bss sections */
+    *(.bss*)           /* All .bss* sections */
+    *(COMMON)
+    . = ALIGN(4);
+    _ebss = .;         /* End of bss section */
+  } > RAM
+
+  /* Heap and Stack allocation */
+  ._user_heap_stack :
+  {
     . = ALIGN(8);
-    . = . + 0x1000; /* 2kB of stack memory */
-    stack_top = .;
+    PROVIDE ( _end = . );          /* End of all previous sections */
+    PROVIDE ( end = _end );        /* Define 'end' symbol for sbrk */
+    . = . + _Min_Heap_Size;        /* Allocate heap */
+    . = . + _Min_Stack_Size;       /* Allocate stack */
+    PROVIDE ( stack_top = . );     /* Define 'stack_top' for boot.s */
+    . = ALIGN(8);
+  } > RAM
 
-    /* Adjust heap size, needed for printf float support */
-    .heap (NOLOAD) :
-    {
-      _heap_start = .;
-      /* Printf float support apparently works with a heap size of 1 byte... */
-      . = . + 0x1000;
-      _heap_end = .;
-    }
-
-    PROVIDE (end = .)   ;
+  /* Remove unnecessary information */
+  /DISCARD/ :
+  {
+    libc.a ( * )
+    libm.a ( * )
+    libgcc.a ( * )
+  }
 }
+

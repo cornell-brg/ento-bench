@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-#include "bench/harness.hh"
+#include "bench/harness.h"
 #include "linalg_kernels.hh"
 #include "linalg/blas.h"
 #include "linalg/svd.h"

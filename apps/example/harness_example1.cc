@@ -1,4 +1,4 @@
-#include <bench/harness.hh>
+#include <bench/harness.h>
 #include <workload/microbench/assembly/armv7e-m_ubenchmarks.hh>
 
 /* Benchmark Harness with lambda callable with no inputs, no outputs.
