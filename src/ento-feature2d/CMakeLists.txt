@@ -15,6 +15,7 @@ include (CTest)
 set(TEST_FILES
   test_fast.cc
   test_feature2d_util.cc
+  test_lk_optical_flow.cc
 )
 
 set(LIBRARIES_test_fast
@@ -22,6 +23,9 @@ set(LIBRARIES_test_fast
 
 set(LIBRARIES_test_feature2d_util
   m feature2d ento_util Eigen)
+
+set(LIBRARIES_test_lk_optical_flow
+  m ento_util png image_io Eigen)
 
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Test file: ${TEST_FILE}")

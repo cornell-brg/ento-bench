@@ -16,6 +16,16 @@
 using namespace cv;
 using namespace std;
 
+
+// -----------------------
+// DEBUGGING FUNCTIONS
+// -----------------------
+
+// Point2f fixed_tuple_to_point(PointFP fp) {
+//     Point2f point(get<0>(fp).to_float(), get<1>(fp).to_float());
+//     return point;
+// }
+
 #define MAX_WIN_DIM 15
 #define IMG_SAVE
 // Algorithm parameters
@@ -359,6 +369,9 @@ int main(int argc, char **argv)
     for (int i = 0; i < num_good_points; i++) {
         fp_t x(p0[i].x);
         fp_t y(p0[i].y);
+        cout << typeid(p0[i].x).name();
+        cout << "First float: " << p0[i].x << ", Second float: " << p0[i].y << endl;
+
         prevPts[i] = PointFP(x,y);
     }
 

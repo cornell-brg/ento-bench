@@ -1,5 +1,9 @@
-#include "RawImage.cpp"
+#ifndef IMAGE_PYRAMID_H
+#define IMAGE_PYRAMID_H
+
+#include <ento-feature2d/raw_image.h>
 #include <assert.h>
+#include <stdio.h>
 
 class ImagePyramid {
 public:
@@ -66,8 +70,8 @@ void ImagePyramid::create_pyramids() {
             // sum += ((float) pyramid_[i-1]->data[y_index*prev_img_height+x_index]) * left_shift_kernel_[j*5+k];
           }
         }
-        pyramid_[i]->data[y*height+x] = (u_char) (sum >> 4);
-        // pyramid_[i]->data[y*height+x] = (u_char) (sum / 256);
+        pyramid_[i]->data[y*height+x] = (uint8_t) (sum >> 4);
+        // pyramid_[i]->data[y*height+x] = (uint8_t) (sum / 256);
       }
     }
   }
@@ -84,3 +88,6 @@ ImagePyramid::~ImagePyramid() {
   }
   delete [] pyramid_;    
 }
+
+
+#endif // IMAGE_PYRAMID_H
