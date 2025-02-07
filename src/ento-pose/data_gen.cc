@@ -8,6 +8,12 @@
 #include <ento-util/dataset_writer.h>
 #include <ento-util/file_path_util.h>
 
+#include <ento-util/debug.h>
+
+#include <ento-pose/problem-types/homography_problem.h>
+#include <ento-pose/problem-types/absolute_pose_problem.h>
+#include <ento-pose/problem-types/relative_pose_problem.h>
+
 using namespace EntoUtil;
 
 //constexpr char* dataset_path = DATASET_PATH;
@@ -15,82 +21,90 @@ using namespace EntoUtil;
 namespace EntoPose
 {
 
-template <typename Scalar, typename Solver>
-BenchmarkResult<Scalar> benchmark(int n_problems,
-                                  const ProblemOptions<Scalar> &options,
-                                  Scalar tol = 1e-6,
-                                  const std::optional<std::string> &dataset_filename = std::nullopt) 
+template <AbsolutePoseProblemConcept Problem>
+BenchmarkResult<typename Problem::Scalar_> benchmark_abs(int n_problems,
+                                                        const ProblemOptions<typename Problem::Scalar_> &options,
+                                                        typename Problem::Scalar_ tol = 1e-6,
+                                                        const std::optional<std::string> &dataset_filename = std::nullopt) 
 {
-    // Generate problem instances
-    std::vector<AbsolutePoseProblemInstance<Scalar>> problem_instances;
-    generate_abspose_problems(n_problems, &problem_instances, options);
+  // Generate problem instances
+  // std::vector<AbsolutePoseProblem<Scalar, Solver>> problem_instances;
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
 
-    // Write problem instances to a file
-    if (dataset_filename)
-    {
-        DatasetWriter<AbsolutePoseProblemInstance<Scalar>> writer(*dataset_filename);
-        for (auto &instance : problem_instances) {
-            instance.set_num_pts(options.n_point_point_);
-            writer.write_instance(instance);
+  std::vector<Problem> problem_instances;
+  generate_abspose_problems(n_problems, &problem_instances, options);
+
+  // Write problem instances to a file
+  if (dataset_filename)
+  {
+      DatasetWriter writer(*dataset_filename);
+      for (auto &instance : problem_instances) {
+          instance.set_num_pts(options.n_point_point_);
+          writer.write(instance);
+      }
+      std::cout << "Serialized " << n_problems << " problems to " << *dataset_filename << "\n";
+  }
+
+  // Initialize benchmark result
+  BenchmarkResult<Scalar> result;
+  result.instances_ = n_problems;
+  result.name_ = Solver::name();
+  if (!options.additional_name_.empty()) {
+      result.name_ += options.additional_name_;
+  }
+  result.options_ = options;
+  std::cout << "Running benchmark: " << result.name_ << std::flush;
+
+  // Benchmark solution quality
+  for (Problem &instance : problem_instances) {
+      //std::vector<CameraPose<Scalar>> solutions;
+
+      instance.solns_.clear();
+      int sols = Solver::solve(instance.x_point_, instance.X_point_, &instance.solns_);
+      Scalar pose_error = std::numeric_limits<Scalar>::max();
+
+      result.solutions_ += sols;
+      for (const CameraPose<Scalar> &pose : instance.solns_) {
+        if (Problem::validator_::is_valid(instance.x_point_, instance.X_point_, pose, tol))
+        {
+          result.valid_solutions_++;
         }
-        std::cout << "Serialized " << n_problems << " problems to " << *dataset_filename << "\n";
-    }
+        pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose, instance.pose_gt_, 1.0, Problem::scale_gt_));
+      }
 
-    // Initialize benchmark result
-    BenchmarkResult<Scalar> result;
-    result.instances_ = n_problems;
-    result.name_ = Solver::name();
-    if (!options.additional_name_.empty()) {
-        result.name_ += options.additional_name_;
-    }
-    result.options_ = options;
-    std::cout << "Running benchmark: " << result.name_ << std::flush;
+      if (pose_error < tol) {
+          result.found_gt_pose_++;
+      }
+  }
 
-    // Benchmark solution quality
-    for (const AbsolutePoseProblemInstance<Scalar> &instance : problem_instances) {
-        std::vector<CameraPose<Scalar>> solutions;
+  // Measure runtime
+  std::vector<long> runtimes;
+  std::vector<CameraPose<Scalar>> solutions;
+  for (int iter = 0; iter < 10; ++iter) {
+      auto start_time = std::chrono::high_resolution_clock::now();
+      for (Problem &instance : problem_instances) {
+          instance.solns_.clear();
+          Solver::solve(instance, &instance.solns_);
+      }
+      auto end_time = std::chrono::high_resolution_clock::now();
+      runtimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
+  }
 
-        int sols = Solver::solve(instance, &solutions);
-        Scalar pose_error = std::numeric_limits<Scalar>::max();
-
-        result.solutions_ += sols;
-        for (const CameraPose<Scalar> &pose : solutions) {
-            if (Solver::validator::is_valid(instance, pose, 1.0, tol)) {
-                result.valid_solutions_++;
-            }
-            pose_error = std::min(pose_error, Solver::validator::compute_pose_error(instance, pose, 1.0));
-        }
-
-        if (pose_error < tol) {
-            result.found_gt_pose_++;
-        }
-    }
-
-    // Measure runtime
-    std::vector<long> runtimes;
-    std::vector<CameraPose<Scalar>> solutions;
-    for (int iter = 0; iter < 10; ++iter) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-        for (const AbsolutePoseProblemInstance<Scalar> &instance : problem_instances) {
-            solutions.clear();
-            Solver::solve(instance, &solutions);
-        }
-        auto end_time = std::chrono::high_resolution_clock::now();
-        runtimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
-    }
-
-    std::sort(runtimes.begin(), runtimes.end());
-    result.runtime_ns_ = runtimes[runtimes.size() / 2];
-    std::cout << "\r                                                                                \r";
-    return result;
+  std::sort(runtimes.begin(), runtimes.end());
+  result.runtime_ns_ = runtimes[runtimes.size() / 2];
+  std::cout << "\r                                                                                \r";
+  return result;
 }
 
-template <typename Scalar, typename Solver>
-BenchmarkResult<Scalar> benchmark_w_extra(int n_problems,
-                                          const ProblemOptions<Scalar> &options,
-                                          Scalar tol = 1e-6) {
-
-  std::vector<AbsolutePoseProblemInstance<Scalar>> problem_instances;
+template <AbsolutePoseProblemConcept Problem>
+BenchmarkResult<typename Problem::Scalar_> benchmark_w_extra(int n_problems,
+                                                             const ProblemOptions<typename Problem::Scalar_> &options,
+                                                             typename Problem::Scalar_ tol = 1e-6)
+{
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+  std::vector<Problem> problem_instances;
   generate_abspose_problems(n_problems, &problem_instances, options);
 
   BenchmarkResult<Scalar> result;
@@ -104,7 +118,7 @@ BenchmarkResult<Scalar> benchmark_w_extra(int n_problems,
   std::cout << "Running benchmark: " << result.name_ << std::flush;
 
   // Run benchmark where we check solution quality
-  for (const AbsolutePoseProblemInstance<Scalar> &instance : problem_instances)
+  for (const Problem &instance : problem_instances)
   {
     std::vector<CameraPose<Scalar>> solutions;
     std::vector<Scalar> extra;
@@ -116,7 +130,7 @@ BenchmarkResult<Scalar> benchmark_w_extra(int n_problems,
     result.solutions_ += sols;
     for (size_t k = 0; k < solutions.size(); ++k)
     {
-      if (Solver::validator::is_valid(instance, solutions[k], extra[k], tol))
+      if (Problem::validator_::is_valid(instance, solutions[k], extra[k], tol))
         result.valid_solutions_++;
       pose_error = std::min(pose_error, Solver::validator::compute_pose_error(instance, solutions[k], extra[k]));
     }
@@ -124,6 +138,7 @@ BenchmarkResult<Scalar> benchmark_w_extra(int n_problems,
     if (pose_error < tol)
       result.found_gt_pose_++;
   }
+
 
   std::vector<long> runtimes;
   std::vector<CameraPose<Scalar>> solutions;
@@ -149,13 +164,15 @@ BenchmarkResult<Scalar> benchmark_w_extra(int n_problems,
   return result;
 }
 
-template <typename Scalar, typename Solver>
-BenchmarkResult<Scalar> benchmark_relative(int n_problems,
-                                           const ProblemOptions<Scalar> &options,
-                                           Scalar tol = 1e-6,
-                                           const std::optional<std::string> &dataset_filename = std::nullopt) 
+template <RelativePoseProblemConcept Problem>
+BenchmarkResult<typename Problem::Scalar_> benchmark_relative(int n_problems,
+                                                              const ProblemOptions<typename Problem::Scalar_> &options,
+                                                              typename Problem::Scalar_ tol = 1e-6,
+                                                              const std::optional<std::string> &dataset_filename = std::nullopt) 
 {
-  std::vector<RelativePoseProblemInstance<Scalar>> problem_instances;
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+  std::vector<Problem> problem_instances;
   generate_relpose_problems(n_problems, &problem_instances, options);
 
   BenchmarkResult<Scalar> result;
@@ -169,13 +186,13 @@ BenchmarkResult<Scalar> benchmark_relative(int n_problems,
 
   if (dataset_filename)
   {
-    DatasetWriter<RelativePoseProblemInstance<Scalar>> writer(*dataset_filename);
+    DatasetWriter writer(*dataset_filename);
     for (auto &instance : problem_instances)
     {
       // We don't need to store everything from rel problem in homography problem
       // use subset that is stored in HomographyProblemInstance
       instance.set_num_pts(options.n_point_point_);
-      writer.write_instance(instance);
+      writer.write(instance);
     }
     std::cout << "Serialized " << n_problems << " problems to " << *dataset_filename << "\n";
   }
@@ -183,22 +200,22 @@ BenchmarkResult<Scalar> benchmark_relative(int n_problems,
   std::cout << "Running benchmark: " << result.name_ << std::flush;
 
   // Run benchmark where we check solution quality
-  for (const RelativePoseProblemInstance<Scalar> &instance : problem_instances)
+  for (Problem &instance : problem_instances)
   {
       // CameraPoseVector solutions;
       std::vector<typename Solver::Solution> solutions;
 
-      int sols = Solver::solve(instance, &solutions);
+      int sols = Solver::solve(instance.x1_, instance.x2_, &instance.solns_);
 
       Scalar pose_error = std::numeric_limits<Scalar>::max();
 
       result.solutions_ += sols;
       // std::cout << "Gt: " << instance.pose_gt.R << "\n"<< instance.pose_gt.t << "\n";
-      for (const typename Solver::Solution &pose : solutions) {
-          if (Solver::validator::is_valid(instance, pose, tol))
+      for (const typename Solver::Solution &pose : instance.solns_) {
+          if (Problem::validator_::is_valid(instance.x1_, instance.x2_, pose, tol))
               result.valid_solutions_++;
           // std::cout << "Pose: " << pose.R << "\n" << pose.t << "\n";
-          pose_error = std::min(pose_error, Solver::validator::compute_pose_error(instance, pose));
+          pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose, instance.pose_gt_));
       }
 
       if (pose_error < tol)
@@ -209,11 +226,11 @@ BenchmarkResult<Scalar> benchmark_relative(int n_problems,
   std::vector<typename Solver::Solution> solutions;
   for (int iter = 0; iter < 10; ++iter) {
     auto start_time = std::chrono::high_resolution_clock::now();
-    for (const RelativePoseProblemInstance<Scalar> &instance : problem_instances)
+    for (Problem &instance : problem_instances)
     {
       solutions.clear();
 
-      Solver::solve(instance, &solutions);
+      Solver::solve(instance.x1_, instance.x2_, &instance.solns_);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -227,14 +244,15 @@ BenchmarkResult<Scalar> benchmark_relative(int n_problems,
   return result;
 }
 
-template <typename Scalar, typename Solver>
-BenchmarkResult<Scalar> benchmark_homography(int n_problems,
-                                             const ProblemOptions<Scalar> &options,
-                                             Scalar tol = 1e-6,
-                                             const std::optional<std::string> &dataset_filename = std::nullopt)
+template <HomographyProblemConcept Problem>
+BenchmarkResult<typename Problem::Scalar_> benchmark_homography(int n_problems,
+                                                                const ProblemOptions<typename Problem::Scalar_> &options,
+                                                                typename Problem::Scalar_ tol = 1e-6,
+                                                                const std::optional<std::string> &dataset_filename = std::nullopt)
 {
-
-std::vector<RelativePoseProblemInstance<Scalar>> problem_instances;
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+  std::vector<Problem> problem_instances;
   generate_homography_problems(n_problems, &problem_instances, options);
 
   BenchmarkResult<Scalar> result;
@@ -248,14 +266,13 @@ std::vector<RelativePoseProblemInstance<Scalar>> problem_instances;
 
   if (dataset_filename)
   {
-    DatasetWriter<HomographyProblemInstance<Scalar>> writer(*dataset_filename);
+    DatasetWriter writer(*dataset_filename);
     for (auto &instance : problem_instances)
     {
       // We don't need to store everything from rel problem in homography problem
       // use subset that is stored in HomographyProblemInstance
-      HomographyProblemInstance<Scalar> tmp(instance);
-      tmp.set_num_pts(options.n_point_point_);
-      writer.write_instance(tmp);
+      instance.set_num_pts(options.n_point_point_);
+      writer.write(instance);
     }
     std::cout << "Serialized " << n_problems << " problems to " << *dataset_filename << "\n";
   }
@@ -263,22 +280,22 @@ std::vector<RelativePoseProblemInstance<Scalar>> problem_instances;
   std::cout << "Running benchmark: " << result.name_ << std::flush;
 
   // Run benchmark where we check solution quality
-  for (const RelativePoseProblemInstance<Scalar> &instance : problem_instances)
+  for (Problem &instance : problem_instances)
   {
     std::vector<Matrix3x3<Scalar>> solutions;
 
-    int sols = Solver::solve(instance, &solutions);
+    int sols = Solver::solve(instance.x1_, instance.x2_, &instance.solns_);
 
     Scalar hom_error = std::numeric_limits<Scalar>::max();
 
     result.solutions_ += sols;
     // std::cout << "Gt: " << instance.pose_gt.R << "\n"<< instance.pose_gt.t << "\n";
-    for (const Matrix3x3<Scalar> &H : solutions)
+    for (const Matrix3x3<Scalar> &H : instance.solns_)
     {
-      if (Solver::validator::is_valid(instance, H, tol))
+      if (Problem::validator_::is_valid(H, instance.x1_, instance.x2_, tol))
           result.valid_solutions_++;
       // std::cout << "Pose: " << pose.R << "\n" << pose.t << "\n";
-      hom_error = std::min(hom_error, Solver::validator::compute_pose_error(instance, H));
+      hom_error = std::min(hom_error, Solver::validator::compute_pose_error(H, instance.H_gt_));
     }
 
     if (hom_error < tol)
@@ -286,15 +303,15 @@ std::vector<RelativePoseProblemInstance<Scalar>> problem_instances;
   }
 
   std::vector<long> runtimes;
-  std::vector<Matrix3x3<Scalar>> solutions;
+  //std::vector<Matrix3x3<Scalar>> solutions;
   for (int iter = 0; iter < 10; ++iter)
   {
     auto start_time = std::chrono::high_resolution_clock::now();
-    for (const RelativePoseProblemInstance<Scalar> &instance : problem_instances) 
+    for (Problem &instance : problem_instances) 
     {
-      solutions.clear();
+      instance.solns_.clear();
 
-      Solver::solve(instance, &solutions);
+      Solver::solve(instance.x1_, instance.x2_, &instance.solns_);
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -360,7 +377,7 @@ void display_result(const std::vector<EntoPose::BenchmarkResult<Scalar>> &result
 
 int main(int argc, char* argv[])
 {
-  using Scalar = float;
+  using Scalar = double;
   std::vector<EntoPose::BenchmarkResult<Scalar>> results;
 
   // Argument parsing
@@ -375,7 +392,7 @@ int main(int argc, char* argv[])
   EntoPose::ProblemOptions<Scalar> options;
   options.camera_fov_ = 120; // Wide
 
-  Scalar tol = 1e-5;
+  Scalar tol = 1e-6;
 
   std::string base_path = DATASET_PATH;
   std::cout << "Dataset base path: " << base_path << std::endl;
@@ -442,16 +459,18 @@ int main(int argc, char* argv[])
   // Absolute Pose
 
   // P3P
-  EntoPose::ProblemOptions p3p_opt = options;
+  EntoPose::ProblemOptions<Scalar> p3p_opt = options;
   p3p_opt.n_point_point_ = 3;
-  results.push_back(EntoPose::benchmark<Scalar, EntoPose::SolverP3P<Scalar>>(iters, p3p_opt, tol, p3p_fp));
+  using P3PProblem = typename EntoPose::AbsolutePoseProblem<Scalar, EntoPose::SolverP3P<Scalar>>;
+  results.push_back(EntoPose::benchmark_abs<P3PProblem>(iters, p3p_opt, tol, p3p_fp));
   printf("results solutions %d \n", results[0].solutions_);
   
   // uP2P
   EntoPose::ProblemOptions up2p_opt = options;
   up2p_opt.n_point_point_ = 2;
+  using UP2PProblem = typename EntoPose::AbsolutePoseProblem<Scalar, EntoPose::SolverUP2P<Scalar>>;
   up2p_opt.upright_ = true;
-  results.push_back(EntoPose::benchmark<Scalar, EntoPose::SolverUP2P<Scalar>>(iters, up2p_opt, tol, up2p_fp));
+  results.push_back(EntoPose::benchmark_abs<UP2PProblem>(iters, up2p_opt, tol, up2p_fp));
 
 
 
@@ -465,16 +484,21 @@ int main(int argc, char* argv[])
   // Homograpy 4pt (PoseLib version using QR)
   EntoPose::ProblemOptions homo4pt_opt = options;
   homo4pt_opt.n_point_point_ = 4;
-  results.push_back(EntoPose::benchmark_homography<Scalar, EntoPose::SolverHomography4pt<Scalar, false, 0>>(iters, homo4pt_opt, tol, homography4pt_fp));
-  results.push_back(EntoPose::benchmark_homography<Scalar, EntoPose::SolverHomography4pt<Scalar, false, 1>>(iters, homo4pt_opt, tol));
+  using Homography4ptProblem0 = typename EntoPose::HomographyProblem<Scalar, EntoPose::SolverHomography4pt<Scalar, false, 0>>;
+  //using Homography4ptProblem1 = typename EntoPose::HomographyProblem<Scalar, EntoPose::SolverHomography4pt<Scalar, false, 1>>;
+
+  results.push_back(EntoPose::benchmark_homography<Homography4ptProblem0>(iters, homo4pt_opt, tol, homography4pt_fp));
+  //results.push_back(EntoPose::benchmark_homography<Homography4ptProblem1>(iters, homo4pt_opt, tol, homography4pt_fp));
 
   // Homography N-pt N = 4 (SVD version)
   // @TODO: Rewrite dlt to conform to pose lib standard.
   EntoPose::ProblemOptions p4p_dlt_opt = options;
   p4p_dlt_opt.n_point_point_ = 4;
-  results.push_back(EntoPose::benchmark_homography<Scalar, EntoPose::SolverHomographyNptDLT<Scalar, 0, false>>(iters, p4p_dlt_opt, tol));
+  using Homography4ptDLTProblem = typename EntoPose::HomographyProblem<Scalar, EntoPose::SolverHomographyNptDLT<Scalar, false, 0>>;
+  results.push_back(EntoPose::benchmark_homography<Homography4ptDLTProblem>(iters, p4p_dlt_opt, tol));
   
   // Homography N-pt N > 4 (SVD Version)
+  using HomographyNptDLTProblem = typename EntoPose::HomographyProblem<Scalar, EntoPose::SolverHomography4ptDLT<Scalar, false, 0>>;
   for (std::size_t i = 8; i <= 512; i *= 2)
   {
     std::string tmp_fp = homographyNpt_fp;
@@ -485,7 +509,7 @@ int main(int argc, char* argv[])
     EntoPose::ProblemOptions pnp_homography_opt = options;
     pnp_homography_opt.additional_name_ = "(" + std::to_string(i) + " pts)";
     pnp_homography_opt.n_point_point_ = i;
-    results.push_back(EntoPose::benchmark_homography<Scalar, EntoPose::SolverHomography4ptDLT<Scalar, true>>(iters, pnp_homography_opt, tol, tmp_fp));
+    results.push_back(EntoPose::benchmark_homography<HomographyNptDLTProblem>(iters, pnp_homography_opt, tol, tmp_fp));
   }
 
   
@@ -497,7 +521,8 @@ int main(int argc, char* argv[])
   // Relative Pose 8pt
   EntoPose::ProblemOptions rel8pt_opt = options;
   rel8pt_opt.n_point_point_ = 8;
-  results.push_back(EntoPose::benchmark_relative<Scalar, EntoPose::SolverRel8pt<Scalar>>(iters, rel8pt_opt, tol, rel_linear8pt_fp));
+  using Rel8ptProblem = typename EntoPose::RelativePoseProblem<Scalar, EntoPose::SolverRel8pt<Scalar>>;
+  results.push_back(EntoPose::benchmark_relative<Rel8ptProblem>(iters, rel8pt_opt, tol, rel_linear8pt_fp));
 
   for (std::size_t i = 8; i <= 512; i *= 2)
   {
@@ -509,14 +534,15 @@ int main(int argc, char* argv[])
     EntoPose::ProblemOptions rel8ptN_opt = options;
     rel8ptN_opt.additional_name_ = "(" + std::to_string(i) + " pts)";
     rel8ptN_opt.n_point_point_ = i;
-    results.push_back(EntoPose::benchmark_relative<Scalar, EntoPose::SolverRel8pt<Scalar>>(iters, rel8ptN_opt, tol, tmp_fp));
+    results.push_back(EntoPose::benchmark_relative<Rel8ptProblem>(iters, rel8ptN_opt, tol, tmp_fp));
   }
 
   
   // Relative Pose 5pt
   EntoPose::ProblemOptions rel5pt_opt = options;
   rel5pt_opt.n_point_point_ = 5;
-  results.push_back(EntoPose::benchmark_relative<Scalar, EntoPose::SolverRel5pt<Scalar>>(iters, rel5pt_opt, tol, rel_5pt_fp));
+  using Rel5ptProblem = typename EntoPose::RelativePoseProblem<Scalar, EntoPose::SolverRel5pt<Scalar>>;
+  results.push_back(EntoPose::benchmark_relative<Rel5ptProblem>(iters, rel5pt_opt, tol, rel_5pt_fp));
 
   
   // Relative Pose Upright Planar 2pt
@@ -524,16 +550,18 @@ int main(int argc, char* argv[])
   reluprightplanar2pt_opt.n_point_point_ = 2;
   reluprightplanar2pt_opt.upright_ = true;
   reluprightplanar2pt_opt.planar_ = true;
+  using RelUprightPlanar2ptProblem = typename EntoPose::RelativePoseProblem<Scalar, EntoPose::SolverRelUprightPlanar2pt<Scalar>>;
   results.push_back(
-      EntoPose::benchmark_relative<Scalar, EntoPose::SolverRelUprightPlanar2pt<Scalar>>(iters, reluprightplanar2pt_opt, tol, rel_pu2pt_fp));
+      EntoPose::benchmark_relative<RelUprightPlanar2ptProblem>(iters, reluprightplanar2pt_opt, tol, rel_pu2pt_fp));
 
   // Relative Pose Upright Planar 3pt
   EntoPose::ProblemOptions reluprightplanar3pt_opt = options;
   reluprightplanar3pt_opt.n_point_point_ = 3;
   reluprightplanar3pt_opt.upright_ = true;
   reluprightplanar3pt_opt.planar_ = true;
+  using RelUprightPlanar3ptProblem = typename EntoPose::RelativePoseProblem<Scalar, EntoPose::SolverRelUprightPlanar3pt<Scalar>>;
   results.push_back(
-  EntoPose::benchmark_relative<Scalar, EntoPose::SolverRelUprightPlanar3pt<Scalar>>(iters, reluprightplanar3pt_opt, tol, rel_pu3pt_fp));
+    EntoPose::benchmark_relative<RelUprightPlanar3ptProblem>(iters, reluprightplanar3pt_opt, tol, rel_pu3pt_fp));
   // ====================================================
   
 

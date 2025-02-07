@@ -20,7 +20,7 @@ using namespace EntoUtil;
 
 void test_homography_4pt_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef CalibPoseValidator<Scalar> validator;
   constexpr Scalar tol = 1e-4;
@@ -72,7 +72,7 @@ void test_homography_4pt_single()
 
 void test_homography_4pt_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar>;
   typedef CalibPoseValidator<Scalar> validator;
   constexpr Scalar tol = 1e-4;
@@ -129,7 +129,7 @@ void test_homography_4pt_multi()
 
 void test_homography_4pt_ento_array_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar, 4>;
   typedef CalibPoseValidator<Scalar, 4> validator;
   constexpr Scalar tol = 1e-4;
@@ -179,7 +179,7 @@ void test_homography_4pt_ento_array_single()
 
 void test_homography_4pt_ento_array_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar, 4>;
   typedef CalibPoseValidator<Scalar, 4> validator;
   constexpr Scalar tol = 1e-4;

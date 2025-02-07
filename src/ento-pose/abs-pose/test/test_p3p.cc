@@ -12,6 +12,7 @@
 #include <ento-pose/abs-pose/p3p.h>
 #include <ento-pose/pose_util.h>
 #include <ento-pose/prob_gen.h>
+#include <ento-pose/data_gen.h>
 
 using namespace std;
 using namespace Eigen;
@@ -20,9 +21,9 @@ using namespace EntoUtil;
 
 void test_p3p_single()
 {
-  using Scalar = float32_t;
-  using Problem = AbsolutePoseProblemInstance<Scalar>;
-  typedef CalibPoseValidator<Scalar> validator;
+  using Scalar = float;
+  using Solver = EntoPose::SolverP3P<Scalar>;
+  using Problem = AbsolutePoseProblem<Scalar, Solver, 0>;
   constexpr Scalar tol = 1e-4;
 
   const char* base_path = DATASET_PATH;
@@ -34,10 +35,10 @@ void test_p3p_single()
   {
     ENTO_DEBUG("ERROR! Could not build file path for test_p3p_single!");
   }
-  Problem problem;
+  Problem problem(Solver{});
 
   ENTO_DEBUG("File path: %s", full_path);
-  DatasetReader<Problem> reader(full_path);
+  DatasetReader reader(full_path);
 
   int num_experiments = 0;
   while (reader.read_next(problem))
@@ -47,18 +48,16 @@ void test_p3p_single()
   ENTO_TEST_CHECK_INT_EQ(num_experiments, 1);
   
   EntoContainer<CameraPose<Scalar>> solutions;
-  int num_solns = p3p(problem.x_point_, problem.X_point_, &solutions);
-  for (size_t i = 0; i < num_solns; i++)
-  {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
-  }
+  int num_solns = p3p(problem.x_point_, problem.X_point_, &problem.solns_);
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
   for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
   {
     const CameraPose<Scalar> &pose = solutions[i];
-    pose_error = std::min(pose_error, validator::compute_pose_error(problem, pose, 1.0));
+    pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose,
+                                                                              problem.pose_gt_,
+                                                                              1.0,
+                                                                              problem.scale_gt_));
     ENTO_DEBUG("Pose error for soln %li/%i: %f", i+1, num_solns, pose_error);
   }
 
@@ -70,9 +69,10 @@ void test_p3p_single()
 
 void test_p3p_multi()
 {
-  using Scalar = float32_t;
-  using Problem = AbsolutePoseProblemInstance<Scalar>;
-  typedef CalibPoseValidator<Scalar> validator;
+  using Scalar = float;
+  using Solver = EntoPose::SolverP3P<Scalar>;
+  using Problem = AbsolutePoseProblem<Scalar, Solver, 0>;
+  //typedef CalibPoseValidator<Scalar> validator;
   constexpr Scalar tol = 1e-4;
 
   const char* base_path = DATASET_PATH;
@@ -86,10 +86,10 @@ void test_p3p_multi()
   {
     ENTO_DEBUG("ERROR! Could not build file path for test_p3p_single!");
   }
-  Problem problem;
+  Problem problem(Solver{});
 
   ENTO_DEBUG("File path: %s", full_path);
-  DatasetReader<Problem> reader(full_path);
+  DatasetReader reader(full_path);
 
   int num_experiments = 0;
   bool found_gt_pose, found_all_poses = true;
@@ -111,7 +111,10 @@ void test_p3p_multi()
     for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
     {
       const CameraPose<Scalar> &pose = solutions[i];
-      pose_error = std::min(pose_error, validator::compute_pose_error(problem, pose, 1.0));
+      pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose,
+                                                                                problem.pose_gt_,
+                                                                                1.0,
+                                                                                problem.scale_gt_));
       ENTO_DEBUG("Pose error for soln %li/%i: %f", i+1, num_solns, pose_error);
     }
 
@@ -129,8 +132,9 @@ void test_p3p_multi()
 
 void test_p3p_ento_array_single()
 {
-  using Scalar = float32_t;
-  using Problem = AbsolutePoseProblemInstance<Scalar, 3>;
+  using Scalar = float;
+  using Solver = EntoPose::SolverP3P<Scalar>;
+  using Problem = AbsolutePoseProblem<Scalar, Solver, 0>;
   typedef CalibPoseValidator<Scalar, 3> validator;
   constexpr Scalar tol = 1e-4;
 
@@ -143,10 +147,10 @@ void test_p3p_ento_array_single()
   {
     ENTO_DEBUG("ERROR! Could not build file path for test_p3p_single!");
   }
-  Problem problem;
+  Problem problem(Solver{});
 
   ENTO_DEBUG("File path: %s", full_path);
-  DatasetReader<Problem> reader(full_path);
+  DatasetReader reader(full_path);
 
   int num_experiments = 0;
   while (reader.read_next(problem))
@@ -156,18 +160,21 @@ void test_p3p_ento_array_single()
   ENTO_TEST_CHECK_INT_EQ(num_experiments, 1);
   
   EntoContainer<CameraPose<Scalar>, 4> solutions;
-  int num_solns = p3p(problem.x_point_, problem.X_point_, &solutions);
+  int num_solns = p3p(problem.x_point_, problem.X_point_, &problem.solns_);
   for (size_t i = 0; i < num_solns; i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].q, 4, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].t, 3, 1, Scalar);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
   for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
   {
-    const CameraPose<Scalar> &pose = solutions[i];
-    pose_error = std::min(pose_error, validator::compute_pose_error(problem, pose, 1.0));
+    const CameraPose<Scalar> &pose = problem.solns_[i];
+    pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose,
+                                                                              problem.pose_gt_,
+                                                                              1.0,
+                                                                              problem.scale_gt_));
     ENTO_DEBUG("Pose error for soln %li/%i: %f", i+1, num_solns, pose_error);
   }
 
@@ -179,9 +186,10 @@ void test_p3p_ento_array_single()
 
 void test_p3p_ento_array_multi()
 {
-  using Scalar = float32_t;
-  using Problem = AbsolutePoseProblemInstance<Scalar, 3>;
-  typedef CalibPoseValidator<Scalar, 3> validator;
+  using Scalar = float;
+  using Solver = EntoPose::SolverP3P<Scalar>;
+  using Problem = AbsolutePoseProblem<Scalar, Solver, 0>;
+  //typedef CalibPoseValidator<Scalar, 3> validator;
   constexpr Scalar tol = 1e-4;
 
   const char* base_path = DATASET_PATH;
@@ -195,10 +203,10 @@ void test_p3p_ento_array_multi()
   {
     ENTO_DEBUG("ERROR! Could not build file path for test_p3p_single!");
   }
-  Problem problem;
+  Problem problem(Solver{});
 
   ENTO_DEBUG("File path: %s", full_path);
-  DatasetReader<Problem> reader(full_path);
+  DatasetReader reader(full_path);
 
   int num_experiments = 0;
   bool found_gt_pose, found_all_poses = true;
@@ -209,8 +217,8 @@ void test_p3p_ento_array_multi()
     num_experiments++;
     ENTO_DEBUG("Test %i/10", num_experiments);
 
-    ENTO_DEBUG("Solutions size: %i", solutions.size());
-    int num_solns = p3p(problem.x_point_, problem.X_point_, &solutions);
+    //ENTO_DEBUG("Solutions size: %i", solutions.size());
+    int num_solns = p3p(problem.x_point_, problem.X_point_, &problem.solns_);
     pose_error = std::numeric_limits<Scalar>::max();
     ENTO_DEBUG("Num solutions: %i", num_solns);
 
@@ -218,15 +226,18 @@ void test_p3p_ento_array_multi()
 
     for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
     {
-      const CameraPose<Scalar> &pose = solutions[i];
-      pose_error = std::min(pose_error, validator::compute_pose_error(problem, pose, 1.0));
+      const CameraPose<Scalar> &pose = problem.solns_[i];
+      pose_error = std::min(pose_error, Problem::validator_::compute_pose_error(pose,
+                                                                                problem.pose_gt_,
+                                                                                1.0,
+                                                                                problem.scale_gt_));
       ENTO_DEBUG("Pose error for soln %li/%i: %f", i+1, num_solns, pose_error);
     }
 
     found_gt_pose = (pose_error < tol);
     found_all_poses &= found_gt_pose;
     ENTO_TEST_CHECK_TRUE(found_gt_pose);
-    solutions.clear();
+    problem.clear();
     ENTO_DEBUG("================");
   }
   ENTO_TEST_CHECK_TRUE(found_all_poses);
