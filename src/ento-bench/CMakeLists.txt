@@ -6,7 +6,9 @@ set(SRC_FILES
 
 add_library(bench 
   ${SRC_FILES}
-) # No src files for now
+) 
+
+set(PROBLEMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/problems)
 
 if (GEM5_BUILD)
   set(GEM5_PATH $ENV{GEM5_INSTALL_PATH})

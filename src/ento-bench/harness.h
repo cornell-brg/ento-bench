@@ -1,7 +1,10 @@
 #ifndef HARNESS_HH
 #define HARNESS_HH
 
+#ifndef NATIVE
 #include <ento-mcu/timing.h>
+#endif
+
 #include <tuple>
 #include <cstdio>
 #include <ento-bench/roi.h>
@@ -85,11 +88,14 @@ enum ProfileMode
  * Allows for running a function many times for cache warm up.
  *
  */
-template<int Iters, typename Callable, ProfileMode Mode = ProfileMode::Full>
+template<int Iters, typename Problem, ProfileMode Mode = ProfileMode::Full>
 class Harness {
 public:
-  Harness(Callable callable, const char* name, int sample_interval = 1, int iters = Iters)
-    : callable_(std::move(callable)), name_(name), sample_interval_(sample_interval), iters_(iters),
+  Harness(Problem problem, const char* name, int sample_interval = 1, int iters = Iters)
+    : problem_(std::move(problem)), 
+      name_(name),
+      sample_interval_(sample_interval),
+      iters_(iters),
       total_metrics_({0, 0, 0, 0, 0}), max_metrics_({0, 0, 0, 0, 0}),
       min_metrics_({std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(),
                     std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max(),
@@ -106,7 +112,29 @@ public:
     software_delay_cycles(10000);
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
 
-    if constexpr (!std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>)
+    for (int i = 0; i < Iters; ++i)
+    {
+      start_roi();
+      problem_.solve();
+      end_roi();
+
+      ROIMetrics metrics = get_roi_stats();
+      handle_mode(metrics, i);
+
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+      software_delay_cycles(100000);
+#endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+    }
+
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+    software_delay_cycles(10000);
+    trigger_pin_low();
+#endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+    print_summary();
+
+    // No longer used, Problem member variable handles arguments and results on a Problem level
+    // not harness level.
+    /*if constexpr (!std::is_void_v<decltype(callable_(std::forward<Args>(args)...))>)
     {
       using ResultType = decltype(callable_(std::forward<Args>(args)...));
       std::array<ResultType, Iters> results;
@@ -126,7 +154,9 @@ public:
       }
       print_summary();
       return results;
-    } else {
+    }
+    else
+    {
       for (int i = 0; i < Iters; ++i)
       {
         start_roi();
@@ -146,14 +176,16 @@ public:
       trigger_pin_low();
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
       print_summary();
-    }
+    }*/
+    
   }
 
 private:
-  Callable callable_;
+  //Callable callable_;
   const char* name_;
   int sample_interval_;
   volatile int iters_;
+  Problem problem_;
 
   // Aggregate statistics
   ROIMetrics total_metrics_, max_metrics_, min_metrics_;
