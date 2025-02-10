@@ -259,7 +259,9 @@ int main ( int argc, char ** argv)
   }
   else
   {
-    __ento_replace_file_suffix(__FILE__, "test_pose_est_reader_cmdline.txt");
+    // For the case we are running on the MCU and we can't pass in args
+    // the same way args are passed for a native build.
+    __ento_replace_file_suffix(__FILE__, "test_p3p_cmdline.txt");
     __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
   }
 
