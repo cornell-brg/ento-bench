@@ -1,0 +1,47 @@
+name: Build and Test Rocky Linux 8
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Runs in GitHub Actions' standard runner
+
+    container:
+      image: rockylinux:8  # Runs inside a Rocky Linux 8 container
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Ensure Eigen submodule (if used) is pulled
+
+      - name: Install Dependencies
+        run: |
+          dnf install -y epel-release
+          dnf install -y gcc-toolset-14 cmake make git
+          dnf install -y eigen3-devel || true  # If using system Eigen
+
+      - name: Enable GCC 14
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
+          echo "CC=$(which gcc)" >> $GITHUB_ENV
+          echo "CXX=$(which g++)" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Project
+        run: |
+          cmake --build build -- -j$(nproc)
+
+      - name: Run Tests
+        run: |
+          cd build
+          make check
