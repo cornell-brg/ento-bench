@@ -17,7 +17,6 @@ void __attribute__((noinline)) hello_host_computer()
 
 void __attribute__((noinline)) add64x8()
 {
-  start_roi();
   asm (
     ".rept 64        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -33,12 +32,10 @@ void __attribute__((noinline)) add64x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
-  end_roi();
 }
 
 void __attribute__((noinline)) add16x8()
 {
-  start_roi();
   asm (
     ".rept 16        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -54,12 +51,10 @@ void __attribute__((noinline)) add16x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
-  end_roi();
 }
 
 inline void add4x8()
 {
-  start_roi();
   asm volatile (
     ".rept 4        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -75,12 +70,10 @@ inline void add4x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
-  end_roi();
 }
 
 void __attribute__((noinline)) add4096x8()
 {
-  start_roi();
 #if !defined(STM32G0)
   constexpr int reps = 128;
   for (int i = 0; i < reps; i++)
