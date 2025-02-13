@@ -229,10 +229,11 @@ elseif(GEM5_BUILD)
 
 else() # Native Build
 	message(STATUS "Building for native.")
-  set(CMAKE_C_COMPILER clang)
-  set(CMAKE_CXX_COMPILER clang++)
-  set(CMAKE_ASM_COMPILER clang)
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O0")
+  set(CMAKE_C_COMPILER gcc)
+  set(CMAKE_CXX_COMPILER g++)
+  set(CMAKE_ASM_COMPILER gcc)
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O3")
+  #set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O3")
   add_definitions(-DNATIVE)
 endif()
 
