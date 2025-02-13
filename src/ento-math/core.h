@@ -48,6 +48,9 @@ using Vec2 = Eigen::Matrix<Scalar, 2, 1, Order>;
 template <typename Scalar, int Order=0>
 using Matrix3x3 = Eigen::Matrix<Scalar, 3, 3, Order>;
 
+template <typename Scalar, int Order=0>
+using Matrix2x2 = Eigen::Matrix<Scalar, 2, 2, Order>;
+
 
 } // namespace EntoMath
 

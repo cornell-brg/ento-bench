@@ -24,7 +24,7 @@ public:
 
 #ifdef NATIVE
   std::string serialize() const;
-  bool deserialize(std::istream& is);
+  bool deserialize(const std::string& line);
 #endif
 
   bool deserialize(const char* line);
@@ -53,7 +53,7 @@ concept ProblemConcept = requires(T t)
 
 #ifdef NATIVE
   { t.serialize() } -> std::convertible_to<std::string>;
-  { t.deserialize(std::declval<std::istream&>()) } -> std::convertible_to<bool>;
+  { t.deserialize(std::declval<const std::string&>()) } -> std::convertible_to<bool>;
 #endif
 
   { t.deserialize(std::declval<const char*>()) } -> std::convertible_to<bool>;
@@ -75,9 +75,9 @@ std::string EntoProblem<Derived>::serialize() const
 
 // Deserialize the problem instance from a file stream
 template <typename Derived>
-bool EntoProblem<Derived>::deserialize(std::istream& stream)
+bool EntoProblem<Derived>::deserialize(const std::string& line)
 {
-  return static_cast<Derived*>(this)->deserialize_impl(stream);
+  return static_cast<Derived*>(this)->deserialize_impl(line);
 }
 
 #endif
@@ -99,7 +99,7 @@ auto EntoProblem<Derived>::operator()(Args&&... args)
 template <typename Derived>
 bool EntoProblem<Derived>::validate()
 {
-  static_cast<const Derived*>(this)->validate_impl();
+  return static_cast<const Derived*>(this)->validate_impl();
 }
 
 
@@ -113,6 +113,44 @@ template <typename Derived>
 void EntoProblem<Derived>::clear()
 {
   return static_cast<Derived*>(this)->clear_impl();
+}
+
+template <typename Callable>
+class BasicProblem : public EntoProblem<BasicProblem<Callable>>
+{
+public:
+  static constexpr bool RequiresDataset_ = false;
+  static constexpr bool SaveResults_ = false;
+
+#ifdef NATIVE
+  std::string serialize_impl() const;
+  bool deserialize_impl([[maybe_unused]] const std::string &line) { return true; }
+#endif
+
+  bool deserialize_impl([[maybe_unused]] const char* line) { return true; }
+  bool validate_impl() { return true; }
+  void solve_impl() { callable_(); }
+  bool clear_impl();
+
+  static constexpr const char* header_impl() { return ""; }
+  
+  BasicProblem(Callable callable) : callable_(std::move(callable)) {};
+
+private:
+  Callable callable_;
+};
+
+template <typename T>
+auto make_basic_problem(T&& callable)
+{
+  if constexpr (std::is_function_v<std::remove_pointer_t<std::decay_t<T>>>)
+  {
+    return BasicProblem([f = std::forward<T>(callable)]() { f(); });
+  }
+  else
+  {
+    return BasicProblem(std::forward<T>(callable));
+  }
 }
 
 } // namespace EntoBench

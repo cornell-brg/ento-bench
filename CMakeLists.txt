@@ -39,11 +39,15 @@ add_custom_target(update_clangd ALL
 
 # Eigen Flags
 add_definitions(
-    -DEIGEN_DEFAULT_L1_CACHE_SIZE=0
+    -DEIGEN_DEFAULT_L1_CACHE_SIZE=1000000
     -DEIGEN_DEFAULT_L2_CACHE_SIZE=0
     -DEIGEN_DEFAULT_L3_CACHE_SIZE=0
     -DEIGEN_UNROLLING_LIMIT=200
     -DEIGEN_NO_MALLOC
+    -DEIGEN_NO_DEBUG
+    -DEIGEN_FAST_MATH=1
+    -DEIGEN_DONT_PARALLELIZE
+    -DEIGEN_DONT_VECTORIZE
 )
 
 # Conditionally add ARM-specific include paths if STM32_BUILD is set

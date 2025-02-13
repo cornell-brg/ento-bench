@@ -2,8 +2,8 @@
 #define ENTO_UTIL_DATASET_READER_H
 
 #include <string>
-#include <array>
 #include <ento-util/debug.h> // For ENTO_DEBUG
+#include <ento-bench/problem.h>
 
 #ifdef NATIVE
 #include <fstream>
@@ -14,43 +14,31 @@
 namespace EntoUtil
 {
 
-template <typename ProblemInstance>
 class DatasetReader
 {
 public:
   // Constructor for `std::string` (Native builds only)
 #ifdef NATIVE
-  explicit DatasetReader(const std::string &filename)
+  explicit DatasetReader(const std::string &filename) : header_validated_(false)
   {
+    ENTO_DEBUG("DatasetReader opening file: %s", filename.c_str());
     file_.open(filename);
     if (!file_.is_open())
     {
-      fprintf(stderr, "Failed to open file for reading: %s\n", filename.c_str());
+      ENTO_DEBUG("Failed to open file for reading: %s\n", filename.c_str());
       return;
     }
-    if (!validate_header())
-    {
-      fprintf(stderr, "Dataset header mismatch for file: %s\n", filename.c_str());
-      file_.close();
-    }
   }
-#endif
-
+#else
   // Constructor for `char*` (MCU builds only)
-#ifndef NATIVE
- explicit DatasetReader(const char *filename)
+  explicit DatasetReader(const char *filename) : header_validate_(false)
   {
+    ENTO_DEBUG("DatasetReader opening file: %s", filename);
     file_ = fopen(filename, "r");
     if (!file_)
     {
       ENTO_DEBUG("Failed to open file on microcontroller: %s", filename);
       return;
-    }
-    if (!validate_header())
-    {
-      ENTO_DEBUG("Dataset header mismatch for file: %s", filename);
-      fclose(file_);
-      file_ = nullptr;
     }
   }
 #endif
@@ -71,34 +59,53 @@ public:
   }
 
   // Reads the next instance
-  bool read_next(ProblemInstance &instance)
+  template <EntoBench::ProblemConcept Problem>
+  bool read_next(Problem &problem_instance)
   {
-    instance.clear();
+    if (!header_validated_)
+    {
+
+      if (!validate_header<Problem>())
+      {
+        ENTO_DEBUG("Dataset header mismatch!");
+#ifdef NATIVE
+        file_.close();
+#else
+        fclose(file_);
+#endif
+        return false;
+      }
+    }
+
+    problem_instance.clear();
 #ifdef NATIVE
     std::string line;
     if (std::getline(file_, line))
     {
-      return ProblemInstance::deserialize(line.c_str(), &instance);
+      return problem_instance.deserialize(line.c_str());
     }
 #else
     char line[256];
     if (file_ && fgets(line, sizeof(line), file_))
     {
-      return ProblemInstance::deserialize(line, &instance);
+      return problem_instance.deserialize(line);
     }
 #endif
     return false; // End of file or error
   }
 
 private:
+  bool header_validated_; 
+
+  template <EntoBench::ProblemConcept Problem>
   bool validate_header()
   {
 #ifdef NATIVE
     std::string header;
     std::getline(file_, header);
-    if (header != ProblemInstance::header())
+    if (header != Problem::header())
     {
-      fprintf(stderr, "Expected header: %s, Found: %s\n", ProblemInstance::header().c_str(), header.c_str());
+      ENTO_DEBUG("Expected header: %s, Found: %s\n", Problem::header(), header.c_str());
       return false;
     }
 #else
@@ -109,9 +116,9 @@ private:
       char *newline = strchr(header, '\n');
       if (newline) *newline = '\0';
 
-      if (std::string(header) != ProblemInstance::header())
+      if (std::string(header) != Problem::header())
       {
-        ENTO_DEBUG("Expected header: %s, Found: %s", ProblemInstance::header().c_str(), header);
+        ENTO_DEBUG("Expected header: %s, Found: %s", Problem::header(), header);
         return false;
       }
     }
