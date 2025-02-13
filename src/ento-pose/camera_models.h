@@ -42,8 +42,8 @@ public:
 
   static constexpr size_t focal_size = 0;
   static constexpr size_t principal_size = 0;
-  static constexpr std::array<size_t, focal_size> focal_idx;
-  static constexpr std::array<size_t, principal_size> principal_point_idx;
+  static constexpr std::array<size_t, focal_size> focal_idx = {};
+  static constexpr std::array<size_t, principal_size> principal_point_idx = {};
   static void project_impl([[maybe_unused]] const Params &params,
                            [[maybe_unused]] const Vec2<Scalar> &x,
                            [[maybe_unused]] Vec2<Scalar> *xp) {}
