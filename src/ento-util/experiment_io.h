@@ -8,8 +8,11 @@
 #include <string>
 #include <fstream>
 #else
+#include <cstring>
 #include <cstdio>
 #endif
+
+#include <optional>
 
 namespace EntoUtil
 {

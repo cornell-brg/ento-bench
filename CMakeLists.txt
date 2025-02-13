@@ -37,6 +37,7 @@ add_custom_target(update_clangd ALL
   COMMENT "Updating .clangd file with compile_commands.json path"
 )
 
+
 # Eigen Flags
 add_definitions(
     -DEIGEN_DEFAULT_L1_CACHE_SIZE=1000000
@@ -228,6 +229,21 @@ elseif(GEM5_BUILD)
   endif()
 
 else() # Native Build
+  if(APPLE)
+    find_program(GCC_PATH NAMES gcc-14 gcc)
+    find_program(GXX_PATH NAMES g++-14 g++)
+    
+    if(GCC_PATH AND GXX_PATH)
+      message(STATUS "Using GCC: ${GCC_PATH} / ${GXX_PATH}")
+      set(CMAKE_C_COMPILER ${GCC_PATH} CACHE STRING "GCC Compiler" FORCE)
+      set(CMAKE_CXX_COMPILER ${GXX_PATH} CACHE STRING "G++ Compiler" FORCE)
+    else()
+      message(WARNING "GCC 14 not found, falling back to Clang")
+      set(CMAKE_C_COMPILER clang)
+      set(CMAKE_CXX_COMPILER clang++)
+    endif()
+  endif()
+
 	message(STATUS "Building for native.")
   set(CMAKE_C_COMPILER gcc)
   set(CMAKE_CXX_COMPILER g++)
