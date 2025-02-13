@@ -33,9 +33,16 @@ jobs:
 
       - name: Enable GCC 14
         run: |
-          source /opt/rh/gcc-toolset-14/enable
-          echo "CC=$(which gcc)" >> $GITHUB_ENV
-          echo "CXX=$(which g++)" >> $GITHUB_ENV
+          echo "/opt/rh/gcc-toolset-14/root/usr/bin" >> $GITHUB_PATH
+          echo "CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc" >> $GITHUB_ENV
+          echo "CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++" >> $GITHUB_ENV
+
+      - name: Verify GCC Installation
+        run: |
+          which gcc
+          gcc --version
+          which g++
+          g++ --version
 
       - name: Configure CMake
         run: |
