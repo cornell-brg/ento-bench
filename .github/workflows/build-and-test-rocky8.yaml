@@ -19,7 +19,7 @@ jobs:
       - name: Install Dependencies
         run: |
           dnf install -y epel-release
-          dnf install -y gcc-toolset-14 cmake make git
+          dnf install -y gcc-toolset-14 cmake make git which
 
       - name: Upgrade Git (Ensure 2.18+)
         run: |
