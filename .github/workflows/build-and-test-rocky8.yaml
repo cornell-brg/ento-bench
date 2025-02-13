@@ -16,16 +16,20 @@ jobs:
       image: rockylinux:8  # Runs inside a Rocky Linux 8 container
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive  # Ensure Eigen submodule (if used) is pulled
-
       - name: Install Dependencies
         run: |
           dnf install -y epel-release
           dnf install -y gcc-toolset-14 cmake make git
-          dnf install -y eigen3-devel || true  # If using system Eigen
+
+      - name: Upgrade Git (Ensure 2.18+)
+        run: |
+          dnf install -y git-core
+          git --version # Show version info for debug
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Ensure Eigen submodule (if used) is pulled
 
       - name: Enable GCC 14
         run: |
