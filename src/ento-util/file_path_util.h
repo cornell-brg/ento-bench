@@ -6,9 +6,10 @@
 
 #ifdef NATIVE
 #include <sstream> 
-#else
-#include <cstdio> 
 #endif
+
+#include <cstdio> 
+#include <cstring>
 
 namespace EntoUtil {
 
@@ -93,12 +94,12 @@ inline void build_file_paths(const char* base_path,
 
 inline void get_file_directory(const char* filepath, size_t result_size, char* result)
 {
-  std::strncpy(result, filepath, result_size);
+  strncpy(result, filepath, result_size);
   result[result_size - 1] = '\0';  // Ensure null termination
 
-  char* last_slash = std::strrchr(result, '/');  // POSIX
+  char* last_slash = strrchr(result, '/');  // POSIX
   if (!last_slash) {
-    last_slash = std::strrchr(result, '\\');  // Windows
+    last_slash = strrchr(result, '\\');  // Windows
   }
 
   if (last_slash) {
