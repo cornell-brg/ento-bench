@@ -56,14 +56,14 @@ void __attribute__((noinline)) add64x8()
 #elif defined(X86)
   asm volatile (
     ".rept 64        \n"
-    "addl $1, %%eax  \n"   // Increment eax
-    "addl $1, %%ebx  \n"   // Increment ebx
-    "addl $1, %%ecx  \n"   // Increment ecx
-    "addl $1, %%edx  \n"   // Increment edx
-    "addl $1, %%esi  \n"   // Increment esi
-    "addl $1, %%edi  \n"   // Increment edi
-    "addl $1, %%r8d  \n"   // Increment r8d (x86-64 only)
-    "addl $1, %%r9d  \n"   // Increment r9d (x86-64 only)
+    "addl $1, %%rax  \n"   // Increment eax
+    "addl $1, %%rbx  \n"   // Increment ebx
+    "addl $1, %%rcx  \n"   // Increment ecx
+    "addl $1, %%rdx  \n"   // Increment edx
+    "addl $1, %%rsi  \n"   // Increment esi
+    "addl $1, %%rdi  \n"   // Increment edi
+    "addl $1, %%r8  \n"   // Increment r8 (x86-64 only)
+    "addl $1, %%r9  \n"   // Increment r9 (x86-64 only)
     ".endr           \n"
     :
     :

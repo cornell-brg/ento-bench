@@ -43,6 +43,8 @@ jobs:
           gcc --version
           which g++
           g++ --version
+          which as
+          as --version
 
       - name: Verify Architecture
         run: |
