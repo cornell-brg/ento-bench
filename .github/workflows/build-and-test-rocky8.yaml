@@ -44,6 +44,10 @@ jobs:
           which g++
           g++ --version
 
+      - name: Verify Architecture
+        run: |
+          uname -m
+
       - name: Configure CMake
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
