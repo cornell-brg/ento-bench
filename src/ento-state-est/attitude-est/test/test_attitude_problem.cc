@@ -22,16 +22,18 @@ class TestAttitudeFilter
 {
   inline void operator()(const Eigen::Quaternion<Scalar>& q_prev,
                          [[maybe_unused]] const MARGMeasurement<Scalar>& meas,
-                         [[maybe_unused]] Scalar dt)
+                         [[maybe_unused]] Scalar dt,
+                         Eigen::Quaternion<Scalar>* q)
   {
-    return q_prev; // always returns q_prev;
+    *q = q_prev; // always returns q_prev;
   }
 
   inline void operator()(const Eigen::Quaternion<Scalar>& q_prev,
                          [[maybe_unused]] const IMUMeasurement<Scalar>& meas,
-                         [[maybe_unused]] Scalar dt)
+                         [[maybe_unused]] Scalar dt,
+                         Eigen::Quaternion<Scalar>* q)
   {
-    return q_prev; // always returns q_prev;
+    *q = q_prev; // always returns q_prev;
   }
 
   static constexpr const char* name()
