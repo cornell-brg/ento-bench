@@ -189,6 +189,8 @@ ROIMetrics get_roi_stats(void)
   ROIMetrics metrics = {};
   return metrics;
 #endif
+  ROIMetrics metrics = {};
+  return metrics;
 }
 
 #endif // ROI_H
