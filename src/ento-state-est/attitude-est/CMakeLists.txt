@@ -16,12 +16,17 @@ target_link_libraries(ento-attitude-est
 include(CTest)
 
 set(TEST_FILES
-  test_saam.cc
+  test_attitude_problem.cc
+  #test_saam.cc
 )
 
-set(LIBRARIES_test_saam
-  ento_util ento_math Eigen
+set(LIBRARIES_test_attitude_problem
+  ento_util ento_math Eigen ento-attitude-est
 )
+
+#set(LIBRARIES_test_saam
+#  ento_util ento_math Eigen
+#)
 
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Test file: ${TEST_FILE}")
