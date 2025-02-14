@@ -11,6 +11,7 @@ using namespace EntoUtil;
 
 const char* dataset_path = DATASET_PATH;
 
+using namespace EntoFeature2D;
 
 void test_keypoint_default_constructor()
 {
@@ -89,7 +90,7 @@ void test_orb_keypoint_copy_constructor()
 
 void test_feature_detector_output_add_keypoint_within_limit()
 {
-  FeatureDetectorOutput<Keypoint> detector;
+  FeatureArray<Keypoint> detector;
   for (int i = 0; i < 100; ++i)
   {
     Keypoint kp(i, i);
@@ -101,7 +102,7 @@ void test_feature_detector_output_add_keypoint_within_limit()
 
 void test_feature_detector_output_add_keypoint_exceeding_limit()
 {
-  FeatureDetectorOutput<Keypoint> detector;
+  FeatureArray<Keypoint> detector;
   for (int i = 0; i < 100; ++i)
   {
     Keypoint kp(i, i);
@@ -115,7 +116,7 @@ void test_feature_detector_output_add_keypoint_exceeding_limit()
 
 void test_feature_detector_output_access_keypoints()
 {
-  FeatureDetectorOutput<Keypoint> detector;
+  FeatureArray<Keypoint> detector;
   for (int i = 0; i < 100; ++i)
   {
     Keypoint kp(i, i);

@@ -5,6 +5,9 @@
 #include <array>
 #include <Eigen/Dense>
 
+namespace EntoFeature2D
+{
+
 struct Keypoint
 {
   int16_t x;
@@ -46,13 +49,13 @@ struct ORBKeypoint : public FastKeypoint
 };
 
 template <typename KeypointType, size_t MaxFeatures = 100>
-struct FeatureDetectorOutput
+struct FeatureArray
 {
   std::array<KeypointType, MaxFeatures> keypoints;
   size_t num_features = 0;
   static constexpr size_t max_features = MaxFeatures;
 
-  FeatureDetectorOutput() = default;
+  FeatureArray() = default;
   
   bool add_keypoint(const KeypointType& kp)
   {
@@ -179,7 +182,7 @@ void undistort_points(const std::array<KeypointType, MaxFeatures>& keypoints,
 }
 
 template<typename Scalar, typename KeypointType, int MaxFeatures>
-void undistort_points(const FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo,
+void undistort_points(const FeatureArray<KeypointType, MaxFeatures>& fdo,
                       const Eigen::Matrix<Scalar, 3, 3>& K,
                       const Eigen::Matrix<Scalar, 1, 5>& dist,
                       Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxFeatures, 3>& points)
@@ -404,5 +407,25 @@ void unnormalize_homography(const Eigen::Matrix<Scalar, 3, 3>& H,
   result = T1.inverse() * H * T2;
 }
 
+template <size_t Rows, size_t Cols, typename PixelType>
+struct PGMHeader
+{
+  static constexpr size_t max_pixel_value = std::numeric_limits<PixelType>::max();
+
+  static constexpr auto generate() {
+    return std::array<char, 32>{'P', '5', '\n', 
+                                 digit(Cols / 100), digit((Cols / 10) % 10), digit(Cols % 10), ' ',
+                                 digit(Rows / 100), digit((Rows / 10) % 10), digit(Rows % 10), '\n',
+                                 digit(max_pixel_value / 100), digit((max_pixel_value / 10) % 10), digit(max_pixel_value % 10), '\n', '\0'};
+  }
+
+private:
+  static constexpr char digit(size_t value) {
+    return static_cast<char>('0' + value);
+  }
+};
+
+
+} // namespace EntoFeature2D
 
 #endif // FEAT_UTIL_H

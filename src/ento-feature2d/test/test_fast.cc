@@ -6,6 +6,8 @@
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-util/debug.h>
 
+using namespace EntoFeature2D;
+
 void checkCondition(bool condition, const char* testName) {
   if (condition) {
     printf("%s passed.\n", testName);
@@ -14,11 +16,11 @@ void checkCondition(bool condition, const char* testName) {
   }
 }
 
-// Test creation of FeatureDetectorOutput
+// Test creation of FeatureArray
 void test_fdo_creation() {
   printf("Running test_fdo_creation...\n");
 
-  FeatureDetectorOutput<FastKeypoint, 100> fdo;
+  FeatureArray<FastKeypoint, 100> fdo;
   checkCondition(fdo.size() == 0, "Initial FDO size is zero");
 
   FastKeypoint kp1(10, 20, 9);
@@ -101,7 +103,7 @@ void test_fast_algorithm_1()
 
   using TestImgType = Image<7, 7, uint8_t>;
   TestImgType img;
-  FeatureDetectorOutput<FastKeypoint, 100> fdo;
+  FeatureArray<FastKeypoint, 100> fdo;
 
   const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_fast1.pgm";
   //const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_pgm.pgm";
@@ -130,7 +132,7 @@ void test_fast_algorithm_2()
 
   using TestImgType = Image<14, 14, uint8_t>;
   TestImgType img;
-  FeatureDetectorOutput<FastKeypoint, 100> fdo;
+  FeatureArray<FastKeypoint, 100> fdo;
 
   const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_fast2.pgm";
   //const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_pgm.pgm";

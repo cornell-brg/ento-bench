@@ -46,6 +46,8 @@ public:
   //  solutions even if we don't need the space depending on the current input
   //  data. Alternatively, we could always use std::vector and perform a solns.reserve().
   //  As of now it is defaulting to a std::vector.
+  //  Current idea for a solution is to store a static constexpr in Pose Estimation 
+  //  "Solvers"
   EntoContainer<EntoPose::CameraPose<Scalar>, 0> solns_; 
 
   // Point-to-point correspondences containers
@@ -56,6 +58,7 @@ public:
   typedef CalibratedAbsolutePoseValidator<Scalar> validator_;
 
   // Tolerance
+  // @TODO: Make this a parameter
   const Scalar tol_ = 1e-6;
 
   //////// Class Functions /////////

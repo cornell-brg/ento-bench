@@ -7,6 +7,9 @@
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-util/debug.h>
 
+namespace EntoFeature2D
+{
+
 constexpr float PI = std::numbers::pi_v<float>;
 
 template <int BitDepth, int Threshold>
@@ -38,7 +41,7 @@ template <typename Image,
           int ContiguityRequirement = 9,
           size_t MaxFeatures = 100>
 void fast(const Image& img,
-          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo );
+          FeatureArray<KeypointType, MaxFeatures>& fdo );
 
 
 // ===========================================================
@@ -104,7 +107,7 @@ template <typename ImageType,
           int ContiguityRequirement,
           size_t MaxFeatures>
 void fast(const ImageType& img,
-          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo)
+          FeatureArray<KeypointType, MaxFeatures>& fdo)
 {
   // Compile-time access to number of columns
   constexpr int img_width   = ImageType::cols;
@@ -259,5 +262,7 @@ void fast(const ImageType& img,
     }
   }
 }
+
+} // namespace EntoFeature2D
 
 #endif // FAST_H

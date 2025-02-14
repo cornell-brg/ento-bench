@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
 add_subdirectory(robobee-cekf)
+add_subdirectory(attitude-est)
 # add_subdirectory(factor-graph-chain)
 # add_subdirectory(robofly-ekf)
 # add_subdirectory(tiny-ekf)
