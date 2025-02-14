@@ -193,11 +193,10 @@ public:
       }
     }
         
-    //printf("Running benchmark %s for %lu iterations...\n", name_, Reps);
+    printf("Running benchmark %s for %lu iterations...\n", name_, Reps);
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-    //software_delay_cycles(10000);
     trigger_pin_high();
-    //software_delay_cycles(1000000);
+    software_delay_cycles(10000);
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
     
     if constexpr (!Problem::RequiresDataset_)
@@ -210,9 +209,6 @@ public:
         cold_metrics_ = get_roi_stats();
         update_aggregate(cold_metrics_);
       }
-#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-      software_delay_cycles(10000);
-#endif
       // Benchmark kernel (algorithm implementation, callable) that Problem Specification holds.
       size_t i;
       for (i = 0; i < Reps; i++)
@@ -220,7 +216,6 @@ public:
         start_roi();
         problem_.solve();
         end_roi();
-
         // Get Stats. Update global metrics.
         metrics_ = get_roi_stats();
         update_aggregate(metrics_);
