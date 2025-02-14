@@ -21,7 +21,7 @@ constexpr size_t num_paths = 4;
 
 void __attribute__((noinline)) add64x8()
 {
-#ifdef STM32_BUILD
+#if defined(ARMV7E_M)
   asm volatile (
     ".rept 64        \n"   // Repeat 8 times
     "add r0, r0, #1  \n"   // Add 1 to r0
@@ -37,7 +37,7 @@ void __attribute__((noinline)) add64x8()
     : // No inputs
     : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
   );
-#else
+#elif defined(ARM64)
   asm volatile (
     ".rept 64        \n"   // Repeat 8 times
     "add x0, x0, #1  \n"   // Add 1 to r0
@@ -51,10 +51,26 @@ void __attribute__((noinline)) add64x8()
     ".endr            \n"   // End repeat block
     : // No outputs
     : // No inputs
-    : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
+    : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7"  // Clobbered registers
   );
-
+#elif defined(X86)
+  asm volatile (
+    ".rept 64        \n"
+    "addl $1, %%eax  \n"   // Increment eax
+    "addl $1, %%ebx  \n"   // Increment ebx
+    "addl $1, %%ecx  \n"   // Increment ecx
+    "addl $1, %%edx  \n"   // Increment edx
+    "addl $1, %%esi  \n"   // Increment esi
+    "addl $1, %%edi  \n"   // Increment edi
+    "addl $1, %%r8d  \n"   // Increment r8d (x86-64 only)
+    "addl $1, %%r9d  \n"   // Increment r9d (x86-64 only)
+    ".endr           \n"
+    :
+    :
+    : "eax", "ebx", "ecx", "edx", "esi", "edi", "r8d", "r9d"  // Clobbered registers
+  );
 #endif
+
 }
 
 void test_harness_basic_problem_single()
