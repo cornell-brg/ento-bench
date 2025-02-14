@@ -1,6 +1,7 @@
 #ifndef ATTITUDE_PROBLEM_H
 #define ATTITUDE_PROBLEM_H
 
+#include "attitude_measurement.h"
 #include <ento-bench/problem.h>
 
 namespace EntoAttitude
@@ -22,7 +23,16 @@ public:
   // @TODO: Add other member fields for input data, ground truth data
   //   and output data.
   Kernel kernel_;
-  
+
+  // Inputs from dataset file
+  AttitudeMeasurement<Scalar, UseMag> measurement_;
+  Eigen::Quaternion<Scalar> q_gt_;
+  Scalar dt_;
+
+  // Outputs from Kernel
+  Eigen::Quaternion<Scalar> q_prev_;
+  Eigen::Quaternion<Scalar> q_;
+
 #ifdef NATIVE
   std::string serialize_impl() const;
   bool deserialize_impl(const std::string &line);
@@ -39,7 +49,7 @@ public:
   bool validate_impl();
 
   // @TODO: Complete solve implementation.
-  void solve_impl();
+  void solve_impl() { return kernel_(q_prev_, measurement_, dt_, &q_); }
 
   // @TODO: Complete clear implementation.
   bool clear_impl();
@@ -51,6 +61,14 @@ public:
 
   AttitudeProblem(Kernel kernel) : kernel_(std::move(kernel)) {};
 };
+
+
+template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
+bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::deserialize_impl(const char* line)
+{
+
+}
+
 
 } // namespace EntoAttitude
 
