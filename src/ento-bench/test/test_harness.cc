@@ -67,7 +67,7 @@ void __attribute__((noinline)) add64x8()
     ".endr           \n"
     :
     :
-    : "eax", "ebx", "ecx", "edx", "esi", "edi", "r8d", "r9d"  // Clobbered registers
+    : "eax", "ebx", "ecx", "edx", "esi", "edi", "r8", "r9"  // Clobbered registers
   );
 #endif
 
