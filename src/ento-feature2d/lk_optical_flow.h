@@ -87,11 +87,47 @@ void interpolate(const PointFP & pt, const SrcT * src, Eigen::Matrix<fp_t, MAX_W
                       iw01 * fp_t(src[src_width*(k)     + l + 1]) +
                       iw10 * fp_t(src[src_width*(k + 1) + l    ]) + 
                       iw11 * fp_t(src[src_width*(k + 1) + l + 1]));
-            cout << ival.to_float() << endl;
             dst(k, l) = ival;
         }
     }
 }
+
+fp_t a_transpose_a(const Eigen::Matrix<fp_t, MAX_WIN_DIM, MAX_WIN_DIM> & Ix_win_square, 
+                    const Eigen::Matrix<fp_t, MAX_WIN_DIM, MAX_WIN_DIM> & Iy_win_square, 
+                    Eigen::Matrix<fp_t, 2, 2> & ATA_inv,
+                    int WIN_DIM,
+                    int DET_EPSILON) {                
+    // Calculate ATA components and inverse
+    fp_t IxIx(0);
+    fp_t IyIy(0);
+    fp_t IxIy(0);
+    for (int j = 0; j < WIN_DIM; j++) {
+        for (int k = 0; k < WIN_DIM; k++) {
+            IxIx += (Ix_win_square(j, k) * Ix_win_square(j, k));
+            IyIy += (Iy_win_square(j, k) * Iy_win_square(j, k));
+            IxIy += (Ix_win_square(j, k) * Iy_win_square(j, k));
+        }
+    }
+
+    // Separate int and decimal calculations because determinant needs 20 integer bits
+    int IxIx_int = IxIx.to_int32();
+    int IyIy_int = IyIy.to_int32();
+    int IxIy_int = IxIy.to_int32();
+    fp_t det = IxIx * IyIy - IxIy * IxIy;
+    long det_int = ((long)IxIx_int) * ((long)IyIy_int) - ((long)IxIy_int) * ((long)IxIy_int);
+    float full_det = ((float) det_int) + det.get_decimal(); // restore the integer bits
+    det = fp_t(full_det); 
+
+    // If matrix is nonsingular, mark status as failed
+    if (det.to_int32() < DET_EPSILON && det.to_int32() > (-DET_EPSILON)) {
+        return det;
+    }
+
+    // Calculate ATA_inv since the determinant is valid
+    ATA_inv << IxIx / det, -IxIy / det, -IxIy / det, IyIy / det;
+    return fp_t(0);
+}
+
 
 void calcOpticalFlowPyrLKSimpleIter( const RawImage & prevImg, const RawImage & nextImg,
                                const PointFP* prevPts, PointFP* nextPts,
@@ -118,7 +154,7 @@ void calcOpticalFlowPyrLKSimpleIter( const RawImage & prevImg, const RawImage & 
 
         // If point is out of bounds, status is failed
         if ( x_i >= prevImg.width || y_i >= prevImg.height || x_i < 0 || y_i < 0) {
-            cout << "Point out of bounds " << "(" << x_i << ", " << y_i << ")" << endl;
+            // cout << "Point out of bounds " << "(" << x_i << ", " << y_i << ")" << endl;
             status[i] = 0;
             nextPts[i] = guessPt;
             continue;
@@ -133,40 +169,15 @@ void calcOpticalFlowPyrLKSimpleIter( const RawImage & prevImg, const RawImage & 
         interpolate<short>(prevPt, Ix_arr, Ix_win_square, WIN_DIM+1, WIN_DIM+1, WIN_DIM);
         interpolate<short>(prevPt, Iy_arr, Iy_win_square, WIN_DIM+1, WIN_DIM+1, WIN_DIM);
 
-        // Calculate ATA components and inverse
-        fp_t IxIx(0);
-        fp_t IyIy(0);
-        fp_t IxIy(0);
-        for (int j = 0; j < WIN_DIM; j++) {
-            for (int k = 0; k < WIN_DIM; k++) {
-                IxIx += (Ix_win_square(j, k) * Ix_win_square(j, k));
-                IyIy += (Iy_win_square(j, k) * Iy_win_square(j, k));
-                IxIy += (Ix_win_square(j, k) * Iy_win_square(j, k));
-            }
-        }
-
-        // Separate int and decimal calculations because determinant needs 20 integer bits
-        int IxIx_int = IxIx.to_int32();
-        int IyIy_int = IyIy.to_int32();
-        int IxIy_int = IxIy.to_int32();
-        fp_t det = IxIx * IyIy - IxIy * IxIy;
-        long det_int = ((long)IxIx_int) * ((long)IyIy_int) - ((long)IxIy_int) * ((long)IxIy_int);
-        float full_det = ((float) det_int) + det.get_decimal(); // restore the integer bits
-        det = fp_t(full_det); 
-
-        // If matrix is nonsingular, mark status as failed
-        if (det.to_int32() < DET_EPSILON && det.to_int32() > (-DET_EPSILON)) {
-            cout << "Singular matrix at point (" << x << ", " << y << ")" << endl;
+        // Calculate ATA_inv
+        Eigen::Matrix<fp_t, 2, 2> ATA_inv;
+        fp_t det = a_transpose_a(Ix_win_square, Iy_win_square, ATA_inv, WIN_DIM, DET_EPSILON);
+        if (det.to_int32() != 0) {
+            // cout << "Singular matrix at point (" << x << ", " << y << ")" << endl;
             status[i] = 0;
             nextPts[i] = guessPt;
             continue;
         }
-
-        // Calculate ATA_inv since the determinant is valid
-        Eigen::Matrix<fp_t, 2, 2> ATA;
-        ATA << IxIx, IxIy, IxIy, IyIy;
-        Eigen::Matrix<fp_t, 2, 2> ATA_inv;
-        ATA_inv << IxIx / det, -IxIy / det, -IxIy / det, IyIy / det;
 
         // Calculate prev win
         Eigen::Matrix<fp_t, MAX_WIN_DIM, MAX_WIN_DIM> It_win_p;

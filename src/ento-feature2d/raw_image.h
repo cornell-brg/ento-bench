@@ -98,7 +98,7 @@ void read_png_image(const char* imagepath, RawImage* image) {
     png_destroy_read_struct(&png, &info, nullptr);
     fclose(fp);
 
-    std::cout << "PNG loaded successfully: " << imagepath << std::endl;
+    // std::cout << "PNG loaded successfully: " << imagepath << std::endl;
 }
 
 
