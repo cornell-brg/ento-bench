@@ -4,6 +4,11 @@
 #include "attitude_measurement.h"
 #include <ento-bench/problem.h>
 
+// #include "/Users/nicoleli/ento-bench/src/ento-state-est/attitude-est/attitude_measurement.h"
+// #include </Users/nicoleli/ento-bench/src/ento-bench/problem.h>
+
+
+
 namespace EntoAttitude
 {
 
@@ -15,7 +20,7 @@ public:
   // Expose Template Typenames to Others
   using Scalar_ = Scalar;
   using Kernel_ = Kernel;
-
+ 
   // Required by Problem Interface for Experiment I/O
   static constexpr bool RequiresDataset_ = true;
   static constexpr bool SavesResults_ = true;
@@ -66,6 +71,27 @@ public:
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
 bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::deserialize_impl(const char* line)
 {
+  std::istringstream iss(line);
+  Scalar ax, ay, az, gx, gy, gz, mx, my, mz;
+  Scalar qw, qx, qy, qz;
+  Scalar dt;
+  
+  if constexpr (UseMag) {
+      if (!(iss >> ax >> ay >> az >> gx >> gy >> gz >> mx >> my >> mz >> qw >> qx >> qy >> qz >> dt)) {
+          return false; // Failed to parse line
+      }
+      measurement_ = AttitudeMeasurement<Scalar, UseMag>(ax, ay, az, gx, gy, gz, mx, my, mz);
+  } else {
+      if (!(iss >> ax >> ay >> az >> gx >> gy >> gz >> qw >> qx >> qy >> qz >> dt)) {
+          return false; // Failed to parse line
+      }
+      measurement_ = AttitudeMeasurement<Scalar, UseMag>(ax, ay, az, gx, gy, gz);
+  }
+  
+  q_gt_ = Eigen::Quaternion<Scalar>(qw, qx, qy, qz);
+  dt_ = dt;
+  return true;
+  
 
 }
 

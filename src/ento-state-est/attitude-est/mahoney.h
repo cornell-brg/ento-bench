@@ -2,6 +2,7 @@
 #define MAHONEY_H
 
 #include <Eigen/Dense>
+
 #include <ento-math/core.h>
 
 #include <ento-state-est/attitude-est/attitude_measurement.h>
@@ -183,6 +184,112 @@ Eigen::Quaternion<Scalar> mahoney(const Eigen::Quaternion<Scalar>& q,
     return mahoney_imu(q, meas, dt, k_p, k_i, bias);
   }
 }
+
+
+#ifdef NATIVE
+template <typename Scalar>
+bool deserialize_mahoney(
+    const char* line,
+    Eigen::Quaternion<Scalar>& quat_gt,
+    EntoMath::Vec3<Scalar>& gyro,
+    EntoMath::Vec3<Scalar>& acc,
+    EntoMath::Vec3<Scalar>& mag)
+{
+    std::istringstream iss(line);
+    char comma;
+
+    // Parse ground truth quaternion (quat_gt)
+    for (int i = 0; i < 4; ++i) {
+        if (!(iss >> quat_gt.coeffs()[i] >> comma) || comma != ',') {
+            return false; // Parsing failed
+        }
+    }
+
+    // Parse gyroscope data (gyro_x, gyro_y, gyro_z)
+    for (int i = 0; i < 3; ++i) {
+        if (!(iss >> gyro[i] >> comma) || comma != ',') {
+            return false; // Parsing failed
+        }
+    }
+
+    // Parse accelerometer data (acc_x, acc_y, acc_z)
+    for (int i = 0; i < 3; ++i) {
+        if (!(iss >> acc[i] >> comma) || comma != ',') {
+            return false; // Parsing failed
+        }
+    }
+
+    // Parse magnetometer data (mag_x, mag_y, mag_z)
+    for (int i = 0; i < 3; ++i) {
+        if (i < 2) {
+            if (!(iss >> mag[i] >> comma) || comma != ',') {
+                return false; // Parsing failed
+            }
+        } else {
+            if (!(iss >> mag[i])) {
+                return false; // Parsing failed
+            }
+        }
+    }
+
+    return true; // Successfully parsed
+}
+#else
+template <typename Scalar>
+bool deserialize_mahoney(
+    const char* line,
+    Eigen::Quaternion<Scalar>& quat_gt,
+    
+    EntoMath::Vec3<Scalar>& gyro,
+    EntoMath::Vec3<Scalar>& acc,
+    EntoMath::Vec3<Scalar>& mag)
+{
+    char* pos = const_cast<char*>(line);
+
+    // Parse ground truth quaternion (quat_gt)
+    for (int i = 0; i < 4; ++i) {
+        if (sscanf(pos, "%lf,", &quat_gt.coeffs()[i]) != 1) {
+            return false; // Parsing failed
+        }
+        pos = strchr(pos, ',') + 1;
+    }
+
+    // Parse gyroscope data (gyro_x, gyro_y, gyro_z)
+    for (int i = 0; i < 3; ++i) {
+        if (sscanf(pos, "%lf,", &gyro[i]) != 1) {
+            return false; // Parsing failed
+        }
+        pos = strchr(pos, ',') + 1;
+    }
+
+    // Parse accelerometer data (acc_x, acc_y, acc_z)
+    for (int i = 0; i < 3; ++i) {
+        if (sscanf(pos, "%lf,", &acc[i]) != 1) {
+            return false; // Parsing failed
+        }
+        pos = strchr(pos, ',') + 1;
+    }
+
+    // Parse magnetometer data (mag_x, mag_y, mag_z)
+    for (int i = 0; i < 3; ++i) {
+        if (i < 2) {
+            if (sscanf(pos, "%lf,", &mag[i]) != 1) {
+                return false; // Parsing failed
+            }
+            pos = strchr(pos, ',') + 1;
+        } else {
+            if (sscanf(pos, "%lf", &mag[i]) != 1) {
+                return false; // Parsing failed
+            }
+        }
+    }
+
+    return true; // Successfully parsed
+}
+#endif
+
+
+
 
 template <typename Scalar, bool UseMag>
 struct FilterMahoney

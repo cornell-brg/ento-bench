@@ -4,6 +4,16 @@
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/attitude_measurement.h>
 
+// Ento Utility Headers
+// #include </Users/nicoleli/ento-bench/src/ento-util/debug.h>
+// #include </Users/nicoleli/ento-bench/src/ento-util/unittest.h>
+// #include </Users/nicoleli/ento-bench/src/ento-util/file_path_util.h>
+
+// // Ento State Estimation Headers
+// #include </Users/nicoleli/ento-bench/src/ento-state-est/attitude-est/attitude_estimation_problem.h>
+// #include </Users/nicoleli/ento-bench/src/ento-state-est/attitude-est/attitude_measurement.h>
+
+
 const char* file_path = __FILE__;
 constexpr size_t FILEPATH_SIZE = 128;
 
@@ -44,6 +54,31 @@ class TestAttitudeFilter
 };
 
 
+// void test_attitude_problem_basic()
+// {
+//   using Scalar = float;
+//   using Kernel = TestAttitudeFilter<Scalar>;
+//   static constexpr bool UseMag = true;
+//   using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+  
+//   Kernel k;
+//   Problem problem(k);
+
+//   // @TODO: Test basic functionality.
+//   //   Create your own std::string for deserialize and call
+//   //   problem.deserialize(). Etc.
+
+//   const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
+    
+//   if (problem.deserialize_impl(test_input)) {
+//       std::cout << "Deserialization successful." << std::endl;
+//   } else {
+//       std::cout << "Deserialization failed." << std::endl;
+//   }
+   
+
+// }
+
 void test_attitude_problem_basic()
 {
   using Scalar = float;
@@ -57,8 +92,29 @@ void test_attitude_problem_basic()
   // @TODO: Test basic functionality.
   //   Create your own std::string for deserialize and call
   //   problem.deserialize(). Etc.
+  
+  const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
+  
+  if (problem.deserialize_impl(test_input)) {
+    std::cout << "Deserialization successful.\n";
+    
+    std::cout << "Parsed Measurement Values:\n";
+    std::cout << "Accel: " << problem.measurement_.ax << " " << problem.measurement_.ay << " " << problem.measurement_.az << "\n";
+    std::cout << "Gyro: " << problem.measurement_.gx << " " << problem.measurement_.gy << " " << problem.measurement_.gz << "\n";
+    
+    if constexpr (UseMag) {
+        std::cout << "Mag: " << problem.measurement_.mx << " " << problem.measurement_.my << " " << problem.measurement_.mz << "\n";
+    }
 
+    std::cout << "Ground Truth Quaternion: " << problem.q_gt_.w() << " " 
+              << problem.q_gt_.x() << " " << problem.q_gt_.y() << " " 
+              << problem.q_gt_.z() << "\n";
+    std::cout << "Delta Time: " << problem.dt_ << "\n";
+  } else {
+    std::cout << "Deserialization failed.\n";
+  }
 }
+
 
 
 int main ( int argc, char ** argv )
