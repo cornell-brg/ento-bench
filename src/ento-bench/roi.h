@@ -188,9 +188,10 @@ ROIMetrics get_roi_stats(void)
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   ROIMetrics metrics = {};
   return metrics;
-#endif
+#elif defined(NATIVE)
   ROIMetrics metrics = {};
   return metrics;
+#endif
 }
 
 #endif // ROI_H

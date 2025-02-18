@@ -22,6 +22,21 @@ public:
   Image<Rows, Cols, PixelT> img1_;
   Image<Rows, Cols, PixelT> img2_;
 
+#ifdef NATIVE
+  std::string serialize_impl() const;
+  bool        deserialize_impl(const std::string& line);
+#else
+  const char* serialize_impl() const;
+  bool        deserialize_impl(const char* line);
+#endif 
+    
+  bool validate_impl();
+  bool solve_impl();
+  void clear_impl();
+
+  static constexpr const char* header_impl() { return ""; }
+  static constexpr const char* output_header_impl() { return ""; }
+
 protected:
   // Protected Constructor to prevent direct instantiation.
   OpticalFlowProblem() = default;

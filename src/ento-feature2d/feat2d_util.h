@@ -8,13 +8,16 @@
 namespace EntoFeature2D
 {
 
+template <typename CoordT = int16_t>
 struct Keypoint
 {
-  int16_t x;
-  int16_t y;
+  using CoordT_ = CoordT;
+
+  CoordT x;
+  CoordT y;
 
   Keypoint() : x(0), y(0) {}
-  Keypoint(int16_t _x, int16_t _y)
+  Keypoint(CoordT _x, CoordT _y)
     : x(_x), y(_y) {}
   Keypoint(const Keypoint&) = default;
   Keypoint(Keypoint&&) = default;
@@ -22,25 +25,26 @@ struct Keypoint
   Keypoint& operator=(Keypoint&&) = default;
 };
 
-struct FastKeypoint : public Keypoint
+template <typename CoordT = int16_t>
+struct FastKeypoint : public Keypoint<CoordT>
 {
   int score;
-  FastKeypoint() : Keypoint(0, 0), score(0) {}
-  FastKeypoint(int16_t _x, int16_t _y, int _score)
-    : Keypoint(_x, _y), score(_score) {}
-  FastKeypoint(const FastKeypoint&) = default;
+  FastKeypoint() : Keypoint<CoordT>(0, 0), score(0) {}
+  FastKeypoint(CoordT _x, CoordT _y, int _score)
+    : Keypoint<CoordT>(_x, _y), score(_score) {}
+  FastKeypoint(const FastKeypoint<CoordT>&) = default;
   FastKeypoint(FastKeypoint&&) = default;
   FastKeypoint& operator=(const FastKeypoint&) = default;
   FastKeypoint& operator=(FastKeypoint&&) = default;
 };
 
-template <typename Scalar = float>
-struct ORBKeypoint : public FastKeypoint
+template <typename CoordT = int16_t, typename Scalar = float>
+struct ORBKeypoint : public FastKeypoint<CoordT>
 {
   Scalar orientation;
-  ORBKeypoint() : FastKeypoint(), orientation(0) {}
+  ORBKeypoint() : FastKeypoint<CoordT>(), orientation(0) {}
   ORBKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
-    : FastKeypoint(_x, _y, _score), orientation(_ori) {} 
+    : FastKeypoint<CoordT>(_x, _y, _score), orientation(_ori) {} 
   ORBKeypoint(const ORBKeypoint&) = default;
   ORBKeypoint(ORBKeypoint&&) = default;
   ORBKeypoint& operator=(const ORBKeypoint&) = default;

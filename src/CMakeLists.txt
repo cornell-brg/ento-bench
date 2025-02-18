@@ -64,6 +64,12 @@ target_include_directories(ento_math
 
 # =============================================================================
 add_subdirectory(ento-feature2d)
+target_include_directories(ento-perception
+  INTERFACE 
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_OURCE_DIR}>
+  ${EIGEN_DIR}
+  image_io
+)
 # =============================================================================
 
 # =============================================================================
