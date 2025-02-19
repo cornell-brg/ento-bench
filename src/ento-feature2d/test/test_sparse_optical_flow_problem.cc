@@ -1,4 +1,3 @@
-
 #include <cstdio>
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
@@ -16,14 +15,14 @@ char dir_path[FILEPATH_SIZE];
 char img1_tiny_path[FILEPATH_SIZE];
 char img1_tiny_features_path[FILEPATH_SIZE];
 char img2_tiny_path[FILEPATH_SIZE];
-char img2_tiny_fetures_path[FILEPATH_SIZE];
+char img2_tiny_features_path[FILEPATH_SIZE];
 char test1_flows_gt_path[FILEPATH_SIZE];
 char test1_output_path[FILEPATH_SIZE];
 
 char* full_paths[] = { img1_tiny_path, img1_tiny_features_path,
-                       img2_tiny_path, img2_tiny_fetures_path,
+                       img2_tiny_path, img2_tiny_features_path,
                        test1_flows_gt_path, test1_output_path };
-constexpr size_t num_paths = 2;
+constexpr size_t num_paths = 6;
 
 using namespace EntoFeature2D;
 
@@ -51,8 +50,8 @@ void test_sparse_of_prob_deserialize_char()
 {
   using Ke = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using Pt = int16_t;
-  using P = SparseOpticalFlowProblem<Ke, 10, 10, 10, Keypoint<int16_t>, int16_t>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<Ke, 7, 7, 1, Kp, Pt>;
 
   P problem(Ke{}); // Instantiate with NullKernel
   
@@ -60,13 +59,13 @@ void test_sparse_of_prob_deserialize_char()
   char line[1024];
   snprintf(line, sizeof(line), "%s,%s,%s,%s,%s",
            img1_tiny_path, img2_tiny_path,
-           img1_tiny_features_path, img2_tiny_fetures_path,
+           img1_tiny_features_path, img2_tiny_features_path,
            test1_flows_gt_path);
 
   ENTO_DEBUG("Deserialize test (char*): %s", line);
 
   // Deserialize the constructed dataset line
-  bool success = problem.deserialize(line);
+  bool success = problem.deserialize(std::string(line));
   
   // Assert deserialization worked
   ENTO_TEST_CHECK_TRUE(success);
@@ -78,14 +77,15 @@ void test_sparse_of_prob_deserialize_string()
 {
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using P = SparseOpticalFlowProblem<K, 10, 10, 10, Kp>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 
   P problem(K{}); // Instantiate with NullKernel
 
   // Construct the dataset line manually using the paths
   std::ostringstream oss;
   oss << img1_tiny_path << "," << img2_tiny_path << ","
-      << img1_tiny_features_path << "," << img2_tiny_fetures_path << ","
+      << img1_tiny_features_path << "," << img2_tiny_features_path << ","
       << test1_flows_gt_path;
 
   std::string line = oss.str();
@@ -105,7 +105,8 @@ void test_sparse_of_prob_serialize_char()
 {
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using P = SparseOpticalFlowProblem<K, 10, 10, 10, Kp>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 
   char line[1024]; // line holds the data for flows
 
@@ -115,7 +116,8 @@ void test_sparse_of_prob_serialize_string()
 {
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using P = SparseOpticalFlowProblem<K, 10, 10, 10, Kp>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 
   char line[1024]; // line holds the data for flows
 }
@@ -124,7 +126,8 @@ void test_sparse_prob_run()
 {
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using P = SparseOpticalFlowProblem<K, 10, 10, 10, Kp>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 
   char line[1024];
   //@TODO: Concatenate paths for img1_tiny, img2_tiny, feats1, feats2, flows_gt
@@ -134,7 +137,8 @@ void test_sparse_of_prob_validate()
 {
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
-  using P = SparseOpticalFlowProblem<K, 10, 10, 10, Kp>;
+  using Pt = uint8_t;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 }
 
 void test_sparse_of_prob_clear()
@@ -162,7 +166,7 @@ int main ( int argc, char ** argv )
   // Setup Directory Path and Test Data Paths
   get_file_directory(file_path, sizeof(dir_path), dir_path);
   const char* file_names[] =
-    { "test_img1_tiny.txt" , "test_img2_tiny.txt", "test_img1_tiny_feats.txt",
+    { "test_img1_tiny.pgm" , "test_img1_tiny_feats.txt", "test_img2_tiny.pgm", 
       "test_img2_tiny_feats.txt", "test_simple_flows_gt.txt", "test1_output_path.txt" };
   build_file_paths(dir_path, file_names, full_paths, FILEPATH_SIZE, num_paths);
   
