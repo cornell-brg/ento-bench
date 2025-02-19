@@ -183,7 +183,7 @@ ROIMetrics get_roi_stats(void)
   };
 #else
   ROIMetrics metrics = {};
-#endif
+#endif // !defined(STM32G0)
   return metrics;
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   ROIMetrics metrics = {};
