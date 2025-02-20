@@ -26,19 +26,18 @@ constexpr size_t num_paths = 6;
 
 using namespace EntoFeature2D;
 
-class NullKernel
+struct NullKernel
 {
-  template <typename IM, typename FE, typename FL>
-  void operator()([[maybe_unused]] const IM& img1,
-                  [[maybe_unused]] const IM& img2,
-                  [[maybe_unused]] const FE& feats1,
-                  [[maybe_unused]] const FE& feats2,
-                  FL* flows)
+  template <typename Img, typename KeypointT, size_t NumFeats>
+  void operator()([[maybe_unused]] const Img& img1,
+                  [[maybe_unused]] const Img& img2,
+                  [[maybe_unused]] const FeatureArray<KeypointT, NumFeats> feats,
+                  FeatureArray<KeypointT, NumFeats>* feats_next)
   {
-    for (int i = 0; i < feats1.size(); i++)
+    for (int i = 0; i < feats.size(); i++)
     {
-      flows[i][0] = 1;
-      flows[i][1] = -1;
+      (*feats_next)[i].x = feats[i].x;
+      (*feats_next)[i].y = feats[i].y;
     }
   }
 
@@ -57,20 +56,22 @@ void test_sparse_of_prob_deserialize_char()
   
   // Construct the dataset line manually using the paths
   char line[1024];
-  snprintf(line, sizeof(line), "%s,%s,%s,%s,%s",
+  snprintf(line, sizeof(line), "%s,%s,%s,%s",
            img1_tiny_path, img2_tiny_path,
-           img1_tiny_features_path, img2_tiny_features_path,
+           img1_tiny_features_path,
            test1_flows_gt_path);
 
   ENTO_DEBUG("Deserialize test (char*): %s", line);
 
   // Deserialize the constructed dataset line
-  bool success = problem.deserialize(std::string(line));
+  bool success = problem.deserialize(line);
   
   // Assert deserialization worked
   ENTO_TEST_CHECK_TRUE(success);
 
   ENTO_DEBUG("Finished deserialization test (char*)");
+
+  // TODO: Add checks to make sure loaded data is correct.
 }
 
 void test_sparse_of_prob_deserialize_string()
@@ -100,26 +101,55 @@ void test_sparse_of_prob_deserialize_string()
   ENTO_TEST_CHECK_TRUE(success);
 
   ENTO_DEBUG("Finished deserialization test (std::string)");
+
+
+  // TODO: Add checks to make sure loaded data is correct.
 }
+
 void test_sparse_of_prob_serialize_char()
 {
-  using K = NullKernel;
+  using Ke = NullKernel;
   using Kp = Keypoint<int16_t>;
   using Pt = uint8_t;
-  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
+  using P = SparseOpticalFlowProblem<Ke, 7, 7, 1, Kp, Pt>;
 
-  char line[1024]; // line holds the data for flows
+  P problem(Ke{}); // Instantiate with NullKernel
+  
+  // Construct the dataset line manually using the paths
+  char line[1024];
+  snprintf(line, sizeof(line), "%s,%s,%s,%s",
+           img1_tiny_path, img2_tiny_path,
+           img1_tiny_features_path,
+           test1_flows_gt_path);
+
+  ENTO_DEBUG("Deserialize test (char*): %s", line);
+
+  // Deserialize the constructed dataset line
+  bool success = problem.deserialize(line);
 
 }
 
 void test_sparse_of_prob_serialize_string()
 {
-  using K = NullKernel;
+  using Ke = NullKernel;
   using Kp = Keypoint<int16_t>;
   using Pt = uint8_t;
-  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
+  using P = SparseOpticalFlowProblem<Ke, 7, 7, 1, Kp, Pt>;
 
-  char line[1024]; // line holds the data for flows
+  P problem(Ke{}); // Instantiate with NullKernel
+  
+  // Construct the dataset line manually using the paths
+  char line[1024];
+  snprintf(line, sizeof(line), "%s,%s,%s,%s",
+           img1_tiny_path, img2_tiny_path,
+           img1_tiny_features_path,
+           test1_flows_gt_path);
+
+  ENTO_DEBUG("Deserialize test (char*): %s", line);
+
+  // Deserialize the constructed dataset line
+  bool success = problem.deserialize(line);
+
 }
 
 void test_sparse_prob_run()
@@ -127,10 +157,24 @@ void test_sparse_prob_run()
   using K = NullKernel;
   using Kp = Keypoint<int16_t>;
   using Pt = uint8_t;
-  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
+  using P = SparseOpticalFlowProblem<K, 7, 7, 2, Kp, Pt>;
 
-  char line[1024];
-  //@TODO: Concatenate paths for img1_tiny, img2_tiny, feats1, feats2, flows_gt
+  P problem(K{});
+
+  problem.feats_.add_keypoint(Kp(1,1));
+  problem.feats_.add_keypoint(Kp(2,2));
+  problem.feats_.add_keypoint(Kp(3,3));
+  problem.feats_next_gt_.add_keypoint(Kp(1,1));
+  problem.feats_next_gt_.add_keypoint(Kp(2,2));
+  problem.feats_next_gt_.add_keypoint(Kp(3,3));
+
+  problem.solve();
+
+  for (size_t i = 0; i < problem.NumFeats_; i++)
+  {
+    ENTO_TEST_CHECK_TRUE(problem.feats_next_[i].x == problem.feats_next_gt_[i].x);
+    ENTO_TEST_CHECK_TRUE(problem.feats_next_[i].y == problem.feats_next_gt_[i].y);
+  }
 }
 
 void test_sparse_of_prob_validate()
@@ -139,11 +183,43 @@ void test_sparse_of_prob_validate()
   using Kp = Keypoint<int16_t>;
   using Pt = uint8_t;
   using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
+
+  P problem(K{});
+
+  problem.img1_.data[0] = 1;
+  problem.img2_.data[0] = 1;
+  problem.feats_.add_keypoint(Kp(1,1));
+  problem.feats_next_.add_keypoint(Kp(1,1));
+  problem.feats_next_gt_.add_keypoint(Kp(1,1));
+
+  problem.solve();
+
+  ENTO_TEST_CHECK_TRUE(problem.validate());
 }
 
 void test_sparse_of_prob_clear()
 {
+  using K = NullKernel;
+  using Kp = Keypoint<int16_t>;
+  using Pt = uint8_t; // PixelType
+  using P = SparseOpticalFlowProblem<K, 7, 7, 1, Kp, Pt>;
 
+  P problem(K{});
+
+  problem.img1_.data[0] = 1;
+  problem.img2_.data[0] = 1;
+  problem.feats_.add_keypoint(Kp(1,1));
+  problem.feats_next_.add_keypoint(Kp(1,1));
+  problem.feats_next_gt_.add_keypoint(Kp(1,1));
+
+
+  problem.clear();
+
+  ENTO_TEST_CHECK_TRUE(problem.img1_.data[0] == 0);
+  ENTO_TEST_CHECK_TRUE(problem.img2_.data[0] == 0);
+  ENTO_TEST_CHECK_TRUE(problem.feats_[0].x == 0 && problem.feats_[0].y == 0);
+  ENTO_TEST_CHECK_TRUE(problem.feats_next_[0].x == 0 && problem.feats_next_[0].y == 0);
+  ENTO_TEST_CHECK_TRUE(problem.feats_next_gt_[0].x == 0 && problem.feats_next_gt_[0].y == 0);
 }
 
 int main ( int argc, char ** argv )

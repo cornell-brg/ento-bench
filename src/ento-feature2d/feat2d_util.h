@@ -76,6 +76,18 @@ struct FeatureArray
     return keypoints[idx];
   }
 
+  KeypointType& operator[](size_t idx)
+  {
+    return keypoints[idx];
+  }
+
+  void clear()
+  {
+    keypoints.fill(KeypointType{});
+    num_features = 0;
+  }
+  
+
   size_t size() const
   {
     return num_features;

@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <concepts>
+#include <ento-util/debug.h>
 
 #ifdef NATIVE
 #include <iostream>
@@ -85,7 +86,7 @@ bool EntoProblem<Derived>::deserialize(const std::string& line)
 template <typename Derived>
 bool EntoProblem<Derived>::deserialize(const char* line)
 {
-  return static_cast<Derived*>(this)->deserialize(line);
+  return static_cast<Derived*>(this)->deserialize_impl(line);
 }
 
 template <typename Derived>
@@ -106,7 +107,7 @@ bool EntoProblem<Derived>::validate()
 template <typename Derived>
 void EntoProblem<Derived>::solve()
 {
-  return static_cast<Derived*>(this)->solve_impl();
+  static_cast<Derived*>(this)->solve_impl();
 }
 
 template <typename Derived>

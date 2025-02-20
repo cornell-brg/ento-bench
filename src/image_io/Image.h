@@ -3,9 +3,11 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 //#include <Eigen/Dense>
 #include <image_io/Pixel.h>
 #include <ento-util/debug.h>
+#include <type_traits>
 
 
 template <int Rows, int Cols, typename PixelT>
@@ -39,6 +41,21 @@ public:
   const PixelT& operator()(int row, int col) const
   {
     return data[row * Cols + col];
+  }
+
+  void clear()
+  {
+    if constexpr(std::is_integral_v<PixelT>)
+    {
+      std::memset(data, 0, sizeof(data));
+    }
+    else
+    {
+      for (size_t i = 0; i < static_cast<size_t>(Rows*Cols); ++i)
+      {
+        data[i] = PixelT{};
+      }
+    }
   }
 
   int image_from_pgm(const char* pgm_path) {

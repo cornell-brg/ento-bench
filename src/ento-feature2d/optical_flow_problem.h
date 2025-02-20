@@ -16,6 +16,7 @@ class OpticalFlowProblem :
 {
 public:
   using PixelT_ = PixelT;
+  using ImageT_ = Image<Rows, Cols, PixelT>;
   static constexpr size_t ImageRows_ = Rows;
   static constexpr size_t ImageCols_ = Cols;
 
@@ -30,7 +31,7 @@ public:
   bool        deserialize_impl(const char* line);
 #endif 
     
-  bool validate_impl();
+  bool validate_impl() const;
   bool solve_impl();
   void clear_impl();
 
