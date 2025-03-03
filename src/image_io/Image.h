@@ -59,17 +59,17 @@ public:
   }
 
   int image_from_pgm(const char* pgm_path) {
-    DPRINTF("PGM path: %s\n", pgm_path);
+    ENTO_DEBUG("PGM path: %s\n", pgm_path);
     FILE* file = fopen(pgm_path, "r");
-    DPRINTF("Successfully fopened pgm_path: %s\n", pgm_path);
+    ENTO_DEBUG("Successfully fopened pgm_path: %s", pgm_path);
     if (!file) {
-        DPRINTF("Error opening file\n");
+        ENTO_ERROR("Error opening PGM file: %s", pgm_path);
         return 0;
     }
 
     char magic[3];
     if (fscanf(file, "%2s", magic) != 1 || magic[0] != 'P' || magic[1] != '2') {
-        DPRINTF("Invalid PGM format\n");
+        ENTO_ERROR("Invalid PGM format\n");
         fclose(file);
         return 0;
     }
@@ -77,7 +77,7 @@ public:
     uint16_t width, height;
     if (fscanf(file, "%hu %hu", &width, &height) != 2 ||
         width != Cols || height != Rows) {
-        DPRINTF("Invalid PGM file. Expected %dx%d but got %dx%d\n", 
+        ENTO_ERROR("Invalid PGM file. Expected %dx%d but got %dx%d\n", 
                 Cols, Rows, width, height);
         fclose(file);
         return 0;
@@ -85,14 +85,14 @@ public:
 
     uint16_t maxval;
     if (fscanf(file, "%hu", &maxval) != 1) {
-      fprintf(stderr, "Error reading maxval\n");
+      ENTO_ERROR("Error reading maxval");
       fclose(file);
       return 0;
     }
 
     // Check if the maxval matches the expected range of PixelT
     if (maxval != ((1 << (sizeof(PixelT) * 8)) - 1)) {
-      fprintf(stderr, "Error: maxval (%hu) does not match the expected bit depth for PixelT (%zu-bit)\n",
+      ENTO_ERROR("Error: maxval (%hu) does not match the expected bit depth for PixelT (%zu-bit)\n",
               maxval, sizeof(PixelT) * 8);
       fclose(file);
       return 0;
@@ -105,7 +105,7 @@ public:
         int pixel_value;
         if (fscanf(file, "%d", &pixel_value) != 1)
         {
-          DPRINTF("Error reading pixel data at [%d, %d]\n", row, col);
+          ENTO_ERROR("Error reading pixel data at [%d, %d]\n", row, col);
           fclose(file);
           return 0;
         }

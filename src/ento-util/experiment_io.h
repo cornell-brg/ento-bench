@@ -1,6 +1,7 @@
 #ifndef EXPERIMENT_IO_H
 #define EXPERIMENT_IO_H
 
+#include "file_path_util.h"
 #include <ento-util/debug.h> 
 #include <ento-bench/problem.h>
 
@@ -94,7 +95,8 @@ public:
   {
     if (input_filepath && !input_filepath->empty())
     {
-      ifile_.open(*input_filepath);
+      std::string resolved_input = resolve_path(*input_filepath);
+      ifile_.open(resolved_input);
       if (!ifile_.is_open())
       {
         ENTO_DEBUG("Failed to input file: %s\n", input_filepath->c_str());
@@ -103,7 +105,8 @@ public:
     }
     if (output_filepath && !output_filepath->empty())
     {
-      ofile_.open(*output_filepath, std::ios::out | std::ios::trunc);
+      std::string resolved_output = resolve_path(*output_filepath);
+      ofile_.open(resolved_output, std::ios::out | std::ios::trunc);
       if (!ofile_.is_open())
       {
         ENTO_DEBUG("Failed to open output file: %s\n", output_filepath->c_str());
@@ -116,20 +119,25 @@ public:
   explicit ExperimentIO(const char *input_filepath = "",
                         const char *output_filepath = "")
   {
+    char resolved_input[MAX_PATH];
+    char resolved_output[MAX_PATH];
+
     if (input_filepath && input_filepath[0] != '\0')
     {
-      ifile_ = fopen(input_filepath, "r");
+      resolve_path(input_filepath, resolved_input, sizeof(resolved_input));
+      ifile_ = fopen(resolved_input, "r");
       if (!ifile_)
       {
-        ENTO_DEBUG("Failed to open input file: %s\n", input_filepath);
+        ENTO_DEBUG("Failed to open input file: %s\n", resolved_input);
       }
     }
     if (output_filepath && output_filepath[0] != '\0')
     {
-      ofile_ = fopen(output_filepath, "w");
+      resolve_path(output_filepath, resolved_output, sizeof(resolved_output));
+      ofile_ = fopen(resolved_output, "w");
       if (!ofile_)
       {
-        ENTO_DEBUG("Failed to open output file: %s\n", output_filepath);
+        ENTO_DEBUG("Failed to open output file: %s\n", resolved_output);
       }
     }
   }
@@ -262,7 +270,7 @@ private:
       std::getline(ifile_, header);
       if (header != Problem::header())
       {
-        ENTO_DEBUG("Expected header: %s, Found: %s\n", Problem::header(), header.c_str());
+        ENTO_ERROR("Expected header for: %s, Found: %s\n", Problem::header(), header.c_str());
         return false;
       }
 #else
