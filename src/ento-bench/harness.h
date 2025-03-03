@@ -193,7 +193,7 @@ public:
       }
     }
         
-    printf("Running benchmark %s for %lu iterations...\n", name_, Reps);
+    ENTO_DEBUG("Running benchmark %s for %lu iterations...\n", name_, Reps);
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
     trigger_pin_high();
     software_delay_cycles(10000);

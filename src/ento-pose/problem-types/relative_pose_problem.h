@@ -63,7 +63,7 @@ public:
   // File I/O
 #ifdef NATIVE
   std::string serialize_impl() const;
-  bool        deserialize_impl(std::istream& is);
+  bool        deserialize_impl(std::string& line);
 #endif
   bool        deserialize_impl(const char* line);
 
@@ -157,11 +157,12 @@ std::string RelativePoseProblem<Scalar, Solver, NumPts>::serialize_impl() const
 
 
 template <typename Scalar, typename Solver, size_t NumPts>
-bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream& is)
+bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::string& line)
 {
   // Native build: Use std::istringstream for parsing
+  std::istringstream is(line);
   char comma;
-
+  
   // Parse problem type
   int problem_type;
   if (!(is >> problem_type >> comma) || problem_type != 3 || comma != ',')

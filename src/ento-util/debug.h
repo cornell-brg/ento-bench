@@ -20,6 +20,14 @@
     std::printf("\n"); \
   }
 
+#define ENTO_ERROR(...) \
+  if (EntoUtil::__n > 0) { \
+    std::printf(" - [ " __RED "-ERROR-" __RESET " ] File %s:%d: ", \
+                EntoUtil::__ento_debug_get_file_name(__FILE__), __LINE__); \
+    std::printf(__VA_ARGS__); \
+    std::printf("\n"); \
+  }
+
 #define ENTO_DEBUG_ARRAY_INT(array_, size_)                         \
   if ( EntoUtil::__n > 0 ) {                                                      \
     std::printf(" - [ " __YELLOW "-info-" __RESET " ] %s:%d: %s = { ",      \

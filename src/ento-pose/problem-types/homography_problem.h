@@ -70,7 +70,7 @@ public:
   // File I/O
 #ifdef NATIVE
   std::string serialize_impl() const;
-  bool        deserialize_impl(std::istream& is);
+  bool        deserialize_impl(std::string& line);
 #endif
   bool        deserialize_impl(const char* line);
 
