@@ -37,6 +37,7 @@ add_custom_target(update_clangd ALL
   COMMENT "Updating .clangd file with compile_commands.json path"
 )
 
+
 # Eigen Flags
 add_definitions(
     -DEIGEN_DEFAULT_L1_CACHE_SIZE=1000000
@@ -200,6 +201,7 @@ if(STM32_BUILD)
           /usr/share/openocd/scripts/interface
           /opt/local/share/openocd/scripts/interface
           /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface
+          /opt/homebrew/Cellar/open-ocd/HEAD-1f3f635_1/share/openocd/scripts/interface
   )
 
   if(NOT OPENOCD_INTERFACE)
@@ -228,11 +230,27 @@ elseif(GEM5_BUILD)
   endif()
 
 else() # Native Build
+  if(APPLE)
+    find_program(GCC_PATH NAMES gcc-14 gcc)
+    find_program(GXX_PATH NAMES g++-14 g++)
+    
+    if(GCC_PATH AND GXX_PATH)
+      message(STATUS "Using GCC: ${GCC_PATH} / ${GXX_PATH}")
+      set(CMAKE_C_COMPILER ${GCC_PATH} CACHE STRING "GCC Compiler" FORCE)
+      set(CMAKE_CXX_COMPILER ${GXX_PATH} CACHE STRING "G++ Compiler" FORCE)
+    else()
+      message(WARNING "GCC 14 not found, falling back to Clang")
+      set(CMAKE_C_COMPILER clang)
+      set(CMAKE_CXX_COMPILER clang++)
+    endif()
+  endif()
+
 	message(STATUS "Building for native.")
-  set(CMAKE_C_COMPILER clang)
-  set(CMAKE_CXX_COMPILER clang++)
-  set(CMAKE_ASM_COMPILER clang)
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O0")
+  set(CMAKE_C_COMPILER gcc)
+  set(CMAKE_CXX_COMPILER g++)
+  set(CMAKE_ASM_COMPILER gcc)
+  set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O3")
+  #set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O3")
   add_definitions(-DNATIVE)
 endif()
 
@@ -243,20 +261,27 @@ set(UB_DIR ubench)
 set(SANDBOX_DIR sandbox)
 set(BENCHMARK_DIR benchmark)
 set(EXAMPLE_DIR example)
+set(UBMARK_DIR ubmark)
 
-# Get GSL lib. This depends on the arch we are building for.
 # Figure out arch
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-  set(GSL_BUILD gsl-riscv64)
+  message(STATUS "Detected arch: riscv64")
   add_definitions(-DRV64)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7e-m")
-  set(GSL_BUILD gsl-armv7e-m)
+  message(STATUS "Detected arch: armv7e-m")
   add_definitions(-DARMV7E_M)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv32")
-  set(GSL_BUILD gsl-riscv32)
+  message(STATUS "Detected arch: riscv32")
   add_definitions(-DRV32)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i686|i386")
+  message(STATUS "Detected arch: x86_64|i686|i386")
+  add_definitions(-DX86)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+  message(STATUS "Detected arch: arm64|aarch64")
+  add_definitions(-DARM64)
 else()
-  # Default or other specific configurations
+  message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+  add_definitions(-DGENERIC_ARCH)
 endif()
 
 set(EIGEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen CACHE PATH "Path to Eigen library")
@@ -268,6 +293,7 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
+add_subdirectory(${UBMARK_DIR})
 
 
 if(BUILD_H7A3ZIQ)
@@ -293,4 +319,3 @@ if(BUILD_H7A3ZIQ)
         message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
     endif()
 endif()
-
