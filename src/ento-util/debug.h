@@ -74,6 +74,8 @@
 #define ENTO_DPRINTF(...) // no-op
 
 #define ENTO_DEBUG(...) // no-op
+                        
+#define ENTO_ERROR(...) // no-op
 
 #define ENTO_DEBUG_ARRAY_INT(...) // no-op
 
