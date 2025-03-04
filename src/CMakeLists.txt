@@ -101,14 +101,22 @@ target_include_directories(ento-abs-pose
 # Ento State Estimation
 add_subdirectory(ento-state-est)
 
-target_include_directories(ento-state-est-robobee-cekf
-  INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  ${EIGEN_DIR}
-)
-#target_include_directories(ento-attitude-est
+#target_include_directories(ento-state-est-robobee-cekf
 #  INTERFACE
 #  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 #  ${EIGEN_DIR}
 #)
+
+target_include_directories(ento-state-est
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
+
+target_include_directories(ento-attitude-est
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
+
 # =============================================================================

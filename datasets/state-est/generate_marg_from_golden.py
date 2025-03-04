@@ -25,22 +25,26 @@ def compute_errors(gt_quats, estimated_quats):
 def generate_grid(param_ranges, step_sizes):
     return {key: np.arange(val[0], val[1] + step_sizes[key], step_sizes[key]).tolist() for key, val in param_ranges.items()}
 
-def run_filter_test(gt_quats, gyros, accels, mags, filter_class, param_grid):
+def run_filter_test(gt_quats, gyros, accels, mags, filter_class, param_grid, use_marg=True):
     best_params = None
     best_error = float('inf')
     best_Q = None
     param_combinations = list(product(*param_grid.values()))
     
-    for params in tqdm(param_combinations, desc=f'Tuning {filter_class.__name__}'): 
+    for params in tqdm(param_combinations, desc=f'Tuning {filter_class.__name__} ({"MARG" if use_marg else "IMU"})'): 
         param_dict = dict(zip(param_grid.keys(), params))
+        param_dict['q0'] = gt_quats[0]  # Set initial quaternion
         filter_instance = filter_class(**param_dict)
+        #filter_instance = filter_class(**param_dict)
         
         Q = np.tile(gt_quats[0], (len(gyros), 1))  # Seed initial quaternion from ground truth
         for t in range(1, len(gyros)):
             if isinstance(filter_instance, ahrs.filters.fourati.Fourati):
                 Q[t] = filter_instance.update(Q[t-1], gyr=gyros[t], acc=accels[t], mag=mags[t])
-            else:
+            elif use_marg:
                 Q[t] = filter_instance.updateMARG(Q[t-1], gyr=gyros[t], acc=accels[t], mag=mags[t])
+            else:
+                Q[t] = filter_instance.updateIMU(Q[t-1], gyr=gyros[t], acc=accels[t])
         
         errors = compute_errors(gt_quats, Q)
         mean_error = np.mean(errors)
@@ -49,9 +53,9 @@ def run_filter_test(gt_quats, gyros, accels, mags, filter_class, param_grid):
             best_error = mean_error
             best_params = param_dict
             best_Q = Q
-            print(f'\rNew best {filter_class.__name__} params: {best_params}, Error: {best_error}', end='', flush=True)
+            print(f'\rNew best {filter_class.__name__} ({"MARG" if use_marg else "IMU"}) params: {best_params}, Error: {best_error}', end='', flush=True)
     
-    print(f'\nBest params for {filter_class.__name__}: {best_params}, Error: {best_error}')
+    print(f'\nBest params for {filter_class.__name__} ({"MARG" if use_marg else "IMU"}): {best_params}, Error: {best_error}')
     return best_Q, best_params
 
 def plot_euler_errors(gt_quats, Q_madgwick, Q_mahony, Q_fourati, time):
@@ -78,6 +82,16 @@ def plot_euler_errors(gt_quats, Q_madgwick, Q_mahony, Q_fourati, time):
     plt.tight_layout()
     plt.show()
 
+def save_quaternions(filename, time, quats):
+    data = np.column_stack((time, quats[:, 3], quats[:, 0], quats[:, 1], quats[:, 2]))
+    header = "timestamp,qw,qx,qy,qz"
+    np.savetxt(filename, data, delimiter=",", header=header, comments="")
+
+def save_sensor_data(filename, time, gyros, accels, mags):
+    data = np.hstack((time[:, None], gyros, accels, mags))  # Combine all sensor data
+    header = "timestamp,gyr_x,gyr_y,gyr_z,acc_x,acc_y,acc_z,mag_x,mag_y,mag_z"
+    np.savetxt(filename, data, delimiter=",", header=header, comments="")
+
 def main():
     parser = ap.ArgumentParser()
     parser.add_argument('--step-gain', type=float, default=0.01, help='Step size for gain parameter')
@@ -86,8 +100,10 @@ def main():
     args = parser.parse_args()
     
     gt, time = gt_from_golden()
-    gt_quats = quats_from_gt(gt)
+    gt_quats = quats_from_gt(gt)[1::]
+    time = time[1::]
     dt = time[1] - time[0]
+    print(f"Time step: {dt}")
     
     simulated_sensor_data = ahrs.Sensors(gt_quats, num_samples=gt_quats.shape[0], freq=1.0/dt, gyr_noise=0.0)
     accels = simulated_sensor_data.accelerometers
@@ -106,15 +122,17 @@ def main():
     mahony_grid = generate_grid(mahony_ranges, step_sizes)
     fourati_grid = generate_grid(fourati_ranges, step_sizes)
     
-    # Run grid search for each filter
-    Q_madgwick, best_madgwick = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Madgwick, madgwick_grid)
-    Q_mahony, best_mahony = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Mahony, mahony_grid)
+    # Run grid search for each filter with both MARG and IMU updates
+    Q_madgwick_marg, best_madgwick_marg = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Madgwick, madgwick_grid, use_marg=True)
+    Q_madgwick_imu, best_madgwick_imu = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Madgwick, madgwick_grid, use_marg=False)
+    Q_mahony_marg, best_mahony_marg = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Mahony, mahony_grid, use_marg=True)
+    Q_mahony_imu, best_mahony_imu = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.Mahony, mahony_grid, use_marg=False)
     Q_fourati, best_fourati = run_filter_test(gt_quats, gyros, accels, mags, ahrs.filters.fourati.Fourati, fourati_grid)
-    
+        
     # Compute errors
     plt.figure(figsize=(10, 6))
-    plt.plot(compute_errors(gt_quats, Q_madgwick), label='Madgwick')
-    plt.plot(compute_errors(gt_quats, Q_mahony), label='Mahony')
+    plt.plot(compute_errors(gt_quats, Q_madgwick_marg), label='Madgwick')
+    plt.plot(compute_errors(gt_quats, Q_mahony_marg), label='Mahony')
     plt.plot(compute_errors(gt_quats, Q_fourati), label='Fourati')
     plt.xlabel('Time Step')
     plt.ylabel('Quaternion Angle Difference (rad)')
@@ -124,7 +142,17 @@ def main():
     plt.show()
     
     # Plot Euler angle errors
-    plot_euler_errors(gt_quats, Q_madgwick, Q_mahony, Q_fourati, time)
+    plot_euler_errors(gt_quats, Q_madgwick_marg, Q_mahony_marg, Q_fourati, time)
+
+    save_quaternions("madgwick_marg_quats.csv", time, Q_madgwick_marg)
+    save_quaternions("madgwick_imu_quats.csv", time, Q_madgwick_imu)
+    save_quaternions("mahony_marg_quats.csv", time, Q_mahony_marg)
+    save_quaternions("mahony_imu_quats.csv", time, Q_mahony_imu)
+    save_quaternions("fourati_quats.csv", time, Q_fourati)
+    save_quaternions("gt_quats.csv", time, gt_quats)
+    save_sensor_data("sensor_data.csv", time, gyros, accels, mags)
+
+
 
 if __name__ == "__main__":
     main()

@@ -5,6 +5,7 @@
 #include <ento-math/core.h>         // Provides EntoMath::Vec3<Scalar>
 #include <ento-state-est/attitude-est/attitude_measurement.h> // Our measurement container header
 #include <cmath>
+#include <ento-util/debug.h>
 
 namespace EntoAttitude
 {
@@ -30,12 +31,15 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
   // Compute quaternion derivative from gyroscope measurements.
   // Create a pure quaternion from gyr: (0, gyr_x, gyr_y, gyr_z)
   Eigen::Quaternion<Scalar> omega(Scalar(0), gyr.x(), gyr.y(), gyr.z());
-  Eigen::Quaternion<Scalar> q_dot = Scalar(0.5) * (q * omega);
+  Eigen::Quaternion<Scalar> q_dot = (q * omega);
+  q_dot.coeffs() *= Scalar(0.5);
 
   // Only if accelerometer measurement is valid:
   Scalar a_norm = acc.norm();
+  ENTO_DEBUG("Entering if");
   if (a_norm > Scalar(0))
   {
+    ENTO_DEBUG("Entered if...");
     // Normalize accelerometer reading.
     const auto a = acc / a_norm;
     // Normalize the current orientation.
@@ -86,7 +90,8 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
   q_dot_vec << q_dot.w(), q_dot.x(), q_dot.y(), q_dot.z();
   Eigen::Matrix<Scalar, 4, 1> q_new_vec = q_vec + q_dot_vec * dt;
   // Normalize the updated quaternion.
-  q_new_vec.normalize();
+  //q_new_vec.normalize();
+  q_new_vec = q_new_vec / q_new_vec.norm();
   Eigen::Quaternion<Scalar> q_new(q_new_vec(0), q_new_vec(1), q_new_vec(2), q_new_vec(3));
   return q_new;
 }
@@ -114,7 +119,8 @@ Eigen::Quaternion<Scalar> madgwick_update_marg(
 
   // Compute quaternion derivative from gyroscope measurements.
   Eigen::Quaternion<Scalar> omega(Scalar(0), gyr.x(), gyr.y(), gyr.z());
-  Eigen::Quaternion<Scalar> q_dot = Scalar(0.5) * (q * omega);
+  Eigen::Quaternion<Scalar> q_dot = (q * omega);
+  q_dot.coeffs() *= Scalar(0.5);
 
   Scalar a_norm = acc.norm();
   if (a_norm > Scalar(0))
