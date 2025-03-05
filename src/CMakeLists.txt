@@ -78,6 +78,7 @@ add_subdirectory(ento-util)
 target_include_directories(ento_util
   PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
 )
 # =============================================================================
 
