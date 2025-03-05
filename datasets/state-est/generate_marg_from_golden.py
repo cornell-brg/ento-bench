@@ -83,7 +83,7 @@ def plot_euler_errors(gt_quats, Q_madgwick, Q_mahony, Q_fourati, time):
     plt.show()
 
 def save_quaternions(filename, time, quats):
-    data = np.column_stack((time, quats[:, 3], quats[:, 0], quats[:, 1], quats[:, 2]))
+    data = np.column_stack((time, quats))
     header = "timestamp,qw,qx,qy,qz"
     np.savetxt(filename, data, delimiter=",", header=header, comments="")
 
@@ -104,7 +104,7 @@ def main():
     gt, time = gt_from_golden()
     gt_quats = quats_from_gt(gt)
 
-    print(f'First quat: {gt_quats[0]}')
+    print(f'First quat: {gt_quats[1]}')
     if args.debug:
         time = time[1:3]
         gt_quats = gt_quats[1:3]
@@ -122,6 +122,7 @@ def main():
     mags = simulated_sensor_data.magnetometers
     num_samples = len(gt_quats)
     
+    print(mags)
     # Define parameter ranges based on defaults
     if not args.debug:
         madgwick_ranges = {'gain': (0.001, 0.5)}
