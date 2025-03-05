@@ -208,7 +208,6 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
   {
       return false; // Parsing failed
   }
-  //ENTO_DEBUG("Problem type: %i", problem_type);
 
   size_t num_points;
   if (!(iss >> num_points >> comma) || problem_type != 1 || comma != ',')
@@ -227,18 +226,15 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
       return false;
     }
   }
-  //ENTO_DEBUG("Num points: %i", num_points);
 
   // Parse quaternion (q)
   for (int i = 0; i < 4; ++i)
   {
-    //ENTO_DEBUG("i: %i", i);
     if (!(iss >> pose_gt_.q[i] >> comma) || (comma != ','))
     {
       return false; // Parsing failed
     }
   }
-  //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.q, 4, 1, float)
 
   // Parse translation (t)
   for (int i = 0; i < 3; ++i) {
@@ -246,7 +242,6 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
       return false; // Parsing failed
     }
   }
-  //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.t, 3, 1, float)
 
   // Parse scale_gt and focal_gt
   if (!(iss >> scale_gt_ >> comma) || comma != ',') {
@@ -256,7 +251,6 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
   if (!(iss >> focal_gt_ >> comma) || comma != ',') {
     return false; // Parsing failed
   }
-  //ENTO_DEBUG("Scale gt, focal gt: %f, %f", scale_gt, focal_gt);
 
   // Parse x_point correspondences
   Scalar x, y, z;
@@ -271,7 +265,6 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
       return false; // Parsing failed
     }
     x_point_.push_back(Vec3<Scalar>(x, y, z));
-    //ENTO_DEBUG_EIGEN_MATRIX(x_point_[i], 3, 1, float)
 
   }
 

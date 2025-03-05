@@ -209,6 +209,9 @@ inline void __ento_debug_print_eigen_quaternions_side_by_side(const char* file, 
 
 #define ENTO_DEBUG_ARRAY_FLOAT(...) // no-op
 
+#define ENTO_DEBUG_EIGEN_QUATERNION(...) // no-op
+
+#define ENTO_DEBUG_EIGEN_QUAT2(...) // no-op
 
 #endif
 

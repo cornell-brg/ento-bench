@@ -136,14 +136,14 @@ deserialize_impl(const std::string& line)
   if ( !std::getline(iss, feat_path, ',') )
   { 
     ENTO_ERROR("Failed reading feat path");
-    ENTO_ERROR("Feat path: %s\n", feat_path.c_str())
+    ENTO_ERROR("Feat path: %s\n", feat_path.c_str());
     return false;
   }
 
   if ( !std::getline(iss, gt_path) )
   { 
     ENTO_ERROR("Failed reading flow_gt_path path");
-    ENTO_ERROR("Flow gt path: %s\n", gt_path.c_str())
+    ENTO_ERROR("Flow gt path: %s\n", gt_path.c_str());
     return false;
   }
 
