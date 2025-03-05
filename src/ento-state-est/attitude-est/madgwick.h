@@ -34,12 +34,11 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
   Eigen::Quaternion<Scalar> q_dot = (q * omega);
   q_dot.coeffs() *= Scalar(0.5);
 
+
   // Only if accelerometer measurement is valid:
   Scalar a_norm = acc.norm();
-  ENTO_DEBUG("Entering if");
   if (a_norm > Scalar(0))
   {
-    ENTO_DEBUG("Entered if...");
     // Normalize accelerometer reading.
     const auto a = acc / a_norm;
     // Normalize the current orientation.

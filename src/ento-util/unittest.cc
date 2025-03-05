@@ -54,6 +54,33 @@ const char* __ento_debug_get_file_name( const char* full_path )
 }
 
 //------------------------------------------------------------------------
+// __ento_test_start
+//------------------------------------------------------------------------
+void __ento_test_start( const char* file )
+{
+  using namespace EntoUtil;
+  file = __ento_debug_get_file_name( file );
+  if ( __n < 0 ) std::printf( "%s" , file );
+  if ( __n > 0 ) std::printf( "Running test cases in %s.\n", file);
+}
+
+
+//------------------------------------------------------------------------
+// __ento_test_end
+//------------------------------------------------------------------------
+void __ento_test_end( const char* file )
+{
+  using namespace EntoUtil;
+  file = __ento_debug_get_file_name( file );
+  if ( __n < 0 ) std::printf( "\n" );
+  if ( __n > 0 )
+  {
+    if ( __failed ) std::printf( __RED "Finished running test cases in %s.\n", file);
+    else std::printf( __GREEN "Finished!\n");
+  }
+}
+
+//------------------------------------------------------------------------
 // __ento_test_fail
 //------------------------------------------------------------------------
 
@@ -61,7 +88,7 @@ void __ento_test_fail( const char* file, int lineno, char *expr )
 {
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
-  if ( __n < 0 ) std::printf( "\n" );
+  if ( __n < 0 ) std::printf( __RED "." __RESET );
   std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s\n", file, lineno, expr );
   __failed = 1;
 }
@@ -128,7 +155,7 @@ void __ento_test_check_and_print_float_binop( const char* file, int lineno, cons
     std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s (%.10e == %.10e)\n",
            file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
   } else if ( __n < 0 ) {
-    std::printf( __GREEN "." __RESET );
+    std::printf( __GREEN ".");
   }
 }
 
