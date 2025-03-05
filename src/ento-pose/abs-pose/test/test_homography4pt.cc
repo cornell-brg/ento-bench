@@ -52,8 +52,8 @@ void test_homography_4pt_single()
                                                    &solutions);
   for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
@@ -159,8 +159,8 @@ void test_homography_4pt_ento_array_single()
   int num_solns = homography_4pt(problem.x_point_, problem.X_point_, &solutions);
   for (size_t i = 0; i < num_solns; i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
