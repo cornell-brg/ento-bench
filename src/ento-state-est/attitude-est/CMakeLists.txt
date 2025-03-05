@@ -19,6 +19,7 @@ set(TEST_FILES
   test_attitude_problem.cc
   test_madgwick.cc
   test_mahoney.cc
+  test_fourati.cc
 )
 
 set(LIBRARIES_test_attitude_problem
@@ -30,6 +31,10 @@ set(LIBRARIES_test_madgwick
 )
 
 set(LIBRARIES_test_mahoney
+  ento_util ento_math Eigen ento-state-est ento-attitude-est
+)
+
+set(LIBRARIES_test_fourati
   ento_util ento_math Eigen ento-state-est ento-attitude-est
 )
 
