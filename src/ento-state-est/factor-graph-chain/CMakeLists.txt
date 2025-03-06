@@ -2,9 +2,14 @@ include(CTest)
 
 set(TEST_FILES
   test_fg_chain.cc
+  test_fg_problem.cc
 )
 
 set(LIBRARIES_test_fg_chain
+  ento_util Eigen
+)
+
+set(LIBRARIES_test_fg_problem
   ento_util Eigen
 )
 
