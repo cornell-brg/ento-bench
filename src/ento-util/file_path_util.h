@@ -6,11 +6,14 @@
 
 #ifdef NATIVE
 #include <sstream> 
-#else
-#include <cstdio> 
 #endif
 
+#include <cstdio> 
+#include <cstring>
+
 namespace EntoUtil {
+
+constexpr size_t MAX_PATH = 256;
 
 #ifdef NATIVE
 // Native build: Use std::string
@@ -93,17 +96,68 @@ inline void build_file_paths(const char* base_path,
 
 inline void get_file_directory(const char* filepath, size_t result_size, char* result)
 {
-  std::strncpy(result, filepath, result_size);
+  strncpy(result, filepath, result_size);
   result[result_size - 1] = '\0';  // Ensure null termination
 
-  char* last_slash = std::strrchr(result, '/');  // POSIX
-  if (!last_slash) {
-    last_slash = std::strrchr(result, '\\');  // Windows
+  char* last_slash = strrchr(result, '/');  // POSIX
+  if (!last_slash)
+  {
+    last_slash = strrchr(result, '\\');  // Windows
   }
 
-  if (last_slash) {
+  if (last_slash)
+  {
     *last_slash = '\0';  // Truncate at the last slash
   }
+}
+
+inline bool is_absolute_path(const char* path)
+{
+  return path[0] == '/' || (isalpha(path[0]) && path[1] == ':');
+}
+
+inline bool is_absolute_path(const std::string& path)
+{
+  return is_absolute_path(path.c_str());
+}
+
+// Function to resolve paths (const char* overload)
+inline std::string resolve_path(const char* path)
+{
+  if (!path || *path == '\0')
+    return std::string(DATASET_PATH);
+
+  if (is_absolute_path(path))
+    return std::string(path);
+  else
+    return std::string(DATASET_PATH) + "/" + path;
+}
+
+inline void resolve_path(const char* path, char* resolved_path, size_t buffer_size)
+{
+  if (!path || *path == '\0')
+  {
+    strncpy(resolved_path, DATASET_PATH, buffer_size - 1);
+    resolved_path[buffer_size - 1] = '\0';
+    return;
+  }
+
+  if (is_absolute_path(path))
+  {
+    strncpy(resolved_path, path, buffer_size - 1);
+    resolved_path[buffer_size - 1] = '\0';
+  }
+  else
+  {
+    snprintf(resolved_path, buffer_size, "%s/%s", DATASET_PATH, path);
+  }
+}
+
+// Function to resolve paths (std::string overload)
+inline std::string resolve_path(const std::string& path)
+{
+  // Delegate to the char* version
+  return resolve_path(path.c_str()); 
 }
 
 } // namespace EntoUtil

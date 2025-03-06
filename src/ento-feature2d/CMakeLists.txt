@@ -3,8 +3,19 @@ cmake_minimum_required(VERSION 3.16)
 include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
 add_library(
-  feature2d
+  ento-perception
   INTERFACE
+)
+
+target_link_libraries(ento-perception
+  INTERFACE 
+  image_io
+)
+
+target_include_directories(ento-perception
+  INTERFACE
+  image_io
+  ento_util
 )
 
 #=====================================================
@@ -15,15 +26,20 @@ include (CTest)
 set(TEST_FILES
   test_fast.cc
   test_feature2d_util.cc
+  test_sparse_optical_flow_problem.cc
 )
 
 set(LIBRARIES_test_fast
-  m image_io ento_util Eigen)
+  m ento-perception ento_util Eigen)
 
 set(LIBRARIES_test_feature2d_util
-  m feature2d ento_util Eigen)
+  m ento-perception ento_util Eigen)
+
+set(LIBRARIES_test_sparse_optical_flow_problem
+  m ento-perception ento_util Eigen image_io)
 
 foreach(TEST_FILE ${TEST_FILES})
+  message(STATUS "Building ento-feature2d")
   message(STATUS "Test file: ${TEST_FILE}")
   set(TEST_SRC "test/${TEST_FILE}")
   get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
@@ -37,26 +53,3 @@ foreach(TEST_FILE ${TEST_FILES})
     LIBRARIES ${TEST_LIBRARIES}
   )
 endforeach()
-
-#if (GEM5_ARMV7E-M_BUILD)
-#add_arm_baremetal_gem5_se_executable(test_fast
-#SOURCES ${TEST_DIR}/test_fast.cc
-#LIBRARIES image_io m startup sys)
-#elseif(STM32_BUILD)
-#add_arm_semihosting_executable(
-#test_fast
-#SOURCES ${TEST_DIR}/test_fast.cc
-#LIBRARIES image_io m mcu-util
-#)
-#else()
-  #add_non_arm_executable(test_svd
-  #                       SOURCES ${TEST_DIR}/test_svd.cc
-  #                       LIBRARIES ento_math m)
-  #add_executable(test_fast ${TEST_DIR}/test_fast.cc)
-  #target_link_libraries(test_fast PUBLIC m image_io)
-  #endif()
-  #target_include_directories(test_fast
-  #PUBLIC
-  #$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  #${EIGEN_DIR}
-  #)

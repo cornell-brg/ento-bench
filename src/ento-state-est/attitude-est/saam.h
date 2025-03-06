@@ -48,7 +48,11 @@ EntoStatus saam(Vec3<Scalar> &acc,
   return EntoStatus::Valid;
 }
 
-// @TODO: Add a 
+template <typename Scalar>
+struct SolverSAAM
+{
+};
+
 
 }
 

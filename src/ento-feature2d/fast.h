@@ -7,6 +7,9 @@
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-util/debug.h>
 
+namespace EntoFeature2D
+{
+
 constexpr float PI = std::numbers::pi_v<float>;
 
 template <int BitDepth, int Threshold>
@@ -38,7 +41,7 @@ template <typename Image,
           int ContiguityRequirement = 9,
           size_t MaxFeatures = 100>
 void fast(const Image& img,
-          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo );
+          FeatureArray<KeypointType, MaxFeatures>& fdo );
 
 
 // ===========================================================
@@ -104,7 +107,7 @@ template <typename ImageType,
           int ContiguityRequirement,
           size_t MaxFeatures>
 void fast(const ImageType& img,
-          FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo)
+          FeatureArray<KeypointType, MaxFeatures>& fdo)
 {
   // Compile-time access to number of columns
   constexpr int img_width   = ImageType::cols;
@@ -131,8 +134,9 @@ void fast(const ImageType& img,
   constexpr int circle_buff_sz = PatternSize + ContiguityRequirement;
   //static PixelType circle[circle_buff_sz];
   //bressenham_circle<PixelType, CircleDiameter, img_width>(circle);
+  
   static constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
-  const PixelType* ptemp = &img.data[3*img_width] + 3;
+  // const PixelType* ptemp = &img.data[3*img_width] + 3;
 
   CoordType* cornerpos;
   CoordType i, j, k, ncorners;
@@ -145,7 +149,7 @@ void fast(const ImageType& img,
   // I might have to rethink the tradeoffs for this implementation that
   // OpenCV.
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
-  constexpr int tab_size = (1 << (bit_depth + 1));
+  // constexpr int tab_size = (1 << (bit_depth + 1));
   
   static PixelType buff1[img_width];
   static PixelType buff2[img_width];
@@ -259,5 +263,7 @@ void fast(const ImageType& img,
     }
   }
 }
+
+} // namespace EntoFeature2D
 
 #endif // FAST_H

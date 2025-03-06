@@ -46,6 +46,8 @@ public:
   //  solutions even if we don't need the space depending on the current input
   //  data. Alternatively, we could always use std::vector and perform a solns.reserve().
   //  As of now it is defaulting to a std::vector.
+  //  Current idea for a solution is to store a static constexpr in Pose Estimation 
+  //  "Solvers"
   EntoContainer<EntoPose::CameraPose<Scalar>, 0> solns_; 
 
   // Point-to-point correspondences containers
@@ -56,6 +58,7 @@ public:
   typedef CalibratedAbsolutePoseValidator<Scalar> validator_;
 
   // Tolerance
+  // @TODO: Make this a parameter
   const Scalar tol_ = 1e-6;
 
   //////// Class Functions /////////
@@ -68,7 +71,7 @@ public:
   // File I/O
 #ifdef NATIVE
   std::string serialize_impl() const;
-  bool        deserialize_impl(std::istream& is);
+  bool        deserialize_impl(const std::string& line);
 #endif
   bool        deserialize_impl(const char* line);
 
@@ -193,109 +196,107 @@ std::string AbsolutePoseProblem<Scalar, Solver, NumPts>::serialize_impl() const
 }
 
 template <typename Scalar, typename Solver, size_t NumPts>
-bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
+bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::string& line)
 {
-#ifdef NATIVE
-    // Native build: Use std::istringstream for parsing
-    std::istringstream iss(line);
-    char comma;
+  // Native build: Use std::istringstream for parsing
+  std::istringstream iss(line);
+  char comma;
 
-    // Parse problem type
-    int problem_type;
-    if (!(iss >> problem_type >> comma) || problem_type != 1 || comma != ',') {
-        return false; // Parsing failed
-    }
-    //ENTO_DEBUG("Problem type: %i", problem_type);
+  // Parse problem type
+  int problem_type;
+  if (!(iss >> problem_type >> comma) || problem_type != 1 || comma != ',')
+  {
+      return false; // Parsing failed
+  }
 
-    size_t num_points;
-    if (!(iss >> num_points >> comma) || problem_type != 1 || comma != ',') {
-        return false; // Parsing failed
-    }
-    if (n_point_point_ == 0)
+  size_t num_points;
+  if (!(iss >> num_points >> comma) || problem_type != 1 || comma != ',')
+  {
+      return false; // Parsing failed
+  }
+  if (n_point_point_ == 0)
+  {
+    n_point_point_ = num_points;
+  }
+  else
+  {
+    if (n_point_point_ != num_points)
     {
-      n_point_point_ = num_points;
+      ENTO_DEBUG("Capacity does not match num points. Error!");
+      return false;
     }
-    else
+  }
+
+  // Parse quaternion (q)
+  for (int i = 0; i < 4; ++i)
+  {
+    if (!(iss >> pose_gt_.q[i] >> comma) || (comma != ','))
     {
-      if (n_point_point_ != num_points)
-      {
-        ENTO_DEBUG("Capacity does not match num points. Error!");
-        return false;
-      }
-    }
-    //ENTO_DEBUG("Num points: %i", num_points);
-
-    // Parse quaternion (q)
-    for (int i = 0; i < 4; ++i)
-    {
-      //ENTO_DEBUG("i: %i", i);
-      if (!(iss >> pose_gt_.q[i] >> comma) || (comma != ','))
-      {
-        return false; // Parsing failed
-      }
-    }
-    //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.q, 4, 1, float)
-
-    // Parse translation (t)
-    for (int i = 0; i < 3; ++i) {
-      if (!(iss >> pose_gt_.t[i] >> comma) || (comma != ',')) {
-        return false; // Parsing failed
-      }
-    }
-    //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.t, 3, 1, float)
-
-    // Parse scale_gt and focal_gt
-    if (!(iss >> scale_gt_ >> comma) || comma != ',') {
       return false; // Parsing failed
     }
+  }
 
-    if (!(iss >> focal_gt_ >> comma) || comma != ',') {
+  // Parse translation (t)
+  for (int i = 0; i < 3; ++i) {
+    if (!(iss >> pose_gt_.t[i] >> comma) || (comma != ',')) {
       return false; // Parsing failed
     }
-    //ENTO_DEBUG("Scale gt, focal gt: %f, %f", scale_gt, focal_gt);
+  }
 
-    // Parse x_point correspondences
-    Scalar x, y, z;
-    for (std::size_t i = 0; i < num_points; ++i) {
-      if (!(iss >> x >> comma) || comma != ',') {
-        return false; // Parsing failed
-      }
-      if (!(iss >> y >> comma) || comma != ',') {
-        return false; // Parsing failed
-      }
+  // Parse scale_gt and focal_gt
+  if (!(iss >> scale_gt_ >> comma) || comma != ',') {
+    return false; // Parsing failed
+  }
+
+  if (!(iss >> focal_gt_ >> comma) || comma != ',') {
+    return false; // Parsing failed
+  }
+
+  // Parse x_point correspondences
+  Scalar x, y, z;
+  for (std::size_t i = 0; i < num_points; ++i) {
+    if (!(iss >> x >> comma) || comma != ',') {
+      return false; // Parsing failed
+    }
+    if (!(iss >> y >> comma) || comma != ',') {
+      return false; // Parsing failed
+    }
+    if (!(iss >> z >> comma) || comma != ',') {
+      return false; // Parsing failed
+    }
+    x_point_.push_back(Vec3<Scalar>(x, y, z));
+
+  }
+
+  // Parse X_point correspondences
+  for (size_t i = 0; i < num_points; ++i) {
+    if (!(iss >> x >> comma) || comma != ',') {
+      return false; // Parsing failed
+    }
+    if (!(iss >> y >> comma) || comma != ',') {
+      return false; // Parsing failed
+    }
+    if (i != (num_points-1))
+    {
       if (!(iss >> z >> comma) || comma != ',') {
         return false; // Parsing failed
       }
-      x_point_.push_back(Vec3<Scalar>(x, y, z));
-      //ENTO_DEBUG_EIGEN_MATRIX(x_point_[i], 3, 1, float)
-
     }
-
-    // Parse X_point correspondences
-    for (size_t i = 0; i < num_points; ++i) {
-      if (!(iss >> x >> comma) || comma != ',') {
+    else
+    {
+      if (!(iss >> z)) {
         return false; // Parsing failed
       }
-      if (!(iss >> y >> comma) || comma != ',') {
-        return false; // Parsing failed
-      }
-      if (i != (num_points-1))
-      {
-        if (!(iss >> z >> comma) || comma != ',') {
-          return false; // Parsing failed
-        }
-      }
-      else
-      {
-        if (!(iss >> z)) {
-          return false; // Parsing failed
-        }
-      }
-      X_point_.push_back(Vec3<Scalar>(x, y, z));
     }
+    X_point_.push_back(Vec3<Scalar>(x, y, z));
+  }
 
-    return true; // Successfully parsed
-#else
+  return true; // Successfully parsed
+}
+
+template <typename Scalar, typename Solver, size_t NumPts>
+bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
+{
     // Microcontroller build: Use sscanf for parsing
     char* pos = const_cast<char*>(line);
     int problem_type;
@@ -306,7 +307,7 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
 
     // Parse quaternion (q)
     for (int i = 0; i < 4; ++i) {
-        if (sscanf(pos, "%lf,", &pose_gt.q[i]) != 1) {
+        if (sscanf(pos, "%lf,", &pose_gt_.q[i]) != 1) {
             return false; // Parsing failed
         }
         pos = strchr(pos, ',') + 1;
@@ -314,7 +315,7 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
 
     // Parse translation (t)
     for (int i = 0; i < 3; ++i) {
-        if (sscanf(pos, "%lf,", &pose_gt.t[i]) != 1) {
+        if (sscanf(pos, "%lf,", &pose_gt_.t[i]) != 1) {
             return false; // Parsing failed
         }
         pos = strchr(pos, ',') + 1;
@@ -346,7 +347,6 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
     }
 
     return true; // Successfully parsed
-#endif
 }
 
 

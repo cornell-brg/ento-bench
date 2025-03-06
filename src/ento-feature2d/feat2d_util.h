@@ -1,17 +1,23 @@
 #ifndef FEAT_UTIL_H
 #define FEAT_UTIL_H
 
-
 #include <array>
 #include <Eigen/Dense>
+#include <ento-util/debug.h>
 
+namespace EntoFeature2D
+{
+
+template <typename CoordT = int16_t>
 struct Keypoint
 {
-  int16_t x;
-  int16_t y;
+  using CoordT_ = CoordT;
+
+  CoordT x;
+  CoordT y;
 
   Keypoint() : x(0), y(0) {}
-  Keypoint(int16_t _x, int16_t _y)
+  Keypoint(CoordT _x, CoordT _y)
     : x(_x), y(_y) {}
   Keypoint(const Keypoint&) = default;
   Keypoint(Keypoint&&) = default;
@@ -19,25 +25,26 @@ struct Keypoint
   Keypoint& operator=(Keypoint&&) = default;
 };
 
-struct FastKeypoint : public Keypoint
+template <typename CoordT = int16_t>
+struct FastKeypoint : public Keypoint<CoordT>
 {
   int score;
-  FastKeypoint() : Keypoint(0, 0), score(0) {}
-  FastKeypoint(int16_t _x, int16_t _y, int _score)
-    : Keypoint(_x, _y), score(_score) {}
-  FastKeypoint(const FastKeypoint&) = default;
+  FastKeypoint() : Keypoint<CoordT>(0, 0), score(0) {}
+  FastKeypoint(CoordT _x, CoordT _y, int _score)
+    : Keypoint<CoordT>(_x, _y), score(_score) {}
+  FastKeypoint(const FastKeypoint<CoordT>&) = default;
   FastKeypoint(FastKeypoint&&) = default;
   FastKeypoint& operator=(const FastKeypoint&) = default;
   FastKeypoint& operator=(FastKeypoint&&) = default;
 };
 
-template <typename Scalar = float>
-struct ORBKeypoint : public FastKeypoint
+template <typename CoordT = int16_t, typename Scalar = float>
+struct ORBKeypoint : public FastKeypoint<CoordT>
 {
   Scalar orientation;
-  ORBKeypoint() : FastKeypoint(), orientation(0) {}
+  ORBKeypoint() : FastKeypoint<CoordT>(), orientation(0) {}
   ORBKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
-    : FastKeypoint(_x, _y, _score), orientation(_ori) {} 
+    : FastKeypoint<CoordT>(_x, _y, _score), orientation(_ori) {} 
   ORBKeypoint(const ORBKeypoint&) = default;
   ORBKeypoint(ORBKeypoint&&) = default;
   ORBKeypoint& operator=(const ORBKeypoint&) = default;
@@ -46,13 +53,13 @@ struct ORBKeypoint : public FastKeypoint
 };
 
 template <typename KeypointType, size_t MaxFeatures = 100>
-struct FeatureDetectorOutput
+struct FeatureArray
 {
   std::array<KeypointType, MaxFeatures> keypoints;
   size_t num_features = 0;
   static constexpr size_t max_features = MaxFeatures;
 
-  FeatureDetectorOutput() = default;
+  FeatureArray() = default;
   
   bool add_keypoint(const KeypointType& kp)
   {
@@ -68,6 +75,17 @@ struct FeatureDetectorOutput
   {
     return keypoints[idx];
   }
+
+  KeypointType& operator[](size_t idx)
+  {
+    return keypoints[idx];
+  }
+
+  void clear()
+  {
+    num_features = 0;
+  }
+  
 
   size_t size() const
   {
@@ -179,7 +197,7 @@ void undistort_points(const std::array<KeypointType, MaxFeatures>& keypoints,
 }
 
 template<typename Scalar, typename KeypointType, int MaxFeatures>
-void undistort_points(const FeatureDetectorOutput<KeypointType, MaxFeatures>& fdo,
+void undistort_points(const FeatureArray<KeypointType, MaxFeatures>& fdo,
                       const Eigen::Matrix<Scalar, 3, 3>& K,
                       const Eigen::Matrix<Scalar, 1, 5>& dist,
                       Eigen::Matrix<Scalar, Eigen::Dynamic, 3, 0, MaxFeatures, 3>& points)
@@ -404,5 +422,72 @@ void unnormalize_homography(const Eigen::Matrix<Scalar, 3, 3>& H,
   result = T1.inverse() * H * T2;
 }
 
+template <size_t Rows, size_t Cols, typename PixelType>
+struct PGMHeader
+{
+  static constexpr size_t max_pixel_value = std::numeric_limits<PixelType>::max();
+
+  static constexpr auto generate() {
+    return std::array<char, 32>{'P', '5', '\n', 
+                                 digit(Cols / 100), digit((Cols / 10) % 10), digit(Cols % 10), ' ',
+                                 digit(Rows / 100), digit((Rows / 10) % 10), digit(Rows % 10), '\n',
+                                 digit(max_pixel_value / 100), digit((max_pixel_value / 10) % 10), digit(max_pixel_value % 10), '\n', '\0'};
+  }
+
+private:
+  static constexpr char digit(size_t value) {
+    return static_cast<char>('0' + value);
+  }
+};
+
+template <typename KeypointT, typename Scalar = float>
+struct LucasKanadeValidator
+{
+  float tolerance_; 
+
+  explicit LucasKanadeValidator(float tolerance = 2.0f) : tolerance_(tolerance) {}
+
+  template <size_t NumFeats>
+  bool validate(const FeatureArray<KeypointT, NumFeats>& feats_next,
+                const FeatureArray<KeypointT, NumFeats>& feats_next_gt) const
+  {
+    if (feats_next.size() != feats_next_gt.size())
+    {
+      ENTO_DEBUG("Validation failed: Expected %zu features, but only found %zu.", feats_next_gt.size(), feats_next.size());
+      return false;
+    }
+
+    for (size_t i = 0; i < feats_next.size(); ++i)
+    {
+      if (!validate_keypoints(feats_next[i], feats_next_gt[i]))
+      {
+        return false; // Fail fast if any keypoint is incorrect
+      }
+    }
+
+    ENTO_DEBUG("All features passed validation within tolerance: %.2f", tolerance_);
+    return true;
+  }
+
+  /// Validate a single keypoint against the ground truth
+  bool validate_keypoints(const KeypointT& computed,
+                          const KeypointT& ground_truth) const
+  {
+    float dx = std::abs(static_cast<float>(computed.x) - static_cast<float>(ground_truth.x));
+    float dy = std::abs(static_cast<float>(computed.y) - static_cast<float>(ground_truth.y));
+
+    if (dx > tolerance_ || dy > tolerance_)
+    {
+      ENTO_DEBUG("Keypoint failed validation: Computed (%.2f, %.2f) vs GT (%.2f, %.2f) | Error: (%.2f, %.2f)",
+                 static_cast<float>(computed.x), static_cast<float>(computed.y),
+                 static_cast<float>(ground_truth.x), static_cast<float>(ground_truth.y),
+                 dx, dy);
+      return false;
+    }
+    return true;
+  }
+};
+
+} // namespace EntoFeature2D
 
 #endif // FEAT_UTIL_H

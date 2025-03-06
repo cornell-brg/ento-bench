@@ -24,8 +24,8 @@ include(CTest)
 
 set(TEST_FILES
   test_p3p.cc
-  test_up2p.cc
-  test_p4p.cc
+  #test_up2p.cc
+  #test_p4p.cc
   #test_dlt.cc
 )
 

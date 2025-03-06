@@ -1,0 +1,60 @@
+name: Build and Test Rocky Linux 8
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Runs in GitHub Actions' standard runner
+
+    container:
+      image: rockylinux:8  # Runs inside a Rocky Linux 8 container
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          dnf install -y epel-release
+          dnf install -y gcc-toolset-14 cmake make git which
+
+      - name: Upgrade Git (Ensure 2.18+)
+        run: |
+          dnf install -y git-core
+          git --version # Show version info for debug
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Ensure Eigen submodule (if used) is pulled
+
+      - name: Enable GCC 14
+        run: |
+          echo "/opt/rh/gcc-toolset-14/root/usr/bin" >> $GITHUB_PATH
+          echo "CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc" >> $GITHUB_ENV
+          echo "CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++" >> $GITHUB_ENV
+
+      - name: Verify GCC Installation
+        run: |
+          which gcc
+          gcc --version
+          which g++
+          g++ --version
+          which as
+          as --version
+
+      - name: Verify Architecture
+        run: |
+          uname -m
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+
+      - name: Build Project
+        run: |
+          cmake --build build -- -j$(nproc)
+
+      - name: Run Tests
+        run: |
+          cd build
+          make check

@@ -176,7 +176,7 @@ function(add_stm32_flash_and_debug_targets target_name)
 
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
-      # -d 
+      # -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -191,6 +191,7 @@ function(add_stm32_flash_and_debug_targets target_name)
   # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
+      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -209,6 +210,7 @@ function(add_stm32_no_semihosting_flash_targets target_name)
   # Flash target without semihosting
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
+      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -223,6 +225,7 @@ function(add_stm32_no_semihosting_flash_targets target_name)
   # Debug target without semihosting
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
+      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"

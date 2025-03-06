@@ -34,7 +34,7 @@ public:
   {
     std::ostringstream oss;
     int n = c_.size();
-    for (int i = 0; i < n; ++i)
+    for (size_t i = 0; i < n; ++i)
     {
       if ( i < n - 1)
         oss << c_[i] << ",";
@@ -84,20 +84,20 @@ public:
     //c_gt_.clear();
     //c_.clear();
 
-    int ai, bi, ci_gt;
-    for (int i = 0; i < m_; ++i)
+    T ai, bi, ci_gt;
+    for (size_t i = 0; i < m_; ++i)
     {
       if ( !( iss >> ai >> comma ) || ( comma != ',' ) ) return false; 
       a_.push_back(ai);
     }
 
-    for (int i = 0; i < m_; ++i)
+    for (size_t i = 0; i < m_; ++i)
     {
       if ( !( iss >> bi  >> comma ) || ( comma != ',' ) ) return false; 
       b_.push_back(bi);
     }
 
-    for (int i = 0; i < n_; ++i)
+    for (size_t i = 0; i < n_; ++i)
     {
       if (i != n_ - 1)
       {

@@ -1,0 +1,2 @@
+M, N, Ai, Bi, Cj_gt
+55

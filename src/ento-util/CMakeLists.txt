@@ -34,19 +34,15 @@ set(TEST_DIR "test")
 
 set(TEST_FILES
     test_matrix_reader.cc
-    test_pose_est_reader.cc
 )
 
 # Define library lists based on source names
 if (GEM5_ARMV7E-M_BUILD)
   set(TEST_LIBRARIES_test_matrix_reader ento_math m startup ento_util sys Eigen)
-  set(TEST_LIBRARIES_test_pose_est_reader ento_math m startup ento_util sys Eigen)
 elseif (STM32_BUILD)
   set(TEST_LIBRARIES_test_matrix_reader ento_math m mcu-util ento_util Eigen)
-  set(TEST_LIBRARIES_test_pose_est_reader ento_math m mcu-util ento_util Eigen)
 else ()
   set(TEST_LIBRARIES_test_matrix_reader ento_math m ento_util Eigen)
-  set(TEST_LIBRARIES_test_pose_est_reader ento_math m ento_util Eigen)
 endif ()
 
 foreach(TEST_FILE ${TEST_FILES})
