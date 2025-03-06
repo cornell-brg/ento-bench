@@ -133,7 +133,11 @@ def analyze_power_consumption(dataset_parent_dir, dataset_name, window_size, ris
         energy_segment = np.trapz(current_segment, time_segment) * voltage * 1e-6  # Convert µA·s to mJ
         rel_lat_error = 100 * (tdiff / (data['time'].iloc[idx2] - data['time'].iloc[idx1]))
 
-        energy_adjustment = tdiff * energy_segment if abs(rel_lat_error) > 10 else 0
+        if abs(rel_lat_error) > 10:
+            energy_adjustment = tdiff * energy_segment 
+        else:
+            energy_adjustment = 0
+            
         energy_segments.append(energy_segment + energy_adjustment)
         currents.append(current_segment.mean())
 

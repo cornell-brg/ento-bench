@@ -261,7 +261,7 @@ set(UB_DIR ubench)
 set(SANDBOX_DIR sandbox)
 set(BENCHMARK_DIR benchmark)
 set(EXAMPLE_DIR example)
-set(UBMARK_DIR ubmark)
+# set(UBMARK_DIR ubmark)
 
 # Figure out arch
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
@@ -293,7 +293,7 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
-add_subdirectory(${UBMARK_DIR})
+# add_subdirectory(${UBMARK_DIR})
 
 
 if(BUILD_H7A3ZIQ)

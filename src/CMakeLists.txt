@@ -106,3 +106,15 @@ target_include_directories(ento-state-est-robobee-cekf
 #  ${EIGEN_DIR}
 #)
 # =============================================================================
+
+# =============================================================================
+# Ento State Estimation
+add_subdirectory(ento-ubmark)
+
+target_include_directories(ento-ubmark
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
+
+# =============================================================================
