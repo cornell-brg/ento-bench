@@ -163,8 +163,8 @@ void test_p3p_ento_array_single()
   int num_solns = p3p(problem.x_point_, problem.X_point_, &problem.solns_);
   for (size_t i = 0; i < num_solns; i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();

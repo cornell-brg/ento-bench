@@ -54,7 +54,7 @@ void test_p4p_lu_single()
   bool found_gt_pose = false;
   if (success)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solution);
 
     Scalar H_error = std::numeric_limits<Scalar>::max();
     const Matrix3x3<Scalar> &H_gt = solution;
@@ -108,7 +108,7 @@ void test_p4p_qr_single()
   bool found_gt_pose = false;
   if (success)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solution);
 
     Scalar H_error = std::numeric_limits<Scalar>::max();
     const Matrix3x3<Scalar> &H_gt = solution;
@@ -160,7 +160,7 @@ void test_p4p_tsj_svd_single()
     int success = homography_Npt<Scalar>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -226,7 +226,7 @@ void test_p4p_ento_array_single()
     int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -282,7 +282,7 @@ void test_p4p_lu_multi()
     int success = homography_4pt<Scalar, 0, 0>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -336,7 +336,7 @@ void test_p4p_qr_multi()
     int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -393,7 +393,7 @@ void test_p4p_tsj_svd_multi()
     int success = homography_Npt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -460,7 +460,7 @@ void test_p4p_ento_array_multi()
     int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;

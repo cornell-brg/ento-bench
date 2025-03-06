@@ -10,13 +10,14 @@ namespace EntoAttitude
 {
 
 template <typename Scalar>
-Eigen::Quaternion<Scalar> mahoney_imu(const Eigen::Quaternion<Scalar>& q,
-                                      const EntoMath::Vec3<Scalar>& gyr,
-                                      const EntoMath::Vec3<Scalar>& acc,
-                                      Scalar dt,
-                                      Scalar k_p,
-                                      Scalar k_i,
-                                      EntoMath::Vec3<Scalar>& bias)
+Eigen::Quaternion<Scalar> mahoney_update_imu(
+    const Eigen::Quaternion<Scalar>& q,
+    const EntoMath::Vec3<Scalar>& gyr,
+    const EntoMath::Vec3<Scalar>& acc,
+    Scalar dt,
+    Scalar k_p,
+    Scalar k_i,
+    EntoMath::Vec3<Scalar>& bias)
 {
   // If the gyroscope reading is zero, return the current quaternion.
   if (gyr.norm() == Scalar(0))
@@ -34,7 +35,6 @@ Eigen::Quaternion<Scalar> mahoney_imu(const Eigen::Quaternion<Scalar>& q,
   {
     // Compute the rotation matrix from the current quaternion.
     const Eigen::Matrix<Scalar, 3, 3> R = q_new.toRotationMatrix();
-
     // Expected direction of gravity in the body frame is given by:
     // v_a = R^T * [0, 0, 1]^T.
     const Eigen::Matrix<Scalar, 3, 1> v_a = R.transpose() *
@@ -72,7 +72,7 @@ Eigen::Quaternion<Scalar> mahoney_imu(const Eigen::Quaternion<Scalar>& q,
 }
 
 template <typename Scalar>
-Eigen::Quaternion<Scalar> mahoney_marg(
+Eigen::Quaternion<Scalar> mahoney_update_marg(
     const Eigen::Quaternion<Scalar>& q,
     const Eigen::Matrix<Scalar, 3, 1>& gyr,
     const Eigen::Matrix<Scalar, 3, 1>& acc,
@@ -80,7 +80,7 @@ Eigen::Quaternion<Scalar> mahoney_marg(
     Scalar dt,
     Scalar k_p,
     Scalar k_i,
-    Eigen::Matrix<Scalar, 3, 1>& bias)
+    EntoMath::Vec3<Scalar>& bias)
 {
   if (gyr.norm() == Scalar(0))
       return q;
@@ -94,7 +94,7 @@ Eigen::Quaternion<Scalar> mahoney_marg(
       const Scalar m_norm = mag.norm();
       // If magnetometer data is not available, fall back to the IMU update.
       if (m_norm == Scalar(0))
-          return update_imu(q, gyr, acc, dt, k_p, k_i, bias);
+          return mahoney_update_imu(q, gyr, acc, dt, k_p, k_i, bias);
 
       // Normalize the accelerometer and magnetometer measurements.
       const Eigen::Matrix<Scalar, 3, 1> a_normalized = acc / a_norm;
@@ -113,6 +113,7 @@ Eigen::Quaternion<Scalar> mahoney_marg(
       // Construct an artificial vector for magnetometer correction.
       Eigen::Matrix<Scalar, 3, 1> v_m = R.transpose() *
           Eigen::Matrix<Scalar, 3, 1>(Scalar(0), h_xy_norm, h.z());
+
 
       // Normalize v_m if its norm is nonzero.
       const Scalar v_m_norm = v_m.norm();
@@ -148,7 +149,7 @@ Eigen::Quaternion<Scalar> mahoney_imu(
     Scalar k_i,
     Eigen::Matrix<Scalar, 3, 1>& bias)
 {
-  mahoney_marg(q, imu_meas.gyr, imu_meas.acc, imu_meas.mag, dt, k_p, k_i, bias);
+  mahoney_update_imu(q, imu_meas.gyr, imu_meas.acc, imu_meas.mag, dt, k_p, k_i, bias);
 }
 
 template <typename Scalar>
@@ -160,7 +161,7 @@ Eigen::Quaternion<Scalar> mahoney_marg(
     Scalar k_i,
     Eigen::Matrix<Scalar, 3, 1>& bias)
 {
-  mahoney_marg(q, marg_meas.gyr, marg_meas.acc, marg_meas.mag, dt, k_p, k_i, bias);
+  mahoney_update_marg(q, marg_meas.gyr, marg_meas.acc, marg_meas.mag, dt, k_p, k_i, bias);
 }
 
 
@@ -176,11 +177,11 @@ Eigen::Quaternion<Scalar> mahoney(const Eigen::Quaternion<Scalar>& q,
 {
   if constexpr (UseMag)
   {
-    return mahoney_marg(q, meas, dt, k_p, k_i, bias);
+    return mahoney_update_marg(q, meas, dt, k_p, k_i, bias);
   }
   else
   {
-    return mahoney_imu(q, meas, dt, k_p, k_i, bias);
+    return mahoney_update_imu(q, meas, dt, k_p, k_i, bias);
   }
 }
 
@@ -197,11 +198,11 @@ struct FilterMahoney
   {
     if constexpr (UseMag)
     {
-      return mahoney_marg(q, meas, dt, k_p, k_i, bias);
+      return mahoney_update_marg(q, meas, dt, k_p, k_i, bias);
     }
     else
     {
-      return mahoney_imu(q, meas, dt, k_p, k_i, bias);
+      return mahoney_update_imu(q, meas, dt, k_p, k_i, bias);
     }
   }
 

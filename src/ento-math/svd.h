@@ -302,8 +302,6 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
       {
         //Scalar* ai = A.row(i).data();
         //Scalar* aj = A.row(j).data();
-        //ENTO_DEBUG("New sweep for cols i,j = %i, %i", i, j);
-        //ENTO_DEBUG("Gamma idx: %i", gamma_idx);
         alpha = work_ab[i];
         beta = work_ab[j];
 
@@ -372,16 +370,11 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
           }
 
           // Update the precomputed values
-          //ENTO_DEBUG("Alpha sum for work_ab[%i]: %.10f", i, alpha_sum);
-          //ENTO_DEBUG("Beta sum for work_ab[%i]: %.10f", j, beta_sum);
           work_ab[i] = alpha_sum;
           work_ab[j] = beta_sum;
           work_gamma[gamma_idx] = gamma_sum;
-          //ENTO_DEBUG("work_gamma[%i] = %.10f", gamma_idx, gamma_sum);
           rotated[i] = 1;
           rotated[j] = 1;
-          //ENTO_DEBUG("Alpha sum for work_ab[%i]: %.10f", i, work_ab[i]);
-          //ENTO_DEBUG("Beta sum for work_ab[%i]: %.10f", j, work_ab[j]);
         }
         else
         {
@@ -397,16 +390,11 @@ void osj_svd(Eigen::Matrix<Scalar, M, N, Order, M, N>& A,
             min_idx = j;
           }
         }
-        //ENTO_DEBUG("Moving onto next sweep!\n");
         --gamma_idx;  // Move to the next pair in work_gamma
       }
     }
   }
-  ENTO_DEBUG("Exited out of sweeps loop!");
-  ENTO_DEBUG("Found min singular value index of: %i", min_idx);
-  ENTO_DEBUG("V has dimensions %dx%d", V.rows(), V.cols());
-  ENTO_DEBUG("min_idx value: %d", min_idx);
-  ENTO_DEBUG_EIGEN_MATRIX(V, N, N, Scalar);
+  ENTO_DEBUG_EIGEN_MATRIX(V);
   min_v = V.row(min_idx).eval();
   ENTO_DEBUG("Finished osj svd. Total iterations: %i", iterations);
   return;

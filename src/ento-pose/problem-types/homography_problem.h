@@ -70,7 +70,7 @@ public:
   // File I/O
 #ifdef NATIVE
   std::string serialize_impl() const;
-  bool        deserialize_impl(std::istream& is);
+  bool        deserialize_impl(std::string& line);
 #endif
   bool        deserialize_impl(const char* line);
 
@@ -176,7 +176,6 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
   {
     return false; // Parsing failed
   }
-  ENTO_DEBUG("Problem type: %i", problem_type);
 
   int num_points;
   if (!(iss >> num_points >> comma) || problem_type != 3 || comma != ',')
@@ -195,21 +194,18 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
       return false;
     }
   }
-  ENTO_DEBUG("Num points: %i", num_points);
 
   // Parse Homography matrix (H)
   for (int i = 0; i < 3; ++i)
   {
     for (int j = 0; j < 3; ++j)
     {
-      //ENTO_DEBUG("i: %i", i);
       if (!(iss >> H_gt_(i, j) >> comma) || (comma != ','))
       {
         return false; // Parsing failed
       }
     }
   }
-  //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.q, 4, 1, float)
 
 
   // Parse scale_gt and focal_gt
@@ -222,7 +218,6 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
   {
     return false; // Parsing failed
   }
-  //ENTO_DEBUG("Scale gt, focal gt: %f, %f", scale_gt, focal_gt);
 
   // Parse x_point correspondences
   Scalar x, y, z;
@@ -240,7 +235,6 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
       return false; // Parsing failed
     }
     x1_.push_back(Vec3<Scalar>(x, y, z));
-    //ENTO_DEBUG_EIGEN_MATRIX(x_point_[i], 3, 1, float)
 
   }
 

@@ -25,14 +25,15 @@ inline Eigen::Matrix<Scalar, 4, 1> rotmat_to_quat(const Eigen::Matrix<Scalar, 3,
 
 template <typename Scalar>
 inline Eigen::Matrix<Scalar, 4, 1> quat_multiply(const Eigen::Matrix<Scalar, 4, 1> &qa,
-                                                 const Eigen::Matrix<Scalar, 4, 1> &qb) {
-  const Scalar qa1 = qa(0), qa2 = qa(1), qa3 = qa(2), qa4 = qa(3);
-  const Scalar qb1 = qb(0), qb2 = qb(1), qb3 = qb(2), qb4 = qb(3);
+                                                 const Eigen::Matrix<Scalar, 4, 1> &qb)
+{
+  const Scalar qaw = qa(0), qax = qa(1), qay = qa(2), qaz = qa(3);
+  const Scalar qbw = qb(0), qbx = qb(1), qby = qb(2), qbz = qb(3);
 
-  return Eigen::Matrix<Scalar, 4, 1>(qa1 * qb1 - qa2 * qb2 - qa3 * qb3 - qa4 * qb4,
-                                     qa1 * qb2 + qa2 * qb1 + qa3 * qb4 - qa4 * qb3,
-                                     qa1 * qb3 + qa3 * qb1 - qa2 * qb4 + qa4 * qb2,
-                                     qa1 * qb4 + qa2 * qb3 - qa3 * qb2 + qa4 * qb1);
+  return Eigen::Matrix<Scalar, 4, 1>(qaw * qbw - qax * qbx - qay * qby - qaz * qbz,
+                                     qaw * qbx + qax * qbw + qay * qbz - qaz * qby,
+                                     qaw * qby - qax * qbz + qay * qbw + qaz * qbx,
+                                     qaw * qbz + qax * qby - qay * qbx + qaz * qbw);
 }
 
 template <typename Scalar>

@@ -51,10 +51,10 @@ void test_dlt()
   // Estimate projection matrix using DLT
   
   ENTO_DEBUG("Running dlt!");
-  normalize_2d_points(points2d, Txp);
-  normalize_3d_points(points3d, Tx);
-  ENTO_DEBUG_EIGEN_MATRIX(points2d, points2d.rows(), points2d.cols(), float);
-  ENTO_DEBUG_EIGEN_MATRIX(points3d, points3d.rows(), points3d.cols(), float);
+  EntoFeature2D::normalize_2d_points(points2d, Txp);
+  EntoFeature2D::normalize_3d_points(points3d, Tx);
+  ENTO_DEBUG_EIGEN_MATRIX(points2d);
+  ENTO_DEBUG_EIGEN_MATRIX(points3d);
   Matrix<float, 3, 4> P_est = dlt(points2d, points3d);
 
 
@@ -62,10 +62,10 @@ void test_dlt()
 
   ENTO_DEBUG("Made it this far!");
 
-  ENTO_DEBUG_EIGEN_MATRIX(P_est, 3, 4, float);
-  ENTO_DEBUG_EIGEN_MATRIX(P_true, 3, 4, float);
+  ENTO_DEBUG_EIGEN_MATRIX(P_est);
+  ENTO_DEBUG_EIGEN_MATRIX(P_true);
 
-  ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(P_est, P_true, 3, 4);
+  ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(P_est, P_true);
 
   ENTO_DEBUG("Made it this far!");
 

@@ -138,7 +138,6 @@ public:
     ENTO_DEBUG("Byte index: %i", byte_index);
     ENTO_DEBUG("Bit mask: %i", bit_mask);
     ENTO_DEBUG("Index at: %i", inlier_flags_[byte_index]);
-    ENTO_DEBUG("HI");
     if (flag) inlier_flags_[byte_index] |= bit_mask;
     else inlier_flags_[byte_index] &= ~bit_mask;
     ENTO_DEBUG("Inlier Flags post set: %i", inlier_flags_[byte_index]);
@@ -246,7 +245,6 @@ public:
       if (!(iss >> problem_type >> comma) || problem_type != 1 || comma != ',') {
           return false; // Parsing failed
       }
-      //ENTO_DEBUG("Problem type: %i", problem_type);
 
       int num_points;
       if (!(iss >> num_points >> comma) || problem_type != 1 || comma != ',') {
@@ -275,7 +273,6 @@ public:
             return false; // Parsing failed
         }
       }
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
       // Parse translation (t)
       for (int i = 0; i < 3; ++i) {
@@ -283,7 +280,6 @@ public:
               return false; // Parsing failed
           }
       }
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.t, 3, 1, float)
 
       // Parse scale_gt and focal_gt
       if (!(iss >> instance->scale_gt >> comma) || comma != ',') {
@@ -293,7 +289,6 @@ public:
       if (!(iss >> instance->focal_gt >> comma) || comma != ',') {
           return false; // Parsing failed
       }
-      //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
       // Parse x_point correspondences
       Scalar x, y, z;
@@ -308,7 +303,6 @@ public:
               return false; // Parsing failed
           }
           instance->x_point_.push_back(Vec3<Scalar>(x, y, z));
-          //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
       }
 
@@ -519,13 +513,11 @@ public:
     // Parse quaternion (q)
     for (int i = 0; i < 4; ++i)
     {
-      //ENTO_DEBUG("i: %i", i);
       if (!(iss >> instance->pose_gt.q[i] >> comma) || (comma != ','))
       {
         return false; // Parsing failed
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
     // Parse translation (t)
     for (int i = 0; i < 3; ++i)
@@ -535,7 +527,6 @@ public:
         return false; // Parsing failed
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.t, 3, 1, float)
 
 
     // Parse scale_gt and focal_gt
@@ -548,7 +539,6 @@ public:
     {
       return false; // Parsing failed
     }
-    //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
     // Parse x1 point correspondences
     Scalar x, y, z;
@@ -566,7 +556,6 @@ public:
         return false; // Parsing failed
       }
       instance->x1_.push_back(Vec3<Scalar>(x, y, z));
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
     }
 
@@ -795,14 +784,12 @@ public:
     {
       for (int j = 0; j < 3; ++j)
       {
-        //ENTO_DEBUG("i: %i", i);
         if (!(iss >> instance->H_gt(i, j) >> comma) || (comma != ','))
         {
           return false; // Parsing failed
         }
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
 
     // Parse scale_gt and focal_gt
@@ -815,7 +802,6 @@ public:
     {
       return false; // Parsing failed
     }
-    //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
     // Parse x_point correspondences
     Scalar x, y, z;
@@ -833,7 +819,6 @@ public:
         return false; // Parsing failed
       }
       instance->x1_.push_back(Vec3<Scalar>(x, y, z));
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
     }
 

@@ -1,9 +1,9 @@
 #ifndef FEAT_UTIL_H
 #define FEAT_UTIL_H
 
-
 #include <array>
 #include <Eigen/Dense>
+#include <ento-util/debug.h>
 
 namespace EntoFeature2D
 {
@@ -83,7 +83,6 @@ struct FeatureArray
 
   void clear()
   {
-    keypoints.fill(KeypointType{});
     num_features = 0;
   }
   
@@ -441,6 +440,53 @@ private:
   }
 };
 
+template <typename KeypointT, typename Scalar = float>
+struct LucasKanadeValidator
+{
+  float tolerance_; 
+
+  explicit LucasKanadeValidator(float tolerance = 2.0f) : tolerance_(tolerance) {}
+
+  template <size_t NumFeats>
+  bool validate(const FeatureArray<KeypointT, NumFeats>& feats_next,
+                const FeatureArray<KeypointT, NumFeats>& feats_next_gt) const
+  {
+    if (feats_next.size() != feats_next_gt.size())
+    {
+      ENTO_DEBUG("Validation failed: Expected %zu features, but only found %zu.", feats_next_gt.size(), feats_next.size());
+      return false;
+    }
+
+    for (size_t i = 0; i < feats_next.size(); ++i)
+    {
+      if (!validate_keypoints(feats_next[i], feats_next_gt[i]))
+      {
+        return false; // Fail fast if any keypoint is incorrect
+      }
+    }
+
+    ENTO_DEBUG("All features passed validation within tolerance: %.2f", tolerance_);
+    return true;
+  }
+
+  /// Validate a single keypoint against the ground truth
+  bool validate_keypoints(const KeypointT& computed,
+                          const KeypointT& ground_truth) const
+  {
+    float dx = std::abs(static_cast<float>(computed.x) - static_cast<float>(ground_truth.x));
+    float dy = std::abs(static_cast<float>(computed.y) - static_cast<float>(ground_truth.y));
+
+    if (dx > tolerance_ || dy > tolerance_)
+    {
+      ENTO_DEBUG("Keypoint failed validation: Computed (%.2f, %.2f) vs GT (%.2f, %.2f) | Error: (%.2f, %.2f)",
+                 static_cast<float>(computed.x), static_cast<float>(computed.y),
+                 static_cast<float>(ground_truth.x), static_cast<float>(ground_truth.y),
+                 dx, dy);
+      return false;
+    }
+    return true;
+  }
+};
 
 } // namespace EntoFeature2D
 

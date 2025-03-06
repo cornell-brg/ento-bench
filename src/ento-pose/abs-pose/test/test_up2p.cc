@@ -51,8 +51,8 @@ void test_up2p_single()
   int num_solns = up2p(problem.x_point_, problem.X_point_, &problem.solns_);
   for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(problem.solns_[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
