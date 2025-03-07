@@ -114,8 +114,8 @@ public:
         Eigen::Matrix<Scalar, StateDim, MeasurementDim> K = P_ * Hk.transpose() * S.inverse();
 
         // Step (8)
-        //Eigen::Matrix<Scalar, MeasurementDim, 1> measurement_residual;
-        measurement_residual_ = z - pred_meas;
+        measurement_residual_.setZero();
+        measurement_residual_(j) = z(j) - pred_meas(j);
         x_ += K * measurement_residual_;
 
         // Step (9)
@@ -144,7 +144,7 @@ public:
     Eigen::Matrix<Scalar, MeasurementDim, StateDim> Hk;
     meas_model.jacobian(Hk, x_);
 
-    size_t m;
+    size_t m = 0;
     for (size_t j = 0; j < MeasurementDim; ++j)
     {
       if (avail_sensors[j])
