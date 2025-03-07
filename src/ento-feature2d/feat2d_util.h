@@ -41,6 +41,7 @@ struct FastKeypoint : public Keypoint<CoordT>
 template <typename CoordT = int16_t, typename Scalar = float>
 struct ORBKeypoint : public FastKeypoint<CoordT>
 {
+  using Scalar_ = Scalar;
   Scalar orientation;
   ORBKeypoint() : FastKeypoint<CoordT>(), orientation(0) {}
   ORBKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
@@ -55,6 +56,7 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
 template <typename KeypointType, size_t MaxFeatures = 100>
 struct FeatureArray
 {
+  using KeypointT_ = KeypointType;
   std::array<KeypointType, MaxFeatures> keypoints;
   size_t num_features = 0;
   static constexpr size_t max_features = MaxFeatures;

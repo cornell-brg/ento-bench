@@ -34,6 +34,14 @@ template <typename PixelType, int PatternSize, int RowStride, int ContiguityRequ
 constexpr std::array<PixelType, PatternSize + ContiguityRequirement>
 generate_bresenham_circle();
 
+template <typename PixelType, int PatternSize>
+int corner_score(const PixelType* ptr, const std::array<int, PatternSize>& circle, int threshold);
+
+template <typename KeypointType, size_t MaxFeatures>
+void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats);
+
+
+
 template <typename Image,
           typename KeypointType,
           int PatternSize,
@@ -41,7 +49,7 @@ template <typename Image,
           int ContiguityRequirement = 9,
           size_t MaxFeatures = 100>
 void fast(const Image& img,
-          FeatureArray<KeypointType, MaxFeatures>& fdo );
+          FeatureArray<KeypointType, MaxFeatures>& feats );
 
 
 // ===========================================================
@@ -105,9 +113,10 @@ template <typename ImageType,
           int PatternSize,
           int Threshold,
           int ContiguityRequirement,
-          size_t MaxFeatures>
+          size_t MaxFeatures,
+          bool PerformNMS = true>
 void fast(const ImageType& img,
-          FeatureArray<KeypointType, MaxFeatures>& fdo)
+          FeatureArray<KeypointType, MaxFeatures>& feats)
 {
   // Compile-time access to number of columns
   constexpr int img_width   = ImageType::cols;
@@ -138,10 +147,8 @@ void fast(const ImageType& img,
   static constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
   // const PixelType* ptemp = &img.data[3*img_width] + 3;
 
-  CoordType* cornerpos;
-  CoordType i, j, k, ncorners;
+  CoordType i, j, k;
   const PixelType* ptr;
-  PixelType* curr; 
 
   // Important: These may be "16 bit" depth images but the assumption
   // is that this is to hold the raw 10 bit pixels from the NaneyeC.
@@ -151,24 +158,9 @@ void fast(const ImageType& img,
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
   // constexpr int tab_size = (1 << (bit_depth + 1));
   
-  static PixelType buff1[img_width];
-  static PixelType buff2[img_width];
-  static PixelType buff3[img_width];
-
-  static CoordType cpbuff1[img_width+1];
-  static CoordType cpbuff2[img_width+1];
-  static CoordType cpbuff3[img_width+1];
-
-  static PixelType* buf[3] = { buff1, buff2, buff3 };
-  static CoordType* cpbuf[3] = { cpbuff1, cpbuff2, cpbuff3 };
-  
   for (i = 3; i < (img_height - 2); ++i)
   {
     ptr = &img.data[i*img_width] + 3;
-    curr = buf[(i-3)%3];
-    cornerpos = cpbuf[(i-3) % 3] + 1;
-    std::fill(curr, curr+img_width, 0);
-    ncorners = 0;
 
     if (i < img_height - 3)
     {
@@ -206,10 +198,8 @@ void fast(const ImageType& img,
             {
               if( ++count > ContiguityRequirement )
               {
-                cornerpos[ncorners++] = j;
-                //@TODO: Add non max suppression. This requires computing the FAST corner score!
-                //if(nonmax_suppression)
-                    //curr[j] = (uchar)cornerScore<patternSize>(ptr, pixel, threshold);
+                int score = corner_score<PatternSize>(ptr, circle, Threshold);
+                feats.add_keypoint(KeypointType(j, i, score));
                 break;
               }
             }
@@ -232,7 +222,8 @@ void fast(const ImageType& img,
             {
               if( ++count > ContiguityRequirement )
               {
-                cornerpos[ncorners++] = j;
+                int score = corner_score<PatternSize>(ptr, circle, Threshold);
+                feats.add_keypoint(KeypointType(j, i, score));
                 DPRINTF("Found feature: %i, %i\n", j, i-1);
                 break;
               }
@@ -247,21 +238,88 @@ void fast(const ImageType& img,
       }
     }
 
-    cornerpos[-1] = ncorners;
-    if (i == 3) continue;
-
-    const PixelType* prev = buf[(i-4+3)%3];
-    cornerpos = cpbuf[(i-4+3)%3] + 1;
-    ncorners = cornerpos[-1];
-
-    for (k = 0; k < ncorners; k++)
+    if constexpr (PerformNMS)
     {
-      j = cornerpos[k];
-      int score = prev[j];
-      KeypointType kp(j, i-1, score);
-      fdo.add_keypoint(kp);
+      apply_nms(feats);
     }
   }
+}
+
+template <typename PixelType, int PatternSize>
+int corner_score(const PixelType* kp, const std::array<int, PatternSize>& circle, int threshold)
+{
+  // Code inspired by fast_score.cpp found in OpenCV repo.
+  int v = static_cast<int>(kp[0]);  // Keypoint intensity
+  int min_diff = std::numeric_limits<PixelType>::max();
+  int max_diff = std::numeric_limits<PixelType>::min();
+
+  // 1. Compute intensity differences
+  for (int i = 0; i < PatternSize; i++)
+  {
+    int diff = v - static_cast<int>(kp[circle[i]]);  // Compute difference
+    min_diff = std::min(min_diff, diff);
+    max_diff = std::max(max_diff, diff);
+  }
+
+  // 2. Best thresholded arc
+  int best_dark = threshold;
+  int best_bright = -threshold;
+
+  for (int i = 0; i < PatternSize; i += 2)
+  {
+    int d1 = v - kp[circle[i]];
+    int d2 = v - kp[circle[i + 1]];
+    int arc_min = std::min(d1, d2);
+    int arc_max = std::max(d1, d2);
+
+    best_dark = std::max(best_dark, arc_min);
+    best_bright = std::min(best_bright, arc_max);
+  }
+
+  return std::max(best_dark, -best_bright) - 1;  // Final score
+}
+
+template <typename KeypointType, size_t MaxFeatures>
+void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats)
+{
+  if (feats.size() == 0) return;
+  std::array<bool, MaxFeatures> keep = {};
+  std::fill(keep.begin(), keep.begin() + feats.size(), true);
+
+  for (size_t i = 0; i < feats.size(); i++)
+  {
+    if (!(keep[i / 8] & (1 << (i % 8))))
+      continue;     
+
+    const auto& kp = feats[i];
+
+    for (size_t j = 0; j < feats.size(); j++)
+    {
+      if (i == j)
+        continue;
+
+      const auto& neighbor = feats[j];
+
+      if (std::abs(neighbor.x - kp.x) <= 1 &&
+          std::abs(neighbor.y - kp.y) <= 1 &&
+          neighbor.score > kp.score)
+      {
+        keep[i / 8] &= ~(1 << (i % 8));  // Clear bit to suppress the weaker keypoint
+        break;
+      }
+    }
+  }
+
+  // **In-place compaction**: Shift non-suppressed keypoints forward
+  size_t new_size = 0;
+  for (size_t i = 0; i < feats.size(); i++)
+  {
+    if (keep[i / 8] & (1 << (i % 8)))
+    {
+      feats[new_size++] = feats[i];
+    }
+  }
+  feats.num_features = new_size;
 }
 
 } // namespace EntoFeature2D
