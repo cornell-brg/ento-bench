@@ -123,7 +123,7 @@ target_include_directories(ento-attitude-est
 # =============================================================================
 
 # =============================================================================
-# Ento State Estimation
+# Ento Microbenchmarks
 add_subdirectory(ento-ubmark)
 
 target_include_directories(ento-ubmark

@@ -37,34 +37,6 @@ void __attribute__((noinline)) add_fixed()
 }
 
 
-// // Fixed point addition benchmark
-// void __attribute__((noinline)) fixed_point_add() {
-//   constexpr int reps = 800;
-//   for (int i = 0; i < reps; i++)
-//     asm volatile (
-//       ".rept 8       \n"   // Repeat 8 times
-//       // Simple fixed point addition in Q16.16 format
-//       "add r0, r0, r1  \n"  // r0 += r1
-//       "add r2, r2, r3  \n"  // r2 += r3
-//       "add r4, r4, r5  \n"  // r4 += r5
-//       "add r6, r6, r7  \n"  // r6 += r7
-      
-//       // Saturated addition using QADD (if available on target)
-//       "qadd r0, r0, r2 \n"  // Saturating add
-//       "qadd r4, r4, r6 \n"  // Saturating add
-      
-//       // More fixed point operations
-//       "add r0, r0, #0x10000 \n"  // Add 1.0 in Q16.16
-//       "sub r4, r4, #0x8000  \n"  // Subtract 0.5 in Q16.16
-//       ".endr           \n"       // End repeat block
-//       : // No outputs
-//       : // No inputs
-//       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"  // Clobbered registers
-//     );
-//     end_roi();
-// }
-
-
 int main()
 {
   using namespace EntoBench;

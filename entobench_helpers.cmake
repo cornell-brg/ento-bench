@@ -176,7 +176,6 @@ function(add_stm32_flash_and_debug_targets target_name)
 
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
-      # -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"

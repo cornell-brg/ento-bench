@@ -14,7 +14,7 @@ base_path="$1"
 datasets=("energy-ubench")
 
 # Base command
-base_command="python process_pil_experiments.py --traverse_subdirs True --field_order=1"
+base_command="python sync_current_logic_traces.py --traverse_subdirs True --field_order=1"
 
 # Iterate over each dataset and run the command
 for dataset in "${datasets[@]}"; do
