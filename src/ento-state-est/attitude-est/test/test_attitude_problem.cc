@@ -116,7 +116,6 @@
 //   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
 // }
 
-
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
 #include <ento-util/file_path_util.h>
@@ -138,6 +137,7 @@ using namespace EntoAttitude;
 
 template <typename Scalar>
 class TestAttitudeFilter {
+public:
   inline void operator()(const Eigen::Quaternion<Scalar>& q_prev,
                          [[maybe_unused]] const MARGMeasurement<Scalar>& meas,
                          [[maybe_unused]] Scalar dt,
@@ -173,50 +173,49 @@ void test_attitude_problem_basic() {
   const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
   
   // Test deserialization
-  ENTO_TEST_CHECK(problem.deserialize_impl(test_input));
+  ENTO_TEST_CHECK_TRUE(problem.deserialize_impl(test_input));
   
-  // Test measurement values 
-  // Note: We're accessing the correct member names based on the structure
-  // Instead of ax, ay, az - the struct likely uses acc (Vector3f)
+  // Test measurement values
+  // Using the proper vector-based field access:
   ENTO_DEBUG("Parsed Measurement Values:");
   if constexpr (UseMag) {
-    // Use proper field names for MARGMeasurement
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.1f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.2f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.3f);
+    // MARGMeasurement fields
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[0], 0.1f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[1], 0.2f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[2], 0.3f);
     
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.01f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.02f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.03f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[0], 0.01f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[1], 0.02f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[2], 0.03f);
     
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[0], 0.4f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[1], 0.5f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[2], 0.6f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[0], 0.4f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[1], 0.5f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[2], 0.6f);
   } else {
-    // Use proper field names for IMUMeasurement
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.1f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.2f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.3f);
+    // IMUMeasurement fields
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[0], 0.1f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[1], 0.2f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[2], 0.3f);
     
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.01f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.02f);
-    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.03f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[0], 0.01f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[1], 0.02f);
+    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[2], 0.03f);
   }
   
   // Test quaternion values
-  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.w(), 1.0f);
-  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.x(), 0.0f);
-  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.y(), 0.0f);
-  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.z(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.w(), 1.0f);
+  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.z(), 0.0f);
   
   // Test delta time
-  ENTO_TEST_CHECK_FLOAT_EQ(problem.dt_, 0.01f);
+  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.dt_, 0.01f);
 }
 
 int main(int argc, char** argv) {
   using namespace EntoUtil;
   
-  ENTO_TEST_BEGIN();
+  __ento_test_start(__FILE__);
   
   // Get test number from command line or file
   int __n;
@@ -242,7 +241,7 @@ int main(int argc, char** argv) {
   // Run Tests
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
   
-  ENTO_TEST_END();
+  __ento_test_end(__FILE__);
   
   return __failed;
 }
