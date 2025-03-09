@@ -121,3 +121,15 @@ target_include_directories(ento-attitude-est
 )
 
 # =============================================================================
+
+# =============================================================================
+# Ento Microbenchmarks
+add_subdirectory(ento-ubmark)
+
+target_include_directories(ento-ubmark
+  INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  ${EIGEN_DIR}
+)
+
+# =============================================================================
