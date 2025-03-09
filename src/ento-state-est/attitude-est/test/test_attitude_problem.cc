@@ -116,6 +116,7 @@
 //   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
 // }
 
+
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
 #include <ento-util/file_path_util.h>
@@ -180,48 +181,50 @@ void test_attitude_problem_basic() {
   ENTO_DEBUG("Parsed Measurement Values:");
   if constexpr (UseMag) {
     // MARGMeasurement fields
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[0], 0.1f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[1], 0.2f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[2], 0.3f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.1f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.2f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.3f);
     
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[0], 0.01f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[1], 0.02f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[2], 0.03f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.01f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.02f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.03f);
     
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[0], 0.4f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[1], 0.5f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.mag[2], 0.6f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[0], 0.4f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[1], 0.5f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[2], 0.6f);
   } else {
     // IMUMeasurement fields
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[0], 0.1f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[1], 0.2f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.acc[2], 0.3f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.1f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.2f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.3f);
     
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[0], 0.01f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[1], 0.02f);
-    ENTO_TEST_CHECK_FLOAT_EQUAL(problem.measurement_.gyr[2], 0.03f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.01f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.02f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.03f);
   }
   
   // Test quaternion values
-  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.w(), 1.0f);
-  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.x(), 0.0f);
-  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.y(), 0.0f);
-  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.q_gt_.z(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.w(), 1.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.z(), 0.0f);
   
   // Test delta time
-  ENTO_TEST_CHECK_FLOAT_EQUAL(problem.dt_, 0.01f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.dt_, 0.01f);
 }
 
-int main(int argc, char** argv) {
+
+int main ( int argc, char ** argv )
+{
+
   using namespace EntoUtil;
-  
-  __ento_test_start(__FILE__);
-  
-  // Get test number from command line or file
   int __n;
-  if (argc > 1) {
+  if (argc > 1)
+  {
     __n = atoi(argv[1]);
-  } else {
+  }
+  else
+  {
     // For the case we are running on the MCU and we can't pass in args
     // the same way args are passed for a native build.
     __ento_replace_file_suffix(__FILE__, "test_harness_cmdline.txt");
@@ -230,18 +233,14 @@ int main(int argc, char** argv) {
 
   // Setup Directory Path and Test Data Paths
   get_file_directory(file_path, sizeof(dir_path), dir_path);
-  const char* file_names[] = { "test_attitude_problem_input_1.txt", "test_attitude_problem_output_1.txt" };
+  const char* file_names[] = { "test_attitude_problem_input_1.txt" , "test_attitude_problem_output_1.txt" };
   build_file_paths(dir_path, file_names, full_paths, FILEPATH_SIZE, num_paths);
-
-  ENTO_DEBUG("Generated Paths:");
+  
+  printf("Generated Paths:\n");
   for (size_t i = 0; i < num_paths; ++i) {
-    ENTO_DEBUG("  %s", full_paths[i]);
+    printf("  %s\n", full_paths[i]);
   }
 
   // Run Tests
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
-  
-  __ento_test_end(__FILE__);
-  
-  return __failed;
 }
