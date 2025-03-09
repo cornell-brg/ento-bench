@@ -239,7 +239,7 @@ void test_attitude_problem_solve() {
   
   // Now call solve_impl - it should initialize q_prev with q_gt and then set q to the same value
   problem.solve_impl();
-  
+
   // Since our TestAttitudeFilter just returns q_prev, and q_prev was initialized with q_gt,
   // q should now be equal to q_gt
   ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), problem.q_gt_.w());
@@ -266,6 +266,82 @@ void test_attitude_problem_solve() {
   ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), 0.0f);
   ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), 0.0f);
 }
+
+// Test for validate_impl
+void test_attitude_problem_validate() {
+  using Scalar = float;
+  using Kernel = TestAttitudeFilter<Scalar>;
+  static constexpr bool UseMag = true;
+  using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+  
+  Kernel k;
+  Problem problem(k);
+
+  // Initialize the problem with default test data
+  const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
+  ENTO_TEST_CHECK_TRUE(problem.deserialize_impl(test_input));
+  
+  // Test case 1: Exact match - q_ exactly matches q_gt_
+  // Set q_ to be the same as q_gt_
+  problem.q_ = problem.q_gt_;
+  // Validation should pass (angle difference is 0 degrees)
+  ENTO_TEST_CHECK_TRUE(problem.validate_impl());
+  
+  // Test case 2: Small angle difference (2 degrees rotation around Y-axis)
+  // Create a quaternion with a small rotation around Y
+  Scalar angle_rad = static_cast<Scalar>(2.0 * M_PI / 180.0); // 2 degrees in radians
+  Eigen::Quaternion<Scalar> q_small_diff(
+      std::cos(angle_rad / 2.0f),
+      0.0f,
+      std::sin(angle_rad / 2.0f),
+      0.0f
+  );
+  // Apply this to the ground truth
+  problem.q_ = problem.q_gt_ * q_small_diff;
+  
+  // Validation should still pass (angle difference is less than 5 degrees)
+  ENTO_TEST_CHECK_TRUE(problem.validate_impl());
+  
+  // Test case 3: Angle difference exactly at the threshold (5 degrees)
+  angle_rad = static_cast<Scalar>(5.0 * M_PI / 180.0); // 5 degrees in radians
+  Eigen::Quaternion<Scalar> q_threshold_diff(
+      std::cos(angle_rad / 2.0f),
+      0.0f,
+      std::sin(angle_rad / 2.0f),
+      0.0f
+  );
+  
+  // Apply this to the ground truth
+  problem.q_ = problem.q_gt_ * q_threshold_diff;
+  
+  // Validation should fail (angle difference is exactly at the threshold)
+  // The validate_impl returns true if angle < threshold, so equality fails
+  ENTO_TEST_CHECK_FALSE(problem.validate_impl());
+  
+  // Test case 4: Large angle difference (10 degrees rotation around Z-axis)
+  angle_rad = static_cast<Scalar>(10.0 * M_PI / 180.0); // 10 degrees in radians
+  Eigen::Quaternion<Scalar> q_large_diff(
+      std::cos(angle_rad / 2.0f),
+      0.0f,
+      0.0f,
+      std::sin(angle_rad / 2.0f)
+  );
+  
+  // Apply this to the ground truth
+  problem.q_ = problem.q_gt_ * q_large_diff;
+  
+  // Validation should fail (angle difference is greater than 5 degrees)
+  ENTO_TEST_CHECK_FALSE(problem.validate_impl());
+  
+  // Test case 5: Opposite quaternions (180 degrees difference)
+  // Set q_ to be the negative of q_gt_ (represents the same rotation in 3D space)
+  problem.q_ = Eigen::Quaternion<Scalar>(-problem.q_gt_.w(), -problem.q_gt_.x(), -problem.q_gt_.y(), -problem.q_gt_.z());
+  
+  // Validation should pass because dot product is absolute
+  // |q1·q2| will be 1.0 even though the quaternions have opposite signs
+  ENTO_TEST_CHECK_TRUE(problem.validate_impl());
+}
+
 
 
 int main ( int argc, char ** argv )
@@ -298,4 +374,5 @@ int main ( int argc, char ** argv )
   // Run Tests
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
   if (__ento_test_num(__n, 2)) test_attitude_problem_solve();
+  if (__ento_test_num(__n, 3)) test_attitude_problem_validate();
 }
