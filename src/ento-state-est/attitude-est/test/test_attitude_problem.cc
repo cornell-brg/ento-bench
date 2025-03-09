@@ -214,6 +214,60 @@ void test_attitude_problem_basic() {
 }
 
 
+
+
+// New test for solve_impl
+void test_attitude_problem_solve() {
+  using Scalar = float;
+  using Kernel = TestAttitudeFilter<Scalar>;
+  static constexpr bool UseMag = true;
+  using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+  
+  Kernel k;
+  Problem problem(k);
+
+  // Set up test data
+  const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
+  ENTO_TEST_CHECK_TRUE(problem.deserialize_impl(test_input));
+  
+  // Ensure q_prev is zero initially (this will test the initialization from q_gt)
+  problem.q_prev_ = Eigen::Quaternion<Scalar>(0, 0, 0, 0);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.w(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.z(), 0.0f);
+  
+  // Now call solve_impl - it should initialize q_prev with q_gt and then set q to the same value
+  problem.solve_impl();
+  
+  // Since our TestAttitudeFilter just returns q_prev, and q_prev was initialized with q_gt,
+  // q should now be equal to q_gt
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), problem.q_gt_.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), problem.q_gt_.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), problem.q_gt_.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), problem.q_gt_.z());
+  
+  // And q_prev should be updated to the new q value
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.w(), problem.q_.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.x(), problem.q_.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.y(), problem.q_.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.z(), problem.q_.z());
+  
+  // Call solve_impl a second time to verify that q_prev is used
+  // Create a custom ground truth (which should be ignored in this call)
+  problem.q_gt_ = Eigen::Quaternion<Scalar>(0.5f, 0.5f, 0.5f, 0.5f);
+  
+  // Solve again
+  problem.solve_impl();
+  
+  // Check that q still matches the original q_gt because our filter just returns q_prev
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), 1.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), 0.0f);
+}
+
+
 int main ( int argc, char ** argv )
 {
 
@@ -243,4 +297,5 @@ int main ( int argc, char ** argv )
 
   // Run Tests
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
+  if (__ento_test_num(__n, 2)) test_attitude_problem_solve();
 }
