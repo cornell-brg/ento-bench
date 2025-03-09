@@ -342,6 +342,172 @@ void test_attitude_problem_validate() {
   ENTO_TEST_CHECK_TRUE(problem.validate_impl());
 }
 
+void test_attitude_problem_serialize() {
+  #ifndef NATIVE
+    using Scalar = float;
+    using Kernel = TestAttitudeFilter<Scalar>;
+    static constexpr bool UseMag = true;
+    using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+    
+    Kernel k;
+    Problem problem(k);
+    
+    // Test case 1: Identity quaternion (1,0,0,0)
+    problem.q_ = Eigen::Quaternion<Scalar>(1.0f, 0.0f, 0.0f, 0.0f);
+    const char* serialized = problem.serialize_impl();
+    ENTO_DEBUG("Serialized quaternion (identity): %s", serialized);
+    
+    // Check format - should be "1.000000,0.000000,0.000000,0.000000" or similar
+    // We can't directly compare strings because of float rounding, so we'll parse back
+    float w, x, y, z;
+    int parsed = sscanf(serialized, "%f,%f,%f,%f", &w, &x, &y, &z);
+    
+    ENTO_TEST_CHECK_EQUAL(parsed, 4); // Should parse 4 values
+    ENTO_TEST_CHECK_FLOAT_EQ(w, 1.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(x, 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(y, 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(z, 0.0f);
+
+    // Test case 2: Custom quaternion
+    problem.q_ = Eigen::Quaternion<Scalar>(0.5f, 0.5f, 0.5f, 0.5f);
+    
+    serialized = problem.serialize_impl();
+    ENTO_DEBUG("Serialized quaternion (custom): %s", serialized);
+    
+    parsed = sscanf(serialized, "%f,%f,%f,%f", &w, &x, &y, &z);
+    
+    ENTO_TEST_CHECK_EQUAL(parsed, 4); // Should parse 4 values
+    ENTO_TEST_CHECK_FLOAT_EQ(w, 0.5f);
+    ENTO_TEST_CHECK_FLOAT_EQ(x, 0.5f);
+    ENTO_TEST_CHECK_FLOAT_EQ(y, 0.5f);
+    ENTO_TEST_CHECK_FLOAT_EQ(z, 0.5f);
+    // Test case 3: Verify buffer size is sufficient
+  // Create a quaternion with long decimal places
+  problem.q_ = Eigen::Quaternion<Scalar>(1.234567f, 2.345678f, 3.456789f, 4.567890f);
+  
+  serialized = problem.serialize_impl();
+  ENTO_DEBUG("Serialized quaternion (long decimal): %s", serialized);
+  
+  // Buffer should be large enough (64 chars)
+  ENTO_TEST_CHECK_TRUE(strlen(serialized) < 64);
+  
+  parsed = sscanf(serialized, "%f,%f,%f,%f", &w, &x, &y, &z);
+  
+  ENTO_TEST_CHECK_EQUAL(parsed, 4); // Should parse 4 values
+  ENTO_TEST_CHECK_FLOAT_EQ(w, 1.234567f);
+  ENTO_TEST_CHECK_FLOAT_EQ(x, 2.345678f);
+  ENTO_TEST_CHECK_FLOAT_EQ(y, 3.456789f);
+  ENTO_TEST_CHECK_FLOAT_EQ(z, 4.567890f);
+#else
+  // Skip the test if NATIVE is defined
+  ENTO_DEBUG("Skipping serialize_impl test - only available in embedded builds");
+  // Still mark test as passing
+  ENTO_TEST_CHECK_TRUE(true);
+  #endif
+}
+
+// Test for clear_impl
+void test_attitude_problem_clear() {
+  using Scalar = float;
+  using Kernel = TestAttitudeFilter<Scalar>;
+  static constexpr bool UseMag = true;
+  using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+  
+  Kernel k;
+  Problem problem(k);
+
+  // First, set up the problem with non-default values
+  // Initialize with test data
+  const char* test_input = "0.1 0.2 0.3 0.01 0.02 0.03 0.4 0.5 0.6 1.0 0.0 0.0 0.0 0.01";
+  problem.deserialize_impl(test_input);
+  
+  // Set q_ to a custom value
+  problem.q_ = Eigen::Quaternion<Scalar>(0.5f, 0.5f, 0.5f, 0.5f);
+  
+  // Run solve_impl to ensure q_prev_ has a value
+  problem.solve_impl();
+  
+  // Verify pre-conditions before clearing
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), 0.5f);
+  
+  // q_prev_ should be the same as q_ after solve_impl
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.w(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.x(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.y(), 0.5f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.z(), 0.5f);
+  
+  // Measurement should have non-zero values
+  if constexpr (UseMag) {
+    // Verify MARGMeasurement has values
+    ENTO_TEST_CHECK_TRUE(std::abs(problem.measurement_.acc[0] - 0.1f) < 1e-6f);
+    ENTO_TEST_CHECK_TRUE(std::abs(problem.measurement_.gyr[0] - 0.01f) < 1e-6f);
+    ENTO_TEST_CHECK_TRUE(std::abs(problem.measurement_.mag[0] - 0.4f) < 1e-6f);
+  } else {
+    // Verify IMUMeasurement has values
+    ENTO_TEST_CHECK_TRUE(std::abs(problem.measurement_.acc[0] - 0.1f) < 1e-6f);
+    ENTO_TEST_CHECK_TRUE(std::abs(problem.measurement_.gyr[0] - 0.01f) < 1e-6f);
+  }
+  
+  // Delta time should be 0.01
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.dt_, 0.01f);
+  
+  // Now call clear_impl
+  ENTO_TEST_CHECK_TRUE(problem.clear_impl());
+  
+  // Check that variables are reset to their defaults
+  
+  // q_ should be Identity (1,0,0,0)
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), 1.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), 0.0f);
+  
+  // q_prev_ should be Zero (0,0,0,0)
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.w(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.z(), 0.0f);
+  
+  // q_gt_ should be Identity (1,0,0,0)
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.w(), 1.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.x(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.y(), 0.0f);
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_gt_.z(), 0.0f);
+  
+  // dt_ should be 0.0
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.dt_, 0.0f);
+  
+  // Measurement values should be reset to zero/default
+  if constexpr (UseMag) {
+    // Check MARGMeasurement is reset
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.0f);
+    
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.0f);
+    
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[0], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[1], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.mag[2], 0.0f);
+  } else {
+    // Check IMUMeasurement is reset
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[0], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[1], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.acc[2], 0.0f);
+    
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[0], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[1], 0.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(problem.measurement_.gyr[2], 0.0f);
+  }
+}
+
+    
+
 
 
 int main ( int argc, char ** argv )
@@ -375,4 +541,6 @@ int main ( int argc, char ** argv )
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
   if (__ento_test_num(__n, 2)) test_attitude_problem_solve();
   if (__ento_test_num(__n, 3)) test_attitude_problem_validate();
+  if (__ento_test_num(__n, 4)) test_attitude_problem_serialize();
+  if (__ento_test_num(__n, 5)) test_attitude_problem_clear();
 }
