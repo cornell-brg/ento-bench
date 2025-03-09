@@ -69,9 +69,9 @@ inline void __ento_debug_print_eigen_matrix(const char* file, int line, const ch
   {
     std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n%s =\n", 
                 EntoUtil::__ento_debug_get_file_name(file), line, func, name);
-    constexpr int width = 10;
+    constexpr int width = 9;
     constexpr const char* indent = "\t";
-    constexpr int precision = 10;
+    constexpr int precision = 4;
     for (int i = 0; i < matrix.rows(); ++i)
     {
       std::printf("%s[ ", indent);
@@ -105,9 +105,9 @@ inline void __ento_debug_print_eigen_quaternion(const char* file, int line, cons
   {
     std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n%s (WXYZ) =\n", 
                 EntoUtil::__ento_debug_get_file_name(file), line, func, name);
-    constexpr int width = 10;
+    constexpr int width = 8;
     constexpr const char* indent = "\t";
-    constexpr int precision = 10;
+    constexpr int precision = 4;
        std::printf("%s|w: ", indent);
     if constexpr (std::is_integral_v<typename Derived::Scalar>)
       std::printf("%*d", width, quat.w());
@@ -140,6 +140,7 @@ inline void __ento_debug_print_eigen_quaternion(const char* file, int line, cons
 
 #define ENTO_DEBUG_EIGEN_QUATERNION(q) __ento_debug_print_eigen_quaternion(__FILE__, __LINE__, __func__, #q, q)
 
+// Helper function for printing Eigen quaternions side by side
 template <typename Derived1, typename Derived2>
 inline void __ento_debug_print_eigen_quaternions_side_by_side(const char* file, int line, const char* func,
                                                               const char* name1, const Eigen::QuaternionBase<Derived1>& quat1,
@@ -150,8 +151,8 @@ inline void __ento_debug_print_eigen_quaternions_side_by_side(const char* file, 
     std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n",
                 EntoUtil::__ento_debug_get_file_name(file), line, func);
 
-    constexpr int width = 10;
-    constexpr int precision = 10;
+    constexpr int width = 8;
+    constexpr int precision = 4;
     constexpr const char* indent = "\t";
     // Mapping for printing in order: w, x, y, z.
     static const int mapping[4] = { 0, 1, 2, 3 };
@@ -187,6 +188,85 @@ inline void __ento_debug_print_eigen_quaternions_side_by_side(const char* file, 
 #define ENTO_DEBUG_EIGEN_QUAT2(q1, q2) \
   __ento_debug_print_eigen_quaternions_side_by_side(__FILE__, __LINE__, __func__, #q1, q1, #q2, q2)
 
+// Helper function for printing Eigen matrices side by side
+template <typename Derived1, typename Derived2>
+inline void __ento_debug_print_matrix_comparison(const char* file, int line, const char* func,
+                                                 const char* name1, const Eigen::MatrixBase<Derived1>& mat1,
+                                                 const char* name2, const Eigen::MatrixBase<Derived2>& mat2,
+                                                 float tolerance = 1e-5)
+{
+  using Scalar1 = typename Derived1::Scalar;
+  using Scalar2 = typename Derived2::Scalar;
+
+  if (EntoUtil::__n <= 0) return; 
+
+  constexpr int width = 8;
+  constexpr int precision = 4;
+  constexpr const char* indent = "\t";
+  file = EntoUtil::__ento_debug_get_file_name(file);
+
+  if ((mat1.rows() != mat2.rows()) || (mat1.cols() != mat2.cols()))
+  {
+    std::printf(" - [ " __RED "-ERROR-" __RESET " ] Matrix size mismatch at %s:%d, Function %s:\n", file, line, func);
+    std::printf("%s  %s (%ldx%ld) != %s (%ldx%ld)\n", indent, name1, mat1.rows(), mat1.cols(), name2, mat2.rows(), mat2.cols());
+    return;
+  }
+
+  std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n", file, line, func);
+  std::printf("%s%-*s   %-*s\n", indent, width, name1, width, name2);
+
+  for (int i = 0; i < mat1.rows(); ++i)
+  {
+    std::printf("%s[", indent);
+    for (int j = 0; j < mat1.cols(); ++j)
+    {
+      bool is_float = std::is_floating_point_v<Scalar1> || std::is_floating_point_v<Scalar2>;
+      bool within_tol = is_float ? (std::fabs(mat1(i, j) - mat2(i, j)) <= tolerance) : (mat1(i, j) == mat2(i, j));
+
+      const char* color = within_tol ? __GREEN : __RED;
+      std::printf("%s", color);
+      
+      if constexpr (std::is_integral_v<Scalar1> && std::is_integral_v<Scalar2>)
+      {
+        std::printf("%*d", width, mat1(i, j));
+      }
+      else
+      {
+        std::printf("%*.*e", width, precision, mat1(i, j));
+      }
+      
+      std::printf(__RESET);
+      if (j != mat1.cols() - 1) std::printf(", ");
+    }
+
+    std::printf("]   [");
+    for (int j = 0; j < mat2.cols(); ++j)
+    {
+      bool is_float = std::is_floating_point_v<Scalar1> || std::is_floating_point_v<Scalar2>;
+      bool within_tol = is_float ? (std::fabs(mat1(i, j) - mat2(i, j)) <= tolerance) : (mat1(i, j) == mat2(i, j));
+
+      const char* color = within_tol ? __GREEN : __RED;
+      std::printf("%s", color);
+      
+      if constexpr (std::is_integral_v<Scalar1> && std::is_integral_v<Scalar2>)
+      {
+        std::printf("%*d", width, mat2(i, j));
+      }
+      else
+      {
+        std::printf("%*.*e", width, precision, mat2(i, j));
+      }
+      
+      std::printf(__RESET);
+      if (j != mat2.cols() - 1) std::printf(", ");
+    }
+    std::printf("]\n");
+  }
+}
+
+#define ENTO_DEBUG_EIGEN_MATRIX_COMPARISON(matrix0_, matrix1_, tol_) \
+  __ento_debug_print_matrix_comparison(__FILE__, __LINE__, __func__, #matrix0_, matrix0_, #matrix1_, matrix1_, tol_)
+
 
 #define ENTO_DEBUG_NEWLINE \
   if (EntoUtil::__n > 0) { std::printf("\n"); }
@@ -212,6 +292,8 @@ inline void __ento_debug_print_eigen_quaternions_side_by_side(const char* file, 
 #define ENTO_DEBUG_EIGEN_QUATERNION(...) // no-op
 
 #define ENTO_DEBUG_EIGEN_QUAT2(...) // no-op
+                                    //
+#define ENTO_DEBUG_EIGEN_MATRIX_COMPARISON(...) \
 
 #endif
 
