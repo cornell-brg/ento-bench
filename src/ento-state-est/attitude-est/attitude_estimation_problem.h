@@ -168,7 +168,7 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::clear_impl()
 {
     // Reset quaternions to identity (or zero)
     q_ = Eigen::Quaternion<Scalar>::Identity();
-    q_prev_ = Eigen::Quaternion<Scalar>::Zero();
+    q_prev_ = Eigen::Quaternion<Scalar>(0, 0, 0, 0); // Directly initialize to zero
     
     // Reset measurement data
     measurement_ = AttitudeMeasurement<Scalar, UseMag>();
