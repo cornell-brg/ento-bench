@@ -4,9 +4,6 @@
 #include "attitude_measurement.h"
 #include <ento-bench/problem.h>
 
-// #include "/Users/nicoleli/ento-bench/src/ento-state-est/attitude-est/attitude_measurement.h"
-// #include </Users/nicoleli/ento-bench/src/ento-bench/problem.h>
-
 
 
 namespace EntoAttitude
@@ -54,7 +51,6 @@ public:
   bool validate_impl();
 
   // @TODO: Complete solve implementation.
-  // void solve_impl() { return kernel_(q_prev_, measurement_, dt_, &q_); }
   void solve_impl();
 
 
