@@ -506,6 +506,126 @@ void test_attitude_problem_clear() {
   }
 }
 
+// More comprehensive test for solve_impl
+void test_attitude_problem_solve_advanced() {
+  using Scalar = float;
+  using Kernel = AdvancedTestFilter<Scalar>;
+  static constexpr bool UseMag = true;
+  using Problem = AttitudeProblem<Scalar, Kernel, UseMag>;
+  
+  Kernel k;
+  Problem problem(k);
+
+  // Initialize with test data - constant rotation around Z axis
+  problem.measurement_.acc[0] = 0.0f;
+  problem.measurement_.acc[1] = 0.0f;
+  problem.measurement_.acc[2] = 9.81f; // Gravity pointing down
+  
+  problem.measurement_.gyr[0] = 0.0f;
+  problem.measurement_.gyr[1] = 0.0f;
+  problem.measurement_.gyr[2] = 1.0f; // 1 rad/s around Z axis
+  
+  if constexpr (UseMag) {
+    problem.measurement_.mag[0] = 1.0f;
+    problem.measurement_.mag[1] = 0.0f;
+    problem.measurement_.mag[2] = 0.0f;
+  }
+  
+  // Set a ground truth quaternion (identity)
+  problem.q_gt_ = Eigen::Quaternion<Scalar>::Identity();
+  
+  // Set delta time to 0.1 seconds
+  problem.dt_ = 0.1f;
+  
+  // Start with identity quaternion
+  problem.q_ = Eigen::Quaternion<Scalar>::Identity();
+  
+  // Initialize q_prev_ as zero to trigger initialization from q_gt_
+  problem.q_prev_ = Eigen::Quaternion<Scalar>(0, 0, 0, 0);
+  
+  // First call to solve_impl - q_prev_ should be initialized from q_gt_
+  problem.solve_impl();
+  
+  // After first solve, q_prev_ should be identity, and q_ should be rotated by 0.1 rad around Z
+  // Expected q_ after first iteration: 
+  // Rotation of 0.1 rad (~5.73 degrees) around Z axis
+  Scalar angle = 0.1f; // dt * gyr_z = 0.1 * 1.0
+  Eigen::Quaternion<Scalar> expected_q = 
+    Eigen::Quaternion<Scalar>(
+      Eigen::AngleAxis<Scalar>(angle, Eigen::Vector3<Scalar>::UnitZ())
+    );
+  
+  // Check that q_ is close to the expected quaternion
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), expected_q.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), expected_q.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), expected_q.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), expected_q.z());
+  
+  // And q_prev_ should be updated to the new q value
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.w(), problem.q_.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.x(), problem.q_.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.y(), problem.q_.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_prev_.z(), problem.q_.z());
+  
+  // Call solve_impl a second time
+  problem.solve_impl();
+  
+  // After second solve, we should have rotated another 0.1 rad around Z
+  // Total rotation: 0.2 rad
+  angle = 0.2f;
+  expected_q = Eigen::Quaternion<Scalar>(
+    Eigen::AngleAxis<Scalar>(angle, Eigen::Vector3<Scalar>::UnitZ())
+  );
+  
+  // Check that q_ is close to the expected quaternion after two iterations
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), expected_q.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), expected_q.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), expected_q.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), expected_q.z());
+  
+  // Run several more iterations to check cumulative rotation
+  for (int i = 0; i < 8; ++i) {
+    problem.solve_impl();
+  }
+  
+  // After 10 total iterations, we should have rotated 1.0 rad in total
+  angle = 1.0f;
+  expected_q = Eigen::Quaternion<Scalar>(
+    Eigen::AngleAxis<Scalar>(angle, Eigen::Vector3<Scalar>::UnitZ())
+  );
+  
+  // Check that q_ is close to the expected quaternion after ten iterations
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), expected_q.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), expected_q.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), expected_q.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), expected_q.z());
+  
+  // Test with different rotation axis
+  // Reset quaternions
+  problem.q_ = Eigen::Quaternion<Scalar>::Identity();
+  problem.q_prev_ = Eigen::Quaternion<Scalar>::Identity();
+  
+  // Set gyro to rotate around X axis
+  problem.measurement_.gyr[0] = 2.0f; // 2 rad/s around X axis
+  problem.measurement_.gyr[1] = 0.0f;
+  problem.measurement_.gyr[2] = 0.0f;
+  
+  // One solve call
+  problem.solve_impl();
+  
+  // Expected: rotation of 0.2 rad around X
+  angle = 0.2f; // dt * gyr_x = 0.1 * 2.0
+  expected_q = Eigen::Quaternion<Scalar>(
+    Eigen::AngleAxis<Scalar>(angle, Eigen::Vector3<Scalar>::UnitX())
+  );
+  
+  // Check that q_ is close to the expected quaternion
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.w(), expected_q.w());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.x(), expected_q.x());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.y(), expected_q.y());
+  ENTO_TEST_CHECK_FLOAT_EQ(problem.q_.z(), expected_q.z());
+}
+
     
 
 
@@ -538,9 +658,15 @@ int main ( int argc, char ** argv )
   }
 
   // Run Tests
+
+  // Base cases
   if (__ento_test_num(__n, 1)) test_attitude_problem_basic();
   if (__ento_test_num(__n, 2)) test_attitude_problem_solve();
   if (__ento_test_num(__n, 3)) test_attitude_problem_validate();
   if (__ento_test_num(__n, 4)) test_attitude_problem_serialize();
   if (__ento_test_num(__n, 5)) test_attitude_problem_clear();
+
+
+  //more involved tests
+  if (__ento_test_num(__n, 6)) test_attitude_problem_solve_advanced();
 }
