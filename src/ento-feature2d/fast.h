@@ -134,8 +134,9 @@ void fast(const ImageType& img,
   constexpr int circle_buff_sz = PatternSize + ContiguityRequirement;
   //static PixelType circle[circle_buff_sz];
   //bressenham_circle<PixelType, CircleDiameter, img_width>(circle);
+  
   static constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
-  const PixelType* ptemp = &img.data[3*img_width] + 3;
+  // const PixelType* ptemp = &img.data[3*img_width] + 3;
 
   CoordType* cornerpos;
   CoordType i, j, k, ncorners;
@@ -148,7 +149,7 @@ void fast(const ImageType& img,
   // I might have to rethink the tradeoffs for this implementation that
   // OpenCV.
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
-  constexpr int tab_size = (1 << (bit_depth + 1));
+  // constexpr int tab_size = (1 << (bit_depth + 1));
   
   static PixelType buff1[img_width];
   static PixelType buff2[img_width];

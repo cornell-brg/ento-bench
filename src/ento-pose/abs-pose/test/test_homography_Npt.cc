@@ -53,7 +53,7 @@ void test_homography_4pt_single()
     int success = homography_Npt<Scalar>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -104,7 +104,7 @@ void test_homography_4pt_multi()
     int success = homography_Npt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -168,7 +168,7 @@ void test_homography_Npt_multi()
       int success = homography_Npt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
       if (success)
       {
-        ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+        ENTO_DEBUG_EIGEN_MATRIX(solution);
 
         Scalar H_error = std::numeric_limits<Scalar>::max();
         const Matrix3x3<Scalar> &H_gt = solution;

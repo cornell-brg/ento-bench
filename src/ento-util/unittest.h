@@ -12,6 +12,8 @@
 
 #include <cstdio>
 #include <cmath>
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 namespace EntoUtil 
 {
@@ -48,6 +50,8 @@ extern float __float_expr1;
 
 // Check macro helper functions
 const char* __ento_debug_get_file_name(const char*);
+void __ento_test_start(const char*);
+void __ento_test_end(const char*);
 void  __ento_test_fail(const char*, int, const char*);
 void  __ento_test_check_and_print_uniop(const char*, int, const char*);
 void  __ento_test_check_and_print_int_binop(const char*, int, const char*, const char*);
@@ -63,7 +67,21 @@ void  __ento_replace_file_suffix(const char*, const char*);
 // Define a global buffer within the header for internal use
 inline char __ento_cmdline_args_path_buffer[256] = {};
 
-// Define the function that modifies this internal buffer directly
+//------------------------------------------------------------------------
+// ENTO_TEST_END()
+//------------------------------------------------------------------------
+// Handle end of a test file. Print to terminal depending on cmdline args.
+#define ENTO_TEST_START()    \
+  __ento_test_start( __FILE__ ); \
+
+//------------------------------------------------------------------------
+// ENTO_TEST_END()
+//------------------------------------------------------------------------
+// Handle end of a test file. Print to terminal depending on cmdline args.
+#define ENTO_TEST_END()        \
+  __ento_test_end( __FILE__ ); \
+  return __failed;
+
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_FAIL()
 //------------------------------------------------------------------------
@@ -128,59 +146,102 @@ inline char __ento_cmdline_args_path_buffer[256] = {};
 #define ENTO_TEST_CHECK_FLOAT_EQ(expr0_, expr1_)                      \
   ENTO_TEST_CHECK_APPROX_EQ(expr0_, expr1_, EntoUtil::__rel_tol_pct)  
 
+
+template <typename Derived1, typename Derived2>
+inline void __ento_test_check_matrix_eq(const char* file, int lineno, 
+                                        const char* expr1, const char* expr2,
+                                        const float rel_tol,
+                                        const Eigen::MatrixBase<Derived1>& mat1,
+                                        const Eigen::MatrixBase<Derived2>& mat2)
+{
+  file = __ento_debug_get_file_name(file);
+  if ((mat1.rows() != mat2.rows()) || (mat1.cols() != mat2.cols()))
+  {
+    std::printf(__RED "Matrix size mismatch at %s:%d: %s is %ldx%ld, %s is %ldx%ld\n" __RESET,
+                file, lineno, expr1, mat1.rows(), mat1.cols(), expr2, mat2.rows(), mat2.cols());
+    __failed = 1;
+    if (__n < 0 ) std::printf( __RED "." __RESET );
+    return;
+  }
+  bool has_mismatch = false;
+  for (int i = 0; i < mat1.rows(); ++i)
+  {
+    for (int j = 0; j < mat1.cols(); ++j)
+    {
+      if (std::fabs(mat1(i, j) - mat2(i, j)) > rel_tol)
+      {
+        has_mismatch = true;
+      }
+    }
+  }
+  if (has_mismatch)
+  {
+    std::printf(__RED "Matrix values mismatch at %s:%d: %s ≠ %s\n" __RESET,
+                file, lineno, expr1, expr2);
+    __failed = 1;
+    if (__n < 0 ) std::printf( __RED "." __RESET );
+    return;
+  }
+  else
+  {
+    if (__n > 0 )
+      std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s\n",
+                  file, lineno, expr1, expr2);
+    if (__n < 0 ) std::printf( __GREEN "." __RESET );
+  }
+}
+
 //------------------------------------------------------------------------
-// ENTO_TEST_CHECK_EIGEN_MATRIX_EQ( expr0_, expr1_ )
+// ENTO_TEST_CHECK_EIGEN_MATRIX_EQ
 //------------------------------------------------------------------------
 // Checks to see if two float experssions are within the predefined rel.
 // tolerance of each other.
-#define ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(matrix0_, matrix1_, rows_, cols_) \
-  do { \
-    bool __has_mismatch = false; \
-    /* Check matrix dimensions */ \
-    if ((matrix0_.rows() != matrix1_.rows()) || (matrix0_.cols() != matrix1_.cols())) { \
-      std::printf(__RED "Matrix dimension mismatch! %s is %dx%d, but %s is %dx%d\n" __RESET, \
-                  #matrix0_, (int) matrix0_.rows(), (int) matrix0_.cols(), #matrix1_, (int) matrix1_.rows(), (int) matrix1_.cols()); \
-      return; \
-    } \
-    /* Precompute mismatches and display side-by-side output */ \
-    constexpr int width = 8; \
-    int mid_row = rows_ / 2; \
-    for (int i = 0; i < rows_; i++) { \
-      /* Print row from matrix0_ */ \
-      std::printf("["); \
-      for (int j = 0; j < cols_; j++) { \
-        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
-        if (EntoUtil::__failure_condition) { \
-          __has_mismatch = true; \
-          std::printf(__RED "%*.*f" __RESET, width, 3, matrix0_(i, j)); \
-        } else { \
-          std::printf("%*.*f", width, 3, matrix0_(i, j)); \
-        } \
-        if (j != cols_ - 1) std::printf(", "); \
-      } \
-      std::printf("]"); \
-      /* Print equality sign */ \
-      if (i == mid_row) std::printf("\t=\t"); \
-      else std::printf("\t\t"); \
-      /* Print row from matrix1_ */ \
-      std::printf("["); \
-      for (int j = 0; j < cols_; j++) { \
-        EntoUtil::__failure_condition = std::fabs(matrix0_(i, j) - matrix1_(i, j)) > EntoMath::ENTO_EPS; \
-        if (EntoUtil::__failure_condition) { \
-          std::printf(__RED "%*.*f" __RESET, width, 3, matrix1_(i, j)); \
-        } else { \
-          std::printf("%*.*f", width, 3, matrix1_(i, j)); \
-        } \
-        if (j != cols_ - 1) std::printf(", "); \
-      } \
-      std::printf("]\n"); \
-    } \
-    if (__has_mismatch) { \
-      std::printf(__RED "Matrices %s and %s do not match.\n" __RESET, #matrix0_, #matrix1_); \
-    } else { \
-      std::printf("Matrices %s and %s match.\n", #matrix0_, #matrix1_); \
-    } \
-  } while (0)    
+#define ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(matrix0_, matrix1_) \
+  EntoUtil::__ento_test_check_matrix_eq(__FILE__, __LINE__, #matrix0_, #matrix1_, EntoUtil::__rel_tol_pct, matrix0_, matrix1_)
+
+//------------------------------------------------------------------------
+// ENTO_TEST_CHECK_EIGEN_MATRIX_EQ_TOL
+//------------------------------------------------------------------------
+// Checks to see if two float experssions are within user defined rel.
+// tolerance of each other.
+
+#define ENTO_TEST_CHECK_EIGEN_MATRIX_EQ_TOL(matrix0_, matrix1_, rel_tol_) \
+  EntoUtil::__ento_test_check_matrix_eq(__FILE__, __LINE__, #matrix0_, #matrix1_, rel_tol_, matrix0_, matrix1_)
+
+
+template <typename Derived1, typename Derived2>
+inline void __ento_test_check_quat_eq(const char* file, int lineno, 
+                                      const char* expr1, const char* expr2,
+                                      const float rel_tol,
+                                      const Eigen::QuaternionBase<Derived1>& q1,
+                                      const Eigen::QuaternionBase<Derived2>& q2)
+{
+  file = __ento_debug_get_file_name(file);
+  auto dot = std::abs(q1.dot(q2));
+  if(dot > 1.0) dot = 1.0;  // Clamp to 1.0 for safety
+  // Compute the angular difference (in radians)
+  double angle_diff = 2 * std::acos(dot);
+  if(angle_diff > rel_tol)
+  {
+    if ( __n > 0 )
+    {
+      std::printf(__RED "Quaternion mismatch at %s:%d:  %s != %s (angle difference = %.10e)\n" __RESET,
+                  file, lineno, expr1, expr2, angle_diff);
+      __failed = 1;
+    }
+    else if (__n < 0)
+      std::printf( __GREEN "." __RESET );
+  }
+  else
+  {
+    if ( __n > 0 )
+      std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d, Function %s:  %s == %s (angle difference = %.10e)\n",
+                  file, lineno, expr1, expr2, angle_diff);
+    else if ( __n < 0 )
+      std::printf( __GREEN "." __RESET );
+  }
+}
+
 
 //------------------------------------------------------------------------
 // ENTO_TEST_CHECK_ARRAY_INT_EQ( expr0_, expr1_, size_ )
@@ -192,6 +253,8 @@ inline char __ento_cmdline_args_path_buffer[256] = {};
   for ( size_t i = 0; i < size_; i++ ) {                                \
     ENTO_TEST_CHECK_INT_EQ( expr0_[i], expr1_[i] );                     \
   }
+
+
 
 }
 

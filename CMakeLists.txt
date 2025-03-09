@@ -201,6 +201,7 @@ if(STM32_BUILD)
           /usr/share/openocd/scripts/interface
           /opt/local/share/openocd/scripts/interface
           /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface
+          /opt/homebrew/Cellar/open-ocd/HEAD-1f3f635_1/share/openocd/scripts/interface
   )
 
   if(NOT OPENOCD_INTERFACE)

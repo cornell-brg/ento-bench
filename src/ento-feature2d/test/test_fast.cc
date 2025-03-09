@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <array>
 #include "image_io/Pixel.h"
-#include "image_io/Image.h"
+#include <image_io/Image.h>
 #include <ento-feature2d/fast.h>
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-util/debug.h>
@@ -20,10 +20,11 @@ void checkCondition(bool condition, const char* testName) {
 void test_fdo_creation() {
   printf("Running test_fdo_creation...\n");
 
-  FeatureArray<FastKeypoint, 100> fdo;
+  using Keypoint = FastKeypoint<uint16_t>;
+  FeatureArray<Keypoint, 100> fdo;
   checkCondition(fdo.size() == 0, "Initial FDO size is zero");
 
-  FastKeypoint kp1(10, 20, 9);
+  Keypoint kp1(10, 20, 9);
   fdo.add_keypoint(kp1);
   checkCondition(fdo.size() == 1, "FDO size after adding one keypoint");
 
@@ -102,8 +103,9 @@ void test_fast_algorithm_1()
   printf("Running test_fast_algorithm...\n");
 
   using TestImgType = Image<7, 7, uint8_t>;
+  using Keypoint = FastKeypoint<uint16_t>;
   TestImgType img;
-  FeatureArray<FastKeypoint, 100> fdo;
+  FeatureArray<Keypoint, 100> fdo;
 
   const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_fast1.pgm";
   //const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_pgm.pgm";
@@ -111,10 +113,10 @@ void test_fast_algorithm_1()
   checkCondition(img_opened, "Load FAST Test 1 pgm");
   if (!img_opened) return;
 
-  fast<TestImgType, FastKeypoint, 16, 10>(img, fdo);  // Run the FAST detector
+  fast<TestImgType, Keypoint, 16, 10>(img, fdo);  // Run the FAST detector
 
   checkCondition(fdo.size() > 0, "FAST detector found features");
-  printf("FAST detected %i features.\n", fdo.size());
+  printf("FAST detected %lu features.\n", fdo.size());
 
   auto x = fdo[0].x;
   auto y = fdo[0].y;
@@ -131,8 +133,9 @@ void test_fast_algorithm_2()
   printf("Running test_fast_algorithm...\n");
 
   using TestImgType = Image<14, 14, uint8_t>;
+  using Keypoint = FastKeypoint<uint16_t>;
   TestImgType img;
-  FeatureArray<FastKeypoint, 100> fdo;
+  FeatureArray<Keypoint, 100> fdo;
 
   const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_fast2.pgm";
   //const char* pgm_path = "/home/ddo26/workspace/entomoton-bench/datasets/unittest/test_pgm.pgm";
@@ -140,10 +143,10 @@ void test_fast_algorithm_2()
   checkCondition(img_opened, "Load FAST Test 1 pgm");
   if (!img_opened) return;
 
-  fast<TestImgType, FastKeypoint, 16, 10>(img, fdo);  // Run the FAST detector
+  fast<TestImgType, Keypoint, 16, 10>(img, fdo);  // Run the FAST detector
 
   checkCondition(fdo.size() == 4, "FAST detector found 4 features");
-  printf("FAST detected %i features.\n", fdo.size());
+  printf("FAST detected %lu features.\n", fdo.size());
 
 
   uint8_t gtxs[4] = {3, 10,  3, 10};

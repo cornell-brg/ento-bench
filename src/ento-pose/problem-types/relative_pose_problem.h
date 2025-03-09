@@ -63,7 +63,7 @@ public:
   // File I/O
 #ifdef NATIVE
   std::string serialize_impl() const;
-  bool        deserialize_impl(std::istream& is);
+  bool        deserialize_impl(std::string& line);
 #endif
   bool        deserialize_impl(const char* line);
 
@@ -157,18 +157,18 @@ std::string RelativePoseProblem<Scalar, Solver, NumPts>::serialize_impl() const
 
 
 template <typename Scalar, typename Solver, size_t NumPts>
-bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream& is)
+bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::string& line)
 {
   // Native build: Use std::istringstream for parsing
+  std::istringstream is(line);
   char comma;
-
+  
   // Parse problem type
   int problem_type;
   if (!(is >> problem_type >> comma) || problem_type != 3 || comma != ',')
   {
     return false; // Parsing failed
   }
-  ENTO_DEBUG("Problem type: %i", problem_type);
 
   size_t num_points;
   if (!(is >> num_points >> comma) || problem_type != 3 || comma != ',')
@@ -187,18 +187,15 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream&
       return false;
     }
   }
-  ENTO_DEBUG("Num points: %i", num_points);
 
   // Parse quaternion (q)
   for (int i = 0; i < 4; ++i)
   {
-    //ENTO_DEBUG("i: %i", i);
     if (!(is >> pose_gt_.q[i] >> comma) || (comma != ','))
     {
       return false; // Parsing failed
     }
   }
-  //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.q, 4, 1, float)
 
   // Parse translation (t)
   for (int i = 0; i < 3; ++i)
@@ -208,7 +205,6 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream&
       return false; // Parsing failed
     }
   }
-  //ENTO_DEBUG_EIGEN_MATRIX(pose_gt.t, 3, 1, float)
 
 
   // Parse scale_gt and focal_gt
@@ -221,7 +217,6 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream&
   {
     return false; // Parsing failed
   }
-  //ENTO_DEBUG("Scale gt, focal gt: %f, %f", scale_gt, focal_gt);
 
   // Parse x1 point correspondences
   Scalar x, y, z;
@@ -239,7 +234,6 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::istream&
       return false; // Parsing failed
     }
     x1_.push_back(Vec3<Scalar>(x, y, z));
-    //ENTO_DEBUG_EIGEN_MATRIX(x1_[i], 3, 1, float)
 
   }
 

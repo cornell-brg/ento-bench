@@ -49,7 +49,8 @@ Eigen::Quaternion<Scalar> fourati_update(
 
   // Compute the quaternion derivative from gyroscope (using pure quaternion for ω).
   Eigen::Quaternion<Scalar> omega(Scalar(0), gyr.x(), gyr.y(), gyr.z());
-  Eigen::Quaternion<Scalar> qDot = Scalar(0.5) * (q_new * omega);
+  Eigen::Quaternion<Scalar> qDot = (q_new * omega);
+  qDot.coeffs() *= Scalar(0.5);
 
   // If gain > 0, apply a LM‐style correction step.
   if (gain > Scalar(0))
@@ -90,8 +91,8 @@ Eigen::Quaternion<Scalar> fourati_update(
     // Compute the Jacobian matrix X as in equation (23):
     // X = -2 * [ skew(fhat_vec), skew(hhat_vec) ]^T.
     // First, form a 3×6 matrix A = [ skew(fhat_vec)  |  skew(hhat_vec) ].
-    Eigen::Matrix<Scalar, 3, 3> skew_f = skew(fhat_vec);
-    Eigen::Matrix<Scalar, 3, 3> skew_h = skew(hhat_vec);
+    Eigen::Matrix<Scalar, 3, 3> skew_f = EntoMath::skew(fhat_vec);
+    Eigen::Matrix<Scalar, 3, 3> skew_h = EntoMath::skew(hhat_vec);
     Eigen::Matrix<Scalar, 3, 6> A;
     A << skew_f, skew_h;
     // Then, X = -2 * A^T gives a 6×3 matrix.
