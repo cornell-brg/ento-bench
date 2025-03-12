@@ -127,7 +127,7 @@ fp_t a_transpose_a(const Eigen::Matrix<fp_t, WIN_DIM, WIN_DIM> & Ix_win_square,
 }
 
 template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM>
-void calcOpticalFlowPyrLKSimpleIter( const RawImage<IMG_WIDTH, IMG_HEIGHT> & prevImg, 
+void calcOpticalFlowIterLK( const RawImage<IMG_WIDTH, IMG_HEIGHT> & prevImg, 
                                 const RawImage<IMG_WIDTH, IMG_HEIGHT> & nextImg,
                                const PointFP* prevPts, PointFP* nextPts,
                                bool* status, int num_good_points, int MAX_COUNT,

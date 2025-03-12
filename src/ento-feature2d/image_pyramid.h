@@ -5,21 +5,10 @@
 #include <assert.h>
 #include <stdio.h>
 
-template <size_t IMG_WIDTH, size_t IMG_HEIGHT>
 class ImagePyramid {
 public:
   // Constructor that takes a const reference to the base RawImage
-  ImagePyramid( RawImage* topLevelImage, int NUM_LEVELS) {
-    num_levels_ = NUM_LEVELS;
-  
-    pyramid_ = new RawImage*[NUM_LEVELS+1];
-
-    pyramid_[0] = topLevelImage;
-
-    for (int i = 1; i <= NUM_LEVELS; i++) {
-        pyramid_[i] = new_image(IMG_HEIGHT / (1 << i), IMG_WIDTH / (1 << i));
-    }
-  }
+  ImagePyramid( RawImage* topLevelImage, int IMG_HEIGHT, int IMG_WIDTH, int NUM_LEVELS);
   ~ImagePyramid();
   // Getter for the lower levels
   const RawImage& get_level(int level) const;
@@ -37,6 +26,18 @@ private:
   //                                       4, 16, 24, 16, 4,
   //                                       1, 4, 6, 4, 1}; // divide by 256 after summing
 };
+
+ImagePyramid::ImagePyramid( RawImage* topLevelImage, int IMG_HEIGHT, int IMG_WIDTH, int NUM_LEVELS) {
+  num_levels_ = NUM_LEVELS;
+  
+  pyramid_ = new RawImage*[NUM_LEVELS+1];
+
+  pyramid_[0] = topLevelImage;
+
+  for (int i = 1; i <= NUM_LEVELS; i++) {
+    pyramid_[i] = new_image(IMG_HEIGHT / (1 << i), IMG_WIDTH / (1 << i));
+  }
+}
 
 const RawImage& ImagePyramid::get_level(int level) const {
   assert(level >= 0 & level <= num_levels_);

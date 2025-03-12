@@ -3,7 +3,7 @@
 
 #include <ento-util/debug.h>
 #include <ento-feature2d/raw_image.h>
-#include <ento-feature2d/image_pyramid.h>
+#include <ento-feature2d/image_pyramid_template.h>
 
 // #include <ento-feature2d/lk_optical_flow.h>
 #include <ento-util/unittest.h>
@@ -74,29 +74,29 @@ void write_png_image(const char* imagepath, RawImage<WIDTH, HEIGHT>& image) {
     png_destroy_write_struct(&png, &info);
     fclose(fp);
 
-    // cout << "PNG saved successfully: " << imagepath << endl;
+    cout << "PNG saved successfully: " << imagepath << endl;
 }
 
 // Tests
-void test_image()
-{
-    // initialize topImg 
-    string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-    const char* prev_image_path = top_str.c_str();
-    RawImage<320, 320> topImg;
-    read_png_image<320, 320>(prev_image_path, topImg);
+// void test_pyramid_zero_level()
+// {
+//     // initialize topImg 
+//     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+//     const char* prev_image_path = top_str.c_str();
+//     RawImage<320, 320> topImg;
+//     read_png_image<320, 320>(prev_image_path, topImg);
 
-    string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
-    const char* dst_image_path = dst_str.c_str();
-    write_png_image<320, 320>(dst_image_path, topImg);
+//     string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
+//     const char* dst_image_path = dst_str.c_str();
+//     write_png_image<320, 320>(dst_image_path, topImg);
 
-    // int NUM_LEVELS = 0;
-    // ImagePyramid* pyramid = new ImagePyramid(topImg, 320, 320, NUM_LEVELS);
-    // pyramid->create_pyramids();
+//     // int NUM_LEVELS = 0;
+//     // ImagePyramid* pyramid = new ImagePyramid(topImg, 320, 320, NUM_LEVELS);
+//     // pyramid->create_pyramids();
 
-    // ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg.data, 320*320);
+//     // ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg.data, 320*320);
 
-}
+// }
 
 // void test_pyramid()
 // {
@@ -134,30 +134,139 @@ void test_image()
 //     ImagePyramid* pyramid = new ImagePyramid(topImg, 320, 320, NUM_LEVELS);
 //     pyramid->create_pyramids();
 
-//     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg.data, 320*320);
+//     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg->data, 320*320);
 //     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(1).data, oneImg->data, 160*160);
 //     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(2).data, twoImg->data, 80*80);
 
 //     delete pyramid;
 // }
+template <size_t IMG_WIDTH, size_t IMG_HEIGHT>
+void check_pyramid(RawImage<IMG_WIDTH, IMG_HEIGHT>& img, size_t Is) {
+  // initialize oneImg 
+  string str = "/Users/acui21/Documents/brg/code/gem5_pyr_prev_" + to_string(Is) + ".png";
+  const char* image_path = str.c_str();
+  RawImage<IMG_WIDTH, IMG_HEIGHT> golden_img;
+  read_png_image<IMG_WIDTH, IMG_HEIGHT>(image_path, golden_img);
 
-void test() {
+  ENTO_TEST_CHECK_ARRAY_INT_EQ(img.data, golden_img.data,  IMG_WIDTH * IMG_HEIGHT);
+}
+
+template <typename Tuple, size_t TOP_WIDTH, size_t TOP_HEIGHT, std::size_t... Is>
+void test_pyramid_helper(Tuple& pyramid, std::index_sequence<Is...>)
+{
+    // Use a fold expression to print each level’s type in one go.
+    ((check_pyramid<(TOP_WIDTH >> Is), (TOP_HEIGHT >> Is)>(get<Is>(pyramid), Is)),
+     ...);
+
+}
+
+// void test() {
+//     // initialize topImg 
+//     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+//     const char* prev_image_path = top_str.c_str();
+//     constexpr size_t DIM = (size_t) 320;
+//     RawImage<DIM, DIM> topImg;
+//     read_png_image<DIM, DIM>(prev_image_path, topImg);
+//     ImagePyramid<(size_t) 1, DIM, DIM> pyramid(topImg);
+
+//     // Using the templated getter:
+//     const void* level0 = pyramid.get_level(0);  // RawImage<640,480>
+//     const RawImage<DIM,DIM>* level1Image = static_cast<const RawImage<DIM,DIM>*>(level0);
+//     string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
+//     const char* dst_image_path = dst_str.c_str();
+//     write_png_image<DIM, DIM>(dst_image_path, level1Image);
+
+// }
+
+// A helper function that iterates over the levels at compile time and prints each type.
+template <typename Tuple, std::size_t... Is>
+void printPyramidLevelTypes(Tuple& pyramid, std::index_sequence<Is...>)
+{
+    // Use a fold expression to print each level’s type in one go.
+    ((std::cout << "Level " << Is << " type: "
+                << typeid(std::tuple_element_t<Is, Tuple>).name() << "\n"),
+     ...);
+
+    ((void)write_png_image<(320 >> Is), (320 >> Is)>(
+      ("pyramid_" + to_string(Is) + ".png").c_str(), 
+      get<Is>(pyramid)),
+      ...);
+
+}
+
+void basic() {
     // initialize topImg 
     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
     const char* prev_image_path = top_str.c_str();
     constexpr size_t DIM = (size_t) 320;
     RawImage<DIM, DIM> topImg;
     read_png_image<DIM, DIM>(prev_image_path, topImg);
-    ImagePyramid<(size_t) 1, DIM, DIM> pyramid(topImg);
 
-    // Using the templated getter:
-    const void* level0 = pyramid.get_level(0);  // RawImage<640,480>
-    const RawImage<DIM,DIM>* level1Image = static_cast<const RawImage<DIM,DIM>*>(level0);
-    string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
-    const char* dst_image_path = dst_str.c_str();
-    write_png_image<DIM, DIM>(dst_image_path, level1Image);
 
+  ImagePyramid<2, 320, 320> pyramid(topImg);
+  using MyTupleType = decltype(pyramid.pyramid);
+  // Print the types of each level in the pyramid:
+  pyramid.initialize_pyramid();
+  printPyramidLevelTypes<MyTupleType>(
+      pyramid.pyramid,
+      std::make_index_sequence<3>{}
+  );
 }
+
+void test_pyramid_zero_level() {
+  // initialize topImg 
+  string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+  const char* prev_image_path = top_str.c_str();
+  constexpr size_t DIM = (size_t) 320;
+  RawImage<DIM, DIM> topImg;
+  read_png_image<DIM, DIM>(prev_image_path, topImg);
+
+  constexpr size_t NUM_LEVELS = 0;
+  ImagePyramid<NUM_LEVELS, 320, 320> pyramid(topImg);
+  using MyTupleType = decltype(pyramid.pyramid);
+  // Print the types of each level in the pyramid:
+  pyramid.initialize_pyramid();
+  test_pyramid_helper<MyTupleType, DIM, DIM>(
+      pyramid.pyramid,
+      std::make_index_sequence<NUM_LEVELS+1>{}
+  );
+}
+
+void test_pyramid_one_level() {
+  // initialize topImg 
+  string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+  const char* prev_image_path = top_str.c_str();
+  constexpr size_t DIM = (size_t) 320;
+  RawImage<DIM, DIM> topImg;
+  read_png_image<DIM, DIM>(prev_image_path, topImg);
+
+  constexpr size_t NUM_LEVELS = 1;
+  ImagePyramid<NUM_LEVELS, 320, 320> pyramid(topImg);
+  using MyTupleType = decltype(pyramid.pyramid);
+  pyramid.initialize_pyramid();
+  test_pyramid_helper<MyTupleType, DIM, DIM>(
+      pyramid.pyramid,
+      std::make_index_sequence<NUM_LEVELS+1>{}
+  );
+}
+
+void test_pyramid_three_level() {
+  string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+  const char* prev_image_path = top_str.c_str();
+  constexpr size_t DIM = (size_t) 320;
+  RawImage<DIM, DIM> topImg;
+  read_png_image<DIM, DIM>(prev_image_path, topImg);
+
+
+  ImagePyramid<2, 320, 320> pyramid(topImg);
+  pyramid.initialize_pyramid();
+  using MyTupleType = decltype(pyramid.pyramid);
+  test_pyramid_helper<MyTupleType, DIM, DIM>(
+      pyramid.pyramid,
+      std::make_index_sequence<3>{}
+  );
+}
+
 
 int main ( int argc, char ** argv)
 {
@@ -175,8 +284,8 @@ int main ( int argc, char ** argv)
     __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
   }
 
-//   if (__ento_test_num(__n, 1)) test_image();
-  if (__ento_test_num(__n, 1)) test();
-//   if (__ento_test_num(__n, 2)) test_pyramid();
+  if (__ento_test_num(__n, 1)) test_pyramid_zero_level();
+  if (__ento_test_num(__n, 2)) test_pyramid_one_level();
+  if (__ento_test_num(__n, 3)) test_pyramid_three_level();
 
 }

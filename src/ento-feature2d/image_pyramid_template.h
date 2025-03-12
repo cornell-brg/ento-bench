@@ -5,91 +5,161 @@
 #include <assert.h>
 #include <stdio.h>
 
-// Helper function to generate a tuple of RawImages for levels 0..NUM_LEVELS-1
+
+
+// // 1) A small helper that returns a different type depending on the index:
+// template <size_t LEVEL_WIDTH, size_t LEVEL_HEIGHT, size_t Level>
+// constexpr auto make_level(const RawImage<LEVEL_WIDTH, LEVEL_HEIGHT>& topLevelImage)
+// {
+//     if constexpr (Level == 0) {
+//         // Return the top-level image itself (by value).
+//         return topLevelImage;
+//     } else {
+//         // Return a downscaled version (default-constructed).
+//         return RawImage<(LEVEL_WIDTH >> Level), (LEVEL_HEIGHT >> Level)>();
+//     }
+// }
+
+// // 2) Use that helper in the pack expansion:
+// template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t... Is>
+// constexpr auto make_pyramid_tuple_from_input(
+//     const RawImage<IMG_WIDTH, IMG_HEIGHT>& topLevelImage,
+//     std::index_sequence<Is...>)
+// {
+//     return std::make_tuple(
+//         make_level<IMG_WIDTH, IMG_HEIGHT, Is>(topLevelImage)...  // expanded call
+//     );
+// }
+
+// Now the function is templated only on IMG_WIDTH, IMG_HEIGHT.
+// The indices come from a function parameter of type std::index_sequence<Is...>.
+// do we need this in the template? and why size_t... Is
+// TODO: look more into the ellipses stuff
+
+// Create a tuple of images, with dimension halfed with increasing level
 template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t... Is>
-constexpr auto make_pyramid_tuple(std::index_sequence<Is...>) {
-    // For each index Is, create a RawImage with dimensions scaled by (1 << Is)
-    return std::make_tuple(RawImage<IMG_WIDTH / (1 << Is), IMG_HEIGHT / (1 << Is)>()...);
+constexpr auto make_pyramid_tuple(std::index_sequence<Is...>)
+{
+    return std::make_tuple(
+        (RawImage<(IMG_WIDTH >> Is), (IMG_HEIGHT >> Is)>())...
+    );
 }
 
-// Helper function that takes a tuple and returns an array of pointers to each element.
-template<typename Tuple, size_t... Is>
-auto make_images_ptr_array(const Tuple& tup, std::index_sequence<Is...>) {
-    // We use const void* as the common pointer type since the tuple elements are different types.
-    return std::array<const void*, sizeof...(Is)>{ (static_cast<const void*>(&std::get<Is>(tup)))... };
-}
-
-template<size_t NUM_LEVELS, size_t IMG_HEIGHT, size_t IMG_WIDTH>
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT>
 class ImagePyramid {
 public:
-  // Constructor that takes a const reference to the base RawImage
-  explicit ImagePyramid(const RawImage<IMG_WIDTH, IMG_HEIGHT>& topImage)
-        : images_(make_pyramid_tuple<IMG_WIDTH, IMG_HEIGHT>(std::make_index_sequence<NUM_LEVELS + 1>{}))
-  {
-      // Set the 0th image to the input top-level image.
-      std::get<0>(images_) = topImage;
-      // create array of pointers to each image in the tuple
-      images_ptr_ = make_images_ptr_array(images_, std::make_index_sequence<NUM_LEVELS + 1>{});
-  }
+    // Define the tuple type that holds RawImage objects for levels 0..NUM_LEVELS-1.
+    using PyramidTupleType = decltype(
+        make_pyramid_tuple<IMG_WIDTH, IMG_HEIGHT>(std::make_index_sequence<NUM_LEVELS+1>{})
+        );
 
-  // Getter: Access level i (0 <= i <= NUM_LEVELS)
-  const void* get_level(uint16_t level) const {
-    assert(level <= NUM_LEVELS);
-    return images_ptr_[level]; // where images_ptr_ is a homogeneous array of pointers
-  }
+    // The tuple storing the pyramid images.
+    PyramidTupleType pyramid;
 
-  // Create pyramids all at once
-  // void create_pyramids();
+    // Constructor that sets the 0th level to 'topLevelImage' and
+    // default-constructs (or otherwise creates) the other levels.
+    constexpr ImagePyramid(const RawImage<IMG_WIDTH, IMG_HEIGHT>& topLevelImage)
+        : pyramid(make_pyramid_tuple_from_input(
+            topLevelImage,
+            std::make_index_sequence<NUM_LEVELS+1>{}))
+    {
+    }
+
+    // Downscales images from level 1 to level NUM_LEVELS.
+    constexpr void initialize_pyramid()
+    {
+        // If the pyramid has more than one level, initialize from 0..NUM_LEVELS
+        if constexpr (NUM_LEVELS > 0) {
+            call_create_pyramids_n_times(std::make_index_sequence<NUM_LEVELS>{});
+        }
+    }
 
 private:
-  // Declare images_ using decltype to match the tuple returned by make_pyramid_tuple.
-  decltype(make_pyramid_tuple<IMG_WIDTH, IMG_HEIGHT>(std::make_index_sequence<NUM_LEVELS + 1>{})) images_;
+    const int left_shift_kernel_[9] = {0, 1, 0, 1, 2, 1, 0, 1, 0};
 
-  // Array of pointers to each image in the tuple.
-  std::array<const void*, NUM_LEVELS + 1> images_ptr_;
+    // Helper that returns the image type for a level
+    template <size_t LEVEL_WIDTH, size_t LEVEL_HEIGHT, size_t Level>
+    constexpr auto make_level(const RawImage<LEVEL_WIDTH, LEVEL_HEIGHT>& topLevelImage)
+    {
+        if constexpr (Level == 0) {
+            // Return the top-level image itself (by value).
+            return topLevelImage;
+        } else {
+            // Return a downscaled version (default-constructed).
+            return RawImage<(LEVEL_WIDTH >> Level), (LEVEL_HEIGHT >> Level)>();
+        }
+    }
 
+    // Create a tuple of images, with dimension halfed with increasing level
+    // Set level 0 to the top level image
+    template <size_t... Is>
+    constexpr auto make_pyramid_tuple_from_input(
+        const RawImage<IMG_WIDTH, IMG_HEIGHT>& topLevelImage,
+        std::index_sequence<Is...>)
+    {
+        return std::make_tuple(
+            make_level<IMG_WIDTH, IMG_HEIGHT, Is>(topLevelImage)...  // expanded call
+        );
+    }
 
-  const int left_shift_kernel_[9] = {0, 1, 0, 1, 2, 1, 0, 1, 0};
-  // const float multiply_kernel_[25] = {1, 4, 6, 4, 1,
-  //                                       4, 16, 24, 16, 4,
-  //                                       6, 24, 36, 24, 6,
-  //                                       4, 16, 24, 16, 4,
-  //                                       1, 4, 6, 4, 1}; // divide by 256 after summing
+    template<size_t PREV_IMG_WIDTH, size_t PREV_IMG_HEIGHT>
+    void create_pyramids(const RawImage<PREV_IMG_WIDTH, PREV_IMG_HEIGHT>& prev_img,
+                        RawImage<PREV_IMG_WIDTH / 2, PREV_IMG_HEIGHT / 2>& img) {
+        size_t width = PREV_IMG_WIDTH / 2;
+        size_t height = PREV_IMG_HEIGHT / 2;
+        for (size_t y = 0; y < height; y++) {
+            for (size_t x = 0; x < width; x++) {
+            int sum = 0;
+            // Function to downsample an image using lowpass filter from
+            // http://robots.stanford.edu/cs223b04/algo_tracking.pdf
+            for (size_t j = 0; j < 3; j++) {
+                for (size_t k = 0; k < 3; k++) {
+                size_t y_index = 2*y+j-1;
+                if (PREV_IMG_WIDTH== 320 && PREV_IMG_HEIGHT == 320 && 
+                    x == 0 && y == 0) {
+                        std::cout << (size_t) y_index << std::endl;
+                    }
+                // check for overflow
+                if (y_index > PREV_IMG_HEIGHT+3) y_index = 0;
+                else if (y_index >= PREV_IMG_HEIGHT) y_index = PREV_IMG_HEIGHT-1;
+
+                size_t x_index = 2*x+k-1;
+                if (x_index > PREV_IMG_WIDTH+3) x_index = 0;
+                else if (x_index >= PREV_IMG_WIDTH) x_index = PREV_IMG_WIDTH-1;
+
+                if (PREV_IMG_WIDTH== 320 && PREV_IMG_HEIGHT == 320 && 
+                    x == 0 && y == 0) {
+                    std::cout << 
+                    (int) x_index << " " <<
+                    (int) y_index << " " <<
+                    (int)prev_img.data[y_index*PREV_IMG_HEIGHT+x_index] << " " << 
+                    left_shift_kernel_[j*3+k] << " " <<
+                    (((int) prev_img.data[y_index*PREV_IMG_HEIGHT+x_index]) << left_shift_kernel_[j*3+k])
+                    << std::endl;
+                }
+                
+                sum += ((int) prev_img.data[y_index*PREV_IMG_HEIGHT+x_index]) << left_shift_kernel_[j*3+k];
+                // sum += ((float) prev_img->data[y_index*PREV_IMG_HEIGHT+x_index]) * left_shift_kernel_[j*5+k];
+                }
+            }
+            img.data[y*height+x] = (uint8_t) (sum >> 4);
+
+            if (PREV_IMG_WIDTH== 320 && PREV_IMG_HEIGHT == 320 && 
+                x == 0 && y == 0) {
+                std::cout << (int) img.data[y*height+x]<< std::endl;
+            }
+            // img->data[y*height+x] = (uint8_t) (sum / 256);
+            }
+        }
+    }
+
+    // Helper to initialize images at each level of pyramid
+    template <std::size_t... Is>
+    void call_create_pyramids_n_times(std::index_sequence<Is...>)
+    {
+        ( (void)create_pyramids<(IMG_WIDTH >> Is), (IMG_HEIGHT >> Is)>(std::get<Is>(pyramid), std::get<Is+1>(pyramid)), ... );
+    }
+
 };
-
-// void ImagePyramid::create_pyramids() {
-//   for (int i = 1; i <= num_levels_; i ++ ) {
-//     auto prev_img = static_cast<const RawImage<IMG_WIDTH / (2 << i), IMG_HEIGHT  / (2 << i)>*>(images_ptr_[0]);
-//     auto curr_img = static_cast<RawImage<IMG_WIDTH/2, IMG_HEIGHT/2>*>(images_ptr_[1]);
-//     int height = pyramid_[i]->height;
-//     int width = pyramid_[i]->width;
-
-//     int prev_img_height = pyramid_[i-1]->height;
-//     int prev_img_width = pyramid_[i-1]->width;
-//     for (int y = 0; y < height; y++) {
-//       for (int x = 0; x < width; x++) {
-//         int sum = 0;
-//         // Function to downsample an image using lowpass filter from
-//         // http://robots.stanford.edu/cs223b04/algo_tracking.pdf
-//         for (int j = 0; j < 3; j++) {
-//           for (int k = 0; k < 3; k++) {
-//             int y_index = 2*y+j-1;
-//             if (y_index < 0) y_index = 0;
-//             else if (y_index >= prev_img_height) y_index = prev_img_height-1;
-
-//             int x_index = 2*x+k-1;
-//             if (x_index < 0) x_index = 0;
-//             else if (x_index >= prev_img_width) x_index = prev_img_width-1;
-
-//             sum += ((int) pyramid_[i-1]->data[y_index*prev_img_height+x_index]) << left_shift_kernel_[j*3+k];
-//             // sum += ((float) pyramid_[i-1]->data[y_index*prev_img_height+x_index]) * left_shift_kernel_[j*5+k];
-//           }
-//         }
-//         pyramid_[i]->data[y*height+x] = (uint8_t) (sum >> 4);
-//         // pyramid_[i]->data[y*height+x] = (uint8_t) (sum / 256);
-//       }
-//     }
-//   }
-// }
 
 #endif // IMAGE_PYRAMID_H

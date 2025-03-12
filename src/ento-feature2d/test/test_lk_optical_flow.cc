@@ -4,7 +4,7 @@
 #include <ento-util/debug.h>
 #include <ento-feature2d/fixed_point.h>
 #include <ento-feature2d/raw_image.h>
-#include <ento-feature2d/image_pyramid.h>
+#include <ento-feature2d/image_pyramid_template.h>
 
 #include <ento-feature2d/lk_optical_flow.h>
 #include <ento-util/unittest.h>
@@ -68,7 +68,7 @@ void printEigenMatrix_2(const Eigen::Matrix<fp_t, 2, 2>& matrix) {
 //     // initialize point arrays
 //     PointFP *prevPts = new PointFP[2];
 //     PointFP *nextPts = new PointFP[2];
-//     bool *status_simple = new bool[2];
+//     bool *status = new bool[2];
 
 //     // initialize point info
 //     // first point is valid feature
@@ -95,13 +95,71 @@ void printEigenMatrix_2(const Eigen::Matrix<fp_t, 2, 2>& matrix) {
 //     int DET_EPSILON = (int)(1<<20);
 //     float CRITERIA = 0.01;
 
-//     calcOpticalFlowPyrLKPyr(prevPyramid, nextPyramid, prevPts, nextPts, status_simple, 2, 2, WIN_DIM, MAX_COUNT, DET_EPSILON, CRITERIA);
+//     calcOpticalFlowPyrLK(prevPyramid, nextPyramid, prevPts, nextPts, status, 2, 2, WIN_DIM, MAX_COUNT, DET_EPSILON, CRITERIA);
 //     ENTO_TEST_CHECK_FLOAT_EQ(get<0>(nextPts[0]).to_float(), 197.154f);
 //     ENTO_TEST_CHECK_FLOAT_EQ(get<1>(nextPts[0]).to_float(), 106.468f);
 //     ENTO_TEST_CHECK_FLOAT_EQ(get<0>(nextPts[1]).to_float(), 50.0f);
 //     ENTO_TEST_CHECK_FLOAT_EQ(get<1>(nextPts[1]).to_float(), 50.0f);
 // }
 
+
+void test_lk_optical_flow_pyramidal() {
+
+    constexpr size_t WIN_DIM = 3;
+    // initialize prevImg 
+    string prev_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
+    const char* prev_image_path = prev_str.c_str();
+    constexpr size_t DIM = (size_t) 320;
+    RawImage<DIM, DIM> prevImg;
+    read_png_image<DIM, DIM>(prev_image_path, prevImg);
+
+    constexpr size_t NUM_LEVELS = 1;
+    ImagePyramid<NUM_LEVELS, 320, 320> prevPyramid(prevImg);
+    // Print the types of each level in the pyramid:
+    prevPyramid.initialize_pyramid();
+
+    // initialize prevImg 
+    string next_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_3.png";
+    const char* next_image_path = next_str.c_str();
+    RawImage<DIM, DIM> nextImg;
+    read_png_image<DIM, DIM>(next_image_path, nextImg);
+
+    ImagePyramid<NUM_LEVELS, 320, 320> nextPyramid(nextImg);
+    // Print the types of each level in the pyramid:
+    nextPyramid.initialize_pyramid();
+
+    // initialize point arrays
+    PointFP *prevPts = new PointFP[2];
+    PointFP *nextPts = new PointFP[2];
+    bool *status = new bool[2];
+
+    // initialize point info
+    // first point is valid feature
+    // second point is invalid feature
+    fp_t x_1(197.0f);
+    fp_t y_1(106.0f);
+    fp_t x_2(50.0f);
+    fp_t y_2(50.0f);
+    prevPts[0] = PointFP(x_1, y_1);
+    nextPts[0] = PointFP(x_1, y_1);
+    prevPts[1] = PointFP(x_2, y_2);
+    nextPts[1] = PointFP(x_2, y_2);
+
+    // Initialize args
+    int MAX_COUNT = 1;
+    int DET_EPSILON = (int)(1<<20);
+    float CRITERIA = 0.01;
+    int num_good_points = 2;
+
+    calcOpticalFlowPyrLK<NUM_LEVELS, DIM, DIM, WIN_DIM>(prevPyramid, nextPyramid, 
+                                                            prevPts, nextPts, status, 
+                                                            num_good_points, MAX_COUNT, DET_EPSILON, CRITERIA);
+    ENTO_TEST_CHECK_FLOAT_EQ(get<0>(nextPts[0]).to_float(), 197.154f);
+    ENTO_TEST_CHECK_FLOAT_EQ(get<1>(nextPts[0]).to_float(), 106.468f);
+    ENTO_TEST_CHECK_FLOAT_EQ(get<0>(nextPts[1]).to_float(), 50.0f);
+    ENTO_TEST_CHECK_FLOAT_EQ(get<1>(nextPts[1]).to_float(), 50.0f);
+
+}
 int main ( int argc, char ** argv)
 {
   using namespace EntoUtil;
@@ -118,5 +176,6 @@ int main ( int argc, char ** argv)
     __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
   }
 
-  if (__ento_test_num(__n, 8)) test_lk_optical_flow_pyramidal();
+  if (__ento_test_num(__n, 1)) test_lk_optical_flow_pyramidal();
+
 }

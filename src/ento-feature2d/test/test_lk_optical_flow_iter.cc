@@ -183,7 +183,7 @@ void test_lk_optical_flow_simple() {
     int DET_EPSILON = (int)(1<<20);
     float CRITERIA = 0.01;
 
-    calcOpticalFlowPyrLKSimpleIter<DIM, DIM, WIN_DIM>(prevImg, nextImg, 
+    calcOpticalFlowIterLK<DIM, DIM, WIN_DIM>(prevImg, nextImg, 
                             prevPts, nextPts, status_simple, 2, 
                             MAX_COUNT, 
                             DET_EPSILON, CRITERIA);
@@ -238,7 +238,7 @@ void test_lk_optical_flow_iter() {
     int DET_EPSILON = (int)(1<<20);
     float CRITERIA = 0.01;
 
-    calcOpticalFlowPyrLKSimpleIter<DIM, DIM, WIN_DIM>(prevImg, nextImg, 
+    calcOpticalFlowIterLK<DIM, DIM, WIN_DIM>(prevImg, nextImg, 
                             prevPts, nextPts, status_simple, 2, 
                             MAX_COUNT, 
                             DET_EPSILON, CRITERIA);
@@ -270,10 +270,10 @@ int main ( int argc, char ** argv)
     __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
   }
 
-  if (__ento_test_num(__n, 2)) test_calc_gradient_basic();
-  if (__ento_test_num(__n, 3)) test_interpolate_basic();
-  if (__ento_test_num(__n, 4)) test_a_transpose_a();
-  if (__ento_test_num(__n, 5)) test_transpose_a_nonsingular();
-  if (__ento_test_num(__n, 6)) test_lk_optical_flow_simple();
-  if (__ento_test_num(__n, 7)) test_lk_optical_flow_iter();
+  if (__ento_test_num(__n, 1)) test_calc_gradient_basic();
+  if (__ento_test_num(__n, 2)) test_interpolate_basic();
+  if (__ento_test_num(__n, 3)) test_a_transpose_a();
+  if (__ento_test_num(__n, 4)) test_transpose_a_nonsingular();
+  if (__ento_test_num(__n, 5)) test_lk_optical_flow_simple();
+  if (__ento_test_num(__n, 6)) test_lk_optical_flow_iter();
 }
