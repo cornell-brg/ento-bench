@@ -42,22 +42,13 @@ set(LIBRARIES_test_sparse_optical_flow_problem
   m ento-perception ento_util Eigen image_io)
 
 set(LIBRARIES_test_lk_optical_flow
-  m ento_util png image_io Eigen)
+  m ento_util image_io Eigen)
 
 set(LIBRARIES_test_lk_optical_flow_iter
-  m ento_util png image_io Eigen)
+  m ento_util image_io Eigen)
 
 set(LIBRARIES_test_image_pyramid
-  m ento_util png image_io Eigen)
-
-set(LIBRARIES_test_lk_optical_flow
-  m ento_util png image_io Eigen)
-
-set(LIBRARIES_test_lk_optical_flow_iter
-  m ento_util png image_io Eigen)
-
-set(LIBRARIES_test_image_pyramid
-  m ento_util png image_io Eigen)
+  m ento_util image_io Eigen)
 
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Building ento-feature2d")
