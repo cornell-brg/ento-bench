@@ -17,36 +17,37 @@ using namespace std;
 // Algorithm parameters
 // TODO: constexpr
 
-template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, size_t LEVEL>
+template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, size_t LEVEL>
 void calcOpticalFlowPyrLKSingleIter(const RawImage<IMG_WIDTH, IMG_HEIGHT>& prevImg, 
                                 const RawImage<IMG_WIDTH, IMG_HEIGHT>& nextImg, 
-                                PointFP* prevPyrPoints, PointFP* nextPts,
+                                Keypoint<CoordT>* prevPyrPoints, Keypoint<CoordT>* nextPts,
                                bool* status, int num_good_points, 
                                int MAX_COUNT,
                                int DET_EPSILON, float CRITERIA) {
 
-    calcOpticalFlowIterLK<IMG_WIDTH, IMG_HEIGHT, WIN_DIM>(prevImg, 
+    calcOpticalFlowIterLK<IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT>(prevImg, 
                                         nextImg, 
                                         prevPyrPoints, 
                                         nextPts, status, num_good_points, MAX_COUNT,
                                         DET_EPSILON, CRITERIA );
+    CoordT two(2);
     if (LEVEL != 0) {
         for (int j = 0; j < num_good_points; j ++) {
-        prevPyrPoints[j] = PointFP(get<0>(prevPyrPoints[j]) * fp_2, get<1>(prevPyrPoints[j]) * fp_2);
-        nextPts[j] = PointFP(get<0>(nextPts[j]) * fp_2, get<1>(nextPts[j]) * fp_2);
+        prevPyrPoints[j] = Keypoint<CoordT>(prevPyrPoints[j].x * two, prevPyrPoints[j].y * two);
+        nextPts[j] = Keypoint<CoordT>(nextPts[j].x * two, nextPts[j].y * two);
         }
     }
 }
 
-template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, size_t... Is>
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, size_t... Is>
 void calcOpticalFlowPyrLKHelper(const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT>& prevPyramid, 
                                 const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT>& nextPyramid,
-                                PointFP* prevPyrPoints, PointFP* nextPts,
+                                Keypoint<CoordT>* prevPyrPoints, Keypoint<CoordT>* nextPts,
                                bool* status, int num_good_points, 
                                int MAX_COUNT,
                                int DET_EPSILON, float CRITERIA,
                                std::index_sequence<Is...>) {
-    (calcOpticalFlowPyrLKSingleIter<(IMG_WIDTH >> (NUM_LEVELS-Is)), (IMG_HEIGHT >> (NUM_LEVELS-Is)), WIN_DIM, Is>(
+    (calcOpticalFlowPyrLKSingleIter<(IMG_WIDTH >> (NUM_LEVELS-Is)), (IMG_HEIGHT >> (NUM_LEVELS-Is)), WIN_DIM, CoordT, Is>(
                                         std::get<(NUM_LEVELS-Is)>(prevPyramid.pyramid), 
                                         std::get<(NUM_LEVELS-Is)>(nextPyramid.pyramid), 
                                         prevPyrPoints, 
@@ -55,25 +56,25 @@ void calcOpticalFlowPyrLKHelper(const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HE
                                         );
 }
 
-template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM>
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT>
 void calcOpticalFlowPyrLK(const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT>& prevPyramid, 
                                 const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT>& nextPyramid,
-                                PointFP* prevPts, PointFP* nextPts,
+                                Keypoint<CoordT>* prevPts, Keypoint<CoordT>* nextPts,
                                bool* status, int num_good_points, 
                                int MAX_COUNT,
                                int DET_EPSILON, float CRITERIA)
 {
 
-    fp_t divFactor(1 << NUM_LEVELS);
+    CoordT divFactor(1 << NUM_LEVELS);
 
     // Initialize highest layer points
-    PointFP prevPyrPoints[num_good_points];
+    Keypoint<CoordT> prevPyrPoints[num_good_points];
     for (int i = 0; i < num_good_points; i++) {
-        prevPyrPoints[i] = PointFP(get<0>(prevPts[i]) / divFactor, get<1>(prevPts[i]) / divFactor);
-        nextPts[i] = PointFP(get<0>(prevPts[i]) / divFactor, get<1>(prevPts[i]) / divFactor);
+        prevPyrPoints[i] = Keypoint<CoordT>(prevPts[i].x / divFactor, prevPts[i].y / divFactor);
+        nextPts[i]       = Keypoint<CoordT>(prevPts[i].x / divFactor, prevPts[i].y / divFactor);
     }
 
-    calcOpticalFlowPyrLKHelper<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM>(prevPyramid, 
+    calcOpticalFlowPyrLKHelper<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT>(prevPyramid, 
                                 nextPyramid,
                                 prevPyrPoints, nextPts,
                                 status, num_good_points, 

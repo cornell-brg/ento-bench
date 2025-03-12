@@ -77,69 +77,6 @@ void write_png_image(const char* imagepath, RawImage<WIDTH, HEIGHT>& image) {
     cout << "PNG saved successfully: " << imagepath << endl;
 }
 
-// Tests
-// void test_pyramid_zero_level()
-// {
-//     // initialize topImg 
-//     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-//     const char* prev_image_path = top_str.c_str();
-//     RawImage<320, 320> topImg;
-//     read_png_image<320, 320>(prev_image_path, topImg);
-
-//     string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
-//     const char* dst_image_path = dst_str.c_str();
-//     write_png_image<320, 320>(dst_image_path, topImg);
-
-//     // int NUM_LEVELS = 0;
-//     // ImagePyramid* pyramid = new ImagePyramid(topImg, 320, 320, NUM_LEVELS);
-//     // pyramid->create_pyramids();
-
-//     // ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg.data, 320*320);
-
-// }
-
-// void test_pyramid()
-// {
-//     // initialize topImg 
-//     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-//     const char* prev_image_path = top_str.c_str();
-//     RawImage* topImg = new_image(320, 320);
-//     if (!topImg) {
-//         cerr << "Failed to allocate RawImage!" << endl;
-//         return;
-//     }
-//     read_png_image(prev_image_path, topImg);
-
-//     // initialize oneImg 
-//     string one_str = "/Users/acui21/Documents/brg/code/gem5_pyr_prev_1.png";
-//     const char* one_image_path = one_str.c_str();
-//     RawImage* oneImg = new_image(160, 160);
-//     if (!oneImg) {
-//         cerr << "Failed to allocate RawImage!" << endl;
-//         return;
-//     }
-//     read_png_image(one_image_path, oneImg);
-
-//     // initialize oneImg 
-//     string two_str = "/Users/acui21/Documents/brg/code/gem5_pyr_prev_2.png";
-//     const char* two_image_path = two_str.c_str();
-//     RawImage* twoImg = new_image(80, 80);
-//     if (!twoImg) {
-//         cerr << "Failed to allocate RawImage!" << endl;
-//         return;
-//     }
-//     read_png_image(two_image_path, twoImg);
-
-//     int NUM_LEVELS = 2;
-//     ImagePyramid* pyramid = new ImagePyramid(topImg, 320, 320, NUM_LEVELS);
-//     pyramid->create_pyramids();
-
-//     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(0).data, topImg->data, 320*320);
-//     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(1).data, oneImg->data, 160*160);
-//     ENTO_TEST_CHECK_ARRAY_INT_EQ(pyramid->get_level(2).data, twoImg->data, 80*80);
-
-//     delete pyramid;
-// }
 template <size_t IMG_WIDTH, size_t IMG_HEIGHT>
 void check_pyramid(RawImage<IMG_WIDTH, IMG_HEIGHT>& img, size_t Is) {
   // initialize oneImg 
@@ -160,24 +97,6 @@ void test_pyramid_helper(Tuple& pyramid, std::index_sequence<Is...>)
 
 }
 
-// void test() {
-//     // initialize topImg 
-//     string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-//     const char* prev_image_path = top_str.c_str();
-//     constexpr size_t DIM = (size_t) 320;
-//     RawImage<DIM, DIM> topImg;
-//     read_png_image<DIM, DIM>(prev_image_path, topImg);
-//     ImagePyramid<(size_t) 1, DIM, DIM> pyramid(topImg);
-
-//     // Using the templated getter:
-//     const void* level0 = pyramid.get_level(0);  // RawImage<640,480>
-//     const RawImage<DIM,DIM>* level1Image = static_cast<const RawImage<DIM,DIM>*>(level0);
-//     string dst_str = "//Users/acui21/Documents/brg/ento-bench/build/native/src/ento-feature2d/bin/image_2.png";
-//     const char* dst_image_path = dst_str.c_str();
-//     write_png_image<DIM, DIM>(dst_image_path, level1Image);
-
-// }
-
 // A helper function that iterates over the levels at compile time and prints each type.
 template <typename Tuple, std::size_t... Is>
 void printPyramidLevelTypes(Tuple& pyramid, std::index_sequence<Is...>)
@@ -192,25 +111,6 @@ void printPyramidLevelTypes(Tuple& pyramid, std::index_sequence<Is...>)
       get<Is>(pyramid)),
       ...);
 
-}
-
-void basic() {
-    // initialize topImg 
-    string top_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-    const char* prev_image_path = top_str.c_str();
-    constexpr size_t DIM = (size_t) 320;
-    RawImage<DIM, DIM> topImg;
-    read_png_image<DIM, DIM>(prev_image_path, topImg);
-
-
-  ImagePyramid<2, 320, 320> pyramid(topImg);
-  using MyTupleType = decltype(pyramid.pyramid);
-  // Print the types of each level in the pyramid:
-  pyramid.initialize_pyramid();
-  printPyramidLevelTypes<MyTupleType>(
-      pyramid.pyramid,
-      std::make_index_sequence<3>{}
-  );
 }
 
 void test_pyramid_zero_level() {

@@ -5,32 +5,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-
-
-// // 1) A small helper that returns a different type depending on the index:
-// template <size_t LEVEL_WIDTH, size_t LEVEL_HEIGHT, size_t Level>
-// constexpr auto make_level(const RawImage<LEVEL_WIDTH, LEVEL_HEIGHT>& topLevelImage)
-// {
-//     if constexpr (Level == 0) {
-//         // Return the top-level image itself (by value).
-//         return topLevelImage;
-//     } else {
-//         // Return a downscaled version (default-constructed).
-//         return RawImage<(LEVEL_WIDTH >> Level), (LEVEL_HEIGHT >> Level)>();
-//     }
-// }
-
-// // 2) Use that helper in the pack expansion:
-// template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t... Is>
-// constexpr auto make_pyramid_tuple_from_input(
-//     const RawImage<IMG_WIDTH, IMG_HEIGHT>& topLevelImage,
-//     std::index_sequence<Is...>)
-// {
-//     return std::make_tuple(
-//         make_level<IMG_WIDTH, IMG_HEIGHT, Is>(topLevelImage)...  // expanded call
-//     );
-// }
-
 // Now the function is templated only on IMG_WIDTH, IMG_HEIGHT.
 // The indices come from a function parameter of type std::index_sequence<Is...>.
 // do we need this in the template? and why size_t... Is
