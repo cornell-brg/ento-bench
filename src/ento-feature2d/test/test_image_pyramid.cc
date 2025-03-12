@@ -6,8 +6,6 @@
 #include <image_io/Image.h>
 #include <ento-util/unittest.h>
 #include <iostream>
-#include <vector>
-#include <png.h>
 
 using namespace std;
 using namespace Eigen;

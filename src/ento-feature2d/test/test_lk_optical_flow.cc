@@ -9,8 +9,6 @@
 #include <ento-feature2d/lk_optical_flow.h>
 #include <ento-util/unittest.h>
 #include <iostream>
-#include <vector>
-#include <png.h>
 
 using namespace std;
 using namespace Eigen;
