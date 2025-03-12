@@ -3,10 +3,9 @@
 
 #include <ento-util/debug.h>
 #include <ento-feature2d/fixed_point.h>
-#include <ento-feature2d/raw_image.h>
-#include <ento-feature2d/image_pyramid_template.h>
+#include <ento-feature2d/image_pyramid.h>
 #include <ento-feature2d/feat2d_util.h>
-
+#include <image_io/Image.h>
 #include <ento-feature2d/lk_optical_flow.h>
 #include <ento-util/unittest.h>
 #include <iostream>
@@ -22,57 +21,28 @@ using namespace EntoFeature2D;
 const int decimal_bits = 20;
 using fp_t = FixedPoint<64-decimal_bits, decimal_bits, int64_t>;
 
-//////////////////
-// DEBUG MESSAGES 
-//////////////////
-void printArray(const short arr[], int size) {
-    for (int i = 0; i < size; ++i) {
-        cout << "Ix_arr[" << i << "] = " << arr[i] << endl;
-    }
-}
-
-void printEigenMatrix(const Eigen::Matrix<fp_t, MAX_WIN_DIM, MAX_WIN_DIM>& matrix) {
-    std::cout << "Matrix contents:" << std::endl;
-    for (int i = 0; i < matrix.rows(); ++i) {
-        for (int j = 0; j < matrix.cols(); ++j) {
-            std::cout << matrix(i, j).to_float() << " ";  // Print each element
-        }
-        std::cout << std::endl;  // New line after each row
-    }
-}
-
-void printEigenMatrix_2(const Eigen::Matrix<fp_t, 2, 2>& matrix) {
-    std::cout << "Matrix contents:" << std::endl;
-    for (int i = 0; i < matrix.rows(); ++i) {
-        for (int j = 0; j < matrix.cols(); ++j) {
-            std::cout << matrix(i, j).to_float() << " ";  // Print each element
-        }
-        std::cout << std::endl;  // New line after each row
-    }
-}
-
 void test_lk_optical_flow_pyramidal() {
 
     constexpr size_t WIN_DIM = 3;
-    // initialize prevImg 
-    string prev_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_2.png";
-    const char* prev_image_path = prev_str.c_str();
+
+    string top_str = "/Users/acui21/Documents/brg/pgm_images/image_2.pgm";
+    const char* prev_image_path = top_str.c_str();
     constexpr size_t DIM = (size_t) 320;
-    RawImage<DIM, DIM> prevImg;
-    read_png_image<DIM, DIM>(prev_image_path, prevImg);
+    Image<DIM, DIM, uint8_t> prevImg;
+    ENTO_TEST_CHECK_INT_EQ(prevImg.image_from_pgm(prev_image_path), 1);
+
+    string next_str = "/Users/acui21/Documents/brg/pgm_images/image_3.pgm";
+    const char* next_image_path = next_str.c_str();
+    Image<DIM, DIM, uint8_t> nextImg;
+    ENTO_TEST_CHECK_INT_EQ(nextImg.image_from_pgm(next_image_path), 1);
 
     constexpr size_t NUM_LEVELS = 1;
-    ImagePyramid<NUM_LEVELS, 320, 320> prevPyramid(prevImg);
+    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> prevPyramid(prevImg);
     // Print the types of each level in the pyramid:
     prevPyramid.initialize_pyramid();
 
-    // initialize prevImg 
-    string next_str = "/Users/acui21/Documents/brg/FigureEight_test4_images/image_3.png";
-    const char* next_image_path = next_str.c_str();
-    RawImage<DIM, DIM> nextImg;
-    read_png_image<DIM, DIM>(next_image_path, nextImg);
 
-    ImagePyramid<NUM_LEVELS, 320, 320> nextPyramid(nextImg);
+    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> nextPyramid(nextImg);
     // Print the types of each level in the pyramid:
     nextPyramid.initialize_pyramid();
 
@@ -99,7 +69,7 @@ void test_lk_optical_flow_pyramidal() {
     float CRITERIA = 0.01;
     int num_good_points = 2;
 
-    calcOpticalFlowPyrLK<NUM_LEVELS, DIM, DIM, WIN_DIM, fp_t>(prevPyramid, nextPyramid, 
+    calcOpticalFlowPyrLK<NUM_LEVELS, DIM, DIM, WIN_DIM, fp_t, uint8_t>(prevPyramid, nextPyramid, 
                                                             prevPts, nextPts, status, 
                                                             num_good_points, MAX_COUNT, DET_EPSILON, CRITERIA);
     ENTO_TEST_CHECK_FLOAT_EQ(nextPts[0].x.to_float(), 197.154f);
