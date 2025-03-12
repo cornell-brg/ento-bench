@@ -5,10 +5,15 @@
 #include <cstddef>
 #include <ento-util/debug.h>
 #include <optional>
+#include <vector>
 
 namespace EntoUtil
 {
 
+// EntoArray is backed by a std::array but exposes functions that 
+// are the same as used in std::vector. It allows for easy interchangeability
+// between the fixed size and dynamic sized containers, where the former are
+// used on an MCU, and latter used when running natively on host computer.
 template <typename T, std::size_t Capacity>
 class EntoArray
 {
@@ -97,6 +102,12 @@ public:
   void clear() {
     size_ = 0;
   }
+
+  T* begin() { return data_.data(); }
+  const T* begin() const { return data_.data(); }
+
+  T* end() { return data_.data() + size_; }
+  const T* end() const { return data_.data() + size_; }
 
 private:
   std::array<T, Capacity> data_;

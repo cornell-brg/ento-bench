@@ -20,7 +20,7 @@ using namespace EntoUtil;
 
 void test_homography_4pt_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef CalibPoseValidator<Scalar> validator;
   constexpr Scalar tol = 1e-4;
@@ -52,8 +52,8 @@ void test_homography_4pt_single()
                                                    &solutions);
   for (size_t i = 0; i < static_cast<size_t>(num_solns); i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
@@ -72,7 +72,7 @@ void test_homography_4pt_single()
 
 void test_homography_4pt_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar>;
   typedef CalibPoseValidator<Scalar> validator;
   constexpr Scalar tol = 1e-4;
@@ -129,7 +129,7 @@ void test_homography_4pt_multi()
 
 void test_homography_4pt_ento_array_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar, 4>;
   typedef CalibPoseValidator<Scalar, 4> validator;
   constexpr Scalar tol = 1e-4;
@@ -159,8 +159,8 @@ void test_homography_4pt_ento_array_single()
   int num_solns = homography_4pt(problem.x_point_, problem.X_point_, &solutions);
   for (size_t i = 0; i < num_solns; i++)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q, 4, 1, Scalar);
-    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t, 3, 1, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].q);
+    ENTO_DEBUG_EIGEN_MATRIX(solutions[i].t);
   }
 
   Scalar pose_error = std::numeric_limits<Scalar>::max();
@@ -179,7 +179,7 @@ void test_homography_4pt_ento_array_single()
 
 void test_homography_4pt_ento_array_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = AbsolutePoseProblemInstance<Scalar, 4>;
   typedef CalibPoseValidator<Scalar, 4> validator;
   constexpr Scalar tol = 1e-4;

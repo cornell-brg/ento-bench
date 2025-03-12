@@ -57,8 +57,8 @@ CMSIS_6/
 # Ignore gem5 outputs
 m5out/
 
-# Ignore eigen
-eigen/
+# Ignore External
+external/*
 
 
 # Do not ignore CMakeLists.txt or datasets/*.txt

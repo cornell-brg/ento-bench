@@ -3,37 +3,34 @@
 
 #include <string>
 #include <array>
+#include <ento-util/debug.h> 
+#include <ento-bench/problem.h>
 
 #ifdef NATIVE
 #include <fstream>
 #else
 #include <cstdio>
-#include <ento-util/debug.h> // For ENTO_DEBUG
 #endif
 
 namespace EntoUtil
 {
 
-template <typename ProblemInstance>
 class DatasetWriter
 {
 public:
   // Constructor for `std::string` (Native builds only)
 #ifdef NATIVE
-  explicit DatasetWriter(const std::string &filename)
+  explicit DatasetWriter(const std::string &filename) : header_written_(false)
   {
     file_.open(filename);
     if (!file_.is_open())
     {
-      fprintf(stderr, "Failed to open file for writing: %s\n", filename.c_str());
+      ENTO_DEBUG("Failed to open file for writing: %s\n", filename.c_str());
       return;
     }
-    write_header();
   }
-#endif
-
+#else
   // Constructor for `char*` (MCU builds only)
-#ifndef NATIVE
   explicit DatasetWriter(const char *filename)
   {
     file_ = fopen(filename, "w");
@@ -42,7 +39,6 @@ public:
       ENTO_DEBUG("Failed to open file on microcontroller: %s", filename);
       return;
     }
-    write_header();
   }
 #endif
 
@@ -62,31 +58,37 @@ public:
   }
 
   // Writes a single problem instance
-  void write_instance(const ProblemInstance &instance)
+  template <EntoBench::ProblemConcept Problem>
+  void write(const Problem &problem_instance)
   {
-#ifdef NATIVE
-    file_ << instance.serialize() << "\n";
-#else
-    if (file_)
-    {
-      fprintf(file_, "%s\n", instance.serialize().c_str());
-    }
-    else
+    if (!file_)
     {
       ENTO_DEBUG("Attempted to write to an unopened file.");
     }
+    if (!header_written_)
+    {
+      write_header<Problem>();
+      header_written_ = true;
+    }
+#ifdef NATIVE
+    file_ << problem_instance.serialize() << "\n";
+#else
+      fprintf(file_, "%s\n", instance.serialize());
 #endif
   }
 
 private:
+  bool header_written_;
+
+  template <EntoBench::ProblemConcept Problem>
   void write_header()
   {
 #ifdef NATIVE
-    file_ << ProblemInstance::header() << "\n";
+    file_ << Problem::header() << "\n";
 #else
     if (file_)
     {
-      fprintf(file_, "%s\n", ProblemInstance::header().c_str());
+      fprintf(file_, "%s\n", ProblemInstance::header());
     }
     else
     {

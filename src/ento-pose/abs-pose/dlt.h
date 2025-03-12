@@ -118,7 +118,7 @@ Eigen::Matrix<Scalar, 3, 4> dlt(const Eigen::Matrix<Scalar, N, 2>& points2d,
   min_v.setZero();
 
   // Compute SVD of A (A * p = 0), storing result in min_v
-  ENTO_DEBUG_EIGEN_MATRIX(A, A.rows(), A.cols(), Scalar);
+  ENTO_DEBUG_EIGEN_MATRIX(A);
   EntoMath::osj_svd<Scalar, 2 * N, 12>(A, V, min_v);
 
   // Reshape min_v into a 3x4 projection matrix P
@@ -128,12 +128,12 @@ Eigen::Matrix<Scalar, 3, 4> dlt(const Eigen::Matrix<Scalar, N, 2>& points2d,
        min_v(8), min_v(9), min_v(10), min_v(11);
 
   //EIGEN_DEBUG_EIGEN_MATRIX(P, 3, 4, float)
-  ENTO_DEBUG_EIGEN_MATRIX(P, P.rows(), P.cols(), Scalar);
+  ENTO_DEBUG_EIGEN_MATRIX(P);
   if (std::abs(P(2, 3)) > EntoMath::ENTO_EPS) {
     P /= -P(2, 3);
   }
   P /= P(2,3);
-  ENTO_DEBUG_EIGEN_MATRIX(P, P.rows(), P.cols(), Scalar);
+  ENTO_DEBUG_EIGEN_MATRIX(P);
 
   return P;
 }

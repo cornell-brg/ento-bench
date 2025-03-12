@@ -48,6 +48,19 @@ using Vec2 = Eigen::Matrix<Scalar, 2, 1, Order>;
 template <typename Scalar, int Order=0>
 using Matrix3x3 = Eigen::Matrix<Scalar, 3, 3, Order>;
 
+template <typename Scalar, int Order=0>
+using Matrix2x2 = Eigen::Matrix<Scalar, 2, 2, Order>;
+
+template <typename Scalar>
+Matrix3x3<Scalar> skew(const Vec3<Scalar>& v)
+{
+  Matrix3x3<Scalar> S;
+  S << Scalar(0),     -v(2),      v(1),
+       v(2)     , Scalar(0),     -v(0),
+       -v(1)    ,      v(0), Scalar(0);
+  return S;
+}
+
 
 } // namespace EntoMath
 

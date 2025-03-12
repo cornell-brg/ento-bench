@@ -11,6 +11,7 @@ using namespace EntoUtil;
 
 const char* dataset_path = DATASET_PATH;
 
+using namespace EntoFeature2D;
 
 void test_keypoint_default_constructor()
 {
@@ -89,10 +90,11 @@ void test_orb_keypoint_copy_constructor()
 
 void test_feature_detector_output_add_keypoint_within_limit()
 {
-  FeatureDetectorOutput<Keypoint> detector;
+  using K = Keypoint<uint16_t>;
+  FeatureArray<K> detector;
   for (int i = 0; i < 100; ++i)
   {
-    Keypoint kp(i, i);
+    K kp(i, i);
     bool added = detector.add_keypoint(kp);
     ENTO_TEST_CHECK_TRUE(added);
   }
@@ -101,13 +103,14 @@ void test_feature_detector_output_add_keypoint_within_limit()
 
 void test_feature_detector_output_add_keypoint_exceeding_limit()
 {
-  FeatureDetectorOutput<Keypoint> detector;
+  using K = Keypoint<uint16_t>;
+  FeatureArray<K> detector;
   for (int i = 0; i < 100; ++i)
   {
-    Keypoint kp(i, i);
+    K kp(i, i);
     detector.add_keypoint(kp);
   }
-  Keypoint extra_kp(101, 101);
+  K extra_kp(101, 101);
   bool added = detector.add_keypoint(extra_kp);
   ENTO_TEST_CHECK_FALSE(added);
   ENTO_TEST_CHECK_INT_EQ(detector.size(), 100);
@@ -115,16 +118,17 @@ void test_feature_detector_output_add_keypoint_exceeding_limit()
 
 void test_feature_detector_output_access_keypoints()
 {
-  FeatureDetectorOutput<Keypoint> detector;
-  for (int i = 0; i < 100; ++i)
+  using K = Keypoint<uint16_t>;
+  FeatureArray<K> detector;
+  for (size_t i = 0; i < 100; ++i)
   {
-    Keypoint kp(i, i);
+    K kp(i, i);
     detector.add_keypoint(kp);
   }
 
   for (int i = 0; i < 100; ++i)
   {
-    const Keypoint& kp = detector[i];
+    const K& kp = detector[i];
     ENTO_TEST_CHECK_INT_EQ(kp.x, i);
     ENTO_TEST_CHECK_INT_EQ(kp.y, i);
   }
@@ -132,6 +136,7 @@ void test_feature_detector_output_access_keypoints()
 
 void test_undistort_points_fixed_size()
 {
+  using Kp = Keypoint<uint16_t>;
   Eigen::Matrix<float, 3, 3> K;
   K << 500, 0, 320,
        0, 500, 240,
@@ -140,10 +145,10 @@ void test_undistort_points_fixed_size()
   Eigen::Matrix<float, 1, 5> dist;
   dist << 0.1, -0.15, 0.001, 0.001, 0.05;
 
-  std::array<Keypoint, 2> keypoints = {Keypoint(330, 250), Keypoint(315, 235)};
+  std::array<Kp, 2> keypoints = {Kp(330, 250), Kp(315, 235)};
   Eigen::Matrix<float, 2, 3> undistorted_points;
 
-  undistort_points<float, Keypoint, 2>(keypoints, 
+  undistort_points<float, Kp, 2>(keypoints, 
                                        K,
                                        dist,
                                        undistorted_points);
@@ -156,6 +161,7 @@ void test_undistort_points_fixed_size()
 
 void test_undistort_points_dynamic_size()
 {
+  using Kp = Keypoint<uint16_t>;
   Eigen::Matrix<float, 3, 3> K;
   K << 500, 0, 320,
        0, 500, 240,
@@ -164,11 +170,11 @@ void test_undistort_points_dynamic_size()
   Eigen::Matrix<float, 1, 5> dist;
   dist << 0.1, -0.15, 0.001, 0.001, 0.05;
 
-  std::array<Keypoint, 5> keypoints = {Keypoint(330, 250), Keypoint(315, 235), Keypoint(300, 220), Keypoint(285, 205), Keypoint(270, 190)};
+  std::array<Kp, 5> keypoints = {Kp(330, 250), Kp(315, 235), Kp(300, 220), Kp(285, 205), Kp(270, 190)};
   Eigen::Matrix<float, Eigen::Dynamic, 3, 0, 5, 3> undistorted_points(5, 3);
   int num_features = 5;
 
-  undistort_points<float, Keypoint, 5>(keypoints,
+  undistort_points<float, Kp, 5>(keypoints,
                                        K,
                                        dist,
                                        undistorted_points,

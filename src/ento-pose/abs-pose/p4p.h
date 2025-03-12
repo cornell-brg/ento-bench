@@ -276,7 +276,6 @@ int homography_Npt(const std::vector<Vec3<Scalar>> &x1,
       if (p.dot(x1[1]) * q.dot(x2[1]) < 0)
         return 0;
     }
-    ENTO_DEBUG("Where do i fail? %i", N);
     Eigen::Matrix<Scalar, Eigen::Dynamic, 9> M(2*N, 9);
     for (size_t i = 0; i < 4; ++i)
     {
@@ -290,7 +289,6 @@ int homography_Npt(const std::vector<Vec3<Scalar>> &x1,
     }
     //Eigen::Matrix<Scalar, 9, 1> h = M.block<8, 8>(0, 0).partialPivLu().solve(-M.block<8, 1>(0, 8)).homogeneous();
     Eigen::Matrix<Scalar, 9, 1> h;
-    ENTO_DEBUG_EIGEN_MATRIX(M, 2*N, 9, Scalar);
     if constexpr (SVDMethod == 0)
     {
       Eigen::JacobiSVD<Eigen::Matrix<Scalar, Eigen::Dynamic, 9>> USV(M, Eigen::ComputeFullV);
@@ -444,10 +442,8 @@ int homography_4pt(const std::vector<Vec3<Scalar>> &x1,
     M.template block<1, 3>(2 * i + 1, 0).setZero();
     M.template block<1, 3>(2 * i + 1, 3) = x2[i].z() * x1[i].transpose();
     M.template block<1, 3>(2 * i + 1, 6) = -x2[i].y() * x1[i].transpose();
-    ENTO_DEBUG_EIGEN_MATRIX(x2[i], 3, 1, Scalar);
   }
 
-  //ENTO_DEBUG_EIGEN_MATRIX(M, 8, 9, Scalar);
   if constexpr (Method == 0)
   {
     // Find left nullspace to M using QR (slower)

@@ -16,6 +16,31 @@ __attribute__((section(".txt")))
 const uint32_t __exidx_end = 0;
 
 
+extern char _end;
+static char* __current_heap_end = NULL;
+
+caddr_t _sbrk(int incr)
+{
+  if (__current_heap_end == NULL)
+  {
+    __current_heap_end = &_end;
+  }
+  
+  char* prev_heap_end = __current_heap_end;
+  char* new_heap_end = __current_heap_end + incr;
+
+  extern char _estack;
+  if (new_heap_end > &_estack)
+  {
+    errno = ENOMEM;
+    return (caddr_t)-1;
+  }
+
+  __current_heap_end = new_heap_end;
+  return (caddr_t)prev_heap_end;
+}
+
+#if defined(GEM5)
 // Prototype of _write, may need to be adjusted if not already defined
 ssize_t _write(int file, const void *ptr, size_t len);
 
@@ -42,5 +67,6 @@ ssize_t _write(int file, const void *ptr, size_t len)
 
     return result;  // Simplistic, assuming full write success
 }
+#endif
 
 

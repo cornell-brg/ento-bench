@@ -12,6 +12,10 @@
 #include <ento-pose/rel-pose/upright_planar_two_pt.h>
 #include <ento-pose/rel-pose/upright_three_pt.h>
 
+#include <ento-pose/problem-types/homography_problem.h>
+#include <ento-pose/problem-types/absolute_pose_problem.h>
+#include <ento-pose/problem-types/relative_pose_problem.h>
+
 namespace EntoPose
 {
 
@@ -30,30 +34,62 @@ struct BenchmarkResult {
 
 template <typename Scalar>
 struct SolverP3P {
-  static inline int solve(const AbsolutePoseProblemInstance<Scalar> &instance,
-                          std::vector<CameraPose<Scalar>> *solutions)
+
+  static constexpr size_t MaxSolns = 2;
+  static inline int solve(const AbsolutePoseProblem<Scalar, SolverP3P<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>>* solutions)
   {
     return p3p(instance.x_point_, instance.X_point_, solutions);
   }
+  
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                          EntoContainer<Vec3<Scalar>, N>& X,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return p3p(x, X, solutions);
+  }
+
   typedef CalibPoseValidator<Scalar> validator;
   static std::string name() { return "p3p"; }
 };
 
 template <typename Scalar>
 struct SolverUP2P {
-  static inline int solve(const AbsolutePoseProblemInstance<Scalar> &instance, std::vector<CameraPose<Scalar>> *solutions)
+  static constexpr size_t MaxSolns = 2;
+  static inline int solve(const AbsolutePoseProblem<Scalar, SolverUP2P<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>>* solutions)
   {
     return up2p(instance.x_point_, instance.X_point_, solutions);
   }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                          EntoContainer<Vec3<Scalar>, N>& X,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return up2p(x, X, solutions);
+  }
+
   typedef CalibPoseValidator<Scalar> validator;
   static std::string name() { return "up2p"; }
 };
 
 template <typename Scalar>
 struct SolverRelUpright3pt {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<CameraPose<Scalar>> *solutions)
+  static constexpr size_t MaxSolns = 2;
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRelUpright3pt<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>>* solutions)
   {
-    return relpose_upright_3pt(instance.x1_, instance.x2_, solutions);
+    return relpose_upright_planar_3pt(instance.x1_, instance.x2_, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                          EntoContainer<Vec3<Scalar>, N>& X,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return relpose_upright_planar_3pt(x, X, solutions);
   }
   typedef CalibPoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
@@ -62,27 +98,62 @@ struct SolverRelUpright3pt {
 
 
 template <typename Scalar>
-struct SolverRel8pt {
-    static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<CameraPose<Scalar>> *solutions) {
-      EntoArray<CameraPose<Scalar>, 4> solutions_;
-      int sols = relpose_8pt<Scalar, 0>(instance.x1_, instance.x2_, &solutions_);
-      for (size_t i = 0; i < sols; i++)
-      {
-        solutions->emplace_back(solutions_[i]);
-      }
-      return sols;
+struct SolverRel8pt
+{
+  static constexpr size_t MaxSolns = 4;
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRel8pt<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>> *solutions) {
+    EntoArray<CameraPose<Scalar>, 4> solutions_;
+    int sols = relpose_8pt<Scalar, 0>(instance.x1_, instance.x2_, &solutions_);
+    for (size_t i = 0; i < sols; i++)
+    {
+      solutions->emplace_back(solutions_[i]);
     }
-    typedef CalibPoseValidator<Scalar> validator;
-    typedef CameraPose<Scalar> Solution;
-    static std::string name() { return "Rel8pt"; }
+    return sols;
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    EntoArray<CameraPose<Scalar>, 4> solutions_;
+    size_t sols = relpose_8pt<Scalar, 0>(x1, x2, &solutions_);
+    for (size_t i = 0; i < sols; i++)
+    {
+      solutions->emplace_back(solutions_[i]);
+    }
+    return sols;
+
+  }
+  typedef CalibPoseValidator<Scalar> validator;
+  typedef CameraPose<Scalar> Solution;
+  static std::string name() { return "Rel8pt"; }
 };
 
 template <typename Scalar>
-struct SolverRel5pt {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<CameraPose<Scalar>> *solutions)
+struct SolverRel5pt
+{
+  static constexpr size_t MaxSolns = 40;
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRel5pt, 0>& instance,
+                          std::vector<CameraPose<Scalar>> *solutions)
   {
     EntoArray<CameraPose<Scalar>, 40> solutions_;
     int sols = relpose_5pt<Scalar>(instance.x1_, instance.x2_, &solutions_);
+    for (size_t i = 0; i < sols; i++)
+    {
+      solutions->emplace_back(solutions_[i]);
+    }
+    return sols;
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    EntoArray<CameraPose<Scalar>, 40> solutions_;
+    size_t sols = relpose_5pt<Scalar>(x1, x2, &solutions_);
     for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
@@ -95,12 +166,29 @@ struct SolverRel5pt {
 };
 
 template <typename Scalar>
-struct SolverRelUprightPlanar2pt {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<CameraPose<Scalar>> *solutions)
+struct SolverRelUprightPlanar2pt 
+{
+  static constexpr size_t MaxSolns = 4;
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRelUprightPlanar2pt<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>> *solutions)
   {
     EntoArray<CameraPose<Scalar>, 4> solutions_;
     int sols = relpose_upright_planar_2pt<Scalar>(instance.x1_, instance.x2_, &solutions_);
     for (int i = 0; i < sols; i++)
+    {
+      solutions->emplace_back(solutions_[i]);
+    }
+    return sols;
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    EntoArray<CameraPose<Scalar>, 4> solutions_;
+    size_t sols = relpose_upright_planar_2pt<Scalar>(x1, x2, &solutions_);
+    for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
     }
@@ -124,14 +212,30 @@ struct SolverRelUprightPlanar3pt {
     }
     return sols;
   }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    EntoArray<CameraPose<Scalar>, 2> solutions_;
+    size_t sols = relpose_upright_planar_3pt<Scalar>(x1, x2, &solutions_);
+    for (size_t i = 0; i < sols; i++)
+    {
+      solutions->emplace_back(solutions_[i]);
+    }
+    return sols;
+  }
   typedef CalibPoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "RelUprightPlanar3pt"; }
 };
 
 template <typename Scalar, bool CheiralCheck = false, int Method=0>
-struct SolverHomography4pt {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<Matrix3x3<Scalar>> *solutions) {
+struct SolverHomography4pt
+{
+  static inline int solve(const RelativePoseProblem<Scalar, SolverHomography4pt<Scalar>, 0>& instance,
+                          std::vector<Matrix3x3<Scalar>> *solutions) {
     Matrix3x3<Scalar> H;
     int sols = homography_4pt<Scalar, CheiralCheck, Method>(instance.x1_, instance.x2_, &H);
     solutions->clear();
@@ -141,10 +245,24 @@ struct SolverHomography4pt {
     }
     return sols;
   }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<Matrix3x3<Scalar>>* solutions)
+  {
+    Matrix3x3<Scalar> H;
+    size_t sols = homography_4pt<Scalar, CheiralCheck, Method>(x1, x2, &H);
+    solutions->clear();
+    if (sols == 1) solutions->push_back(H);
+    return sols;
+  }
+
   typedef HomographyValidator<Scalar> validator;
+
   static std::string name()
   {
-    if (CheiralCheck)
+    if constexpr (CheiralCheck)
     {
       return "Homography4pt(C)";
     }
@@ -157,9 +275,10 @@ struct SolverHomography4pt {
 
 template <typename Scalar, bool CheiralCheck = false, int Method=0>
 struct SolverHomography4ptDLT {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<Matrix3x3<Scalar>> *solutions) {
+  static inline int solve(const RelativePoseProblem<Scalar, SolverHomography4ptDLT<Scalar>, 0>& instance,
+                          std::vector<Matrix3x3<Scalar>>* solutions) {
     Matrix3x3<Scalar> H;
-    int sols = homography_Npt<Scalar, 0, CheiralCheck, 0, 0>(instance.x1_, instance.x2_, &H);
+    size_t sols = homography_Npt<Scalar, 0, CheiralCheck, 0, 0>(instance.x1_, instance.x2_, &H);
     solutions->clear();
     if (sols == 1)
     {
@@ -167,10 +286,23 @@ struct SolverHomography4ptDLT {
     }
     return sols;
   }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<Matrix3x3<Scalar>>* solutions)
+  {
+    Matrix3x3<Scalar> H;
+    size_t sols = homography_Npt<Scalar, 0, CheiralCheck, 0, 0>(x1, x2, &H);
+    solutions->clear();
+    if (sols == 1) solutions->push_back(H);
+    return sols;
+  }
+
   typedef HomographyValidator<Scalar> validator;
   static std::string name()
   {
-    if (CheiralCheck)
+    if constexpr (CheiralCheck)
     {
       return "Homography4pt(C)";
     }
@@ -183,7 +315,8 @@ struct SolverHomography4ptDLT {
 
 template <typename Scalar, bool CheiralCheck = false, int Method=0>
 struct SolverHomographyNptDLT {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance, std::vector<Matrix3x3<Scalar>> *solutions) {
+  static inline int solve(const RelativePoseProblem<Scalar, SolverHomographyNptDLT<Scalar>, 0>& instance,
+                          std::vector<Matrix3x3<Scalar>>* solutions) {
     Matrix3x3<Scalar> H;
     int sols = homography_Npt<Scalar, 0, CheiralCheck, 0, 0>(instance.x1_, instance.x2_, &H);
     solutions->clear();
@@ -193,7 +326,22 @@ struct SolverHomographyNptDLT {
     }
     return sols;
   }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<Matrix3x3<Scalar>>* solutions)
+  {
+    Matrix3x3<Scalar> H;
+    size_t sols = homography_Npt<Scalar, 0, CheiralCheck, 0, 0>(x1, x2, &H);
+    solutions->clear();
+    if (sols == 1) solutions->push_back(H);
+    return sols;
+  }
+
+
   typedef HomographyValidator<Scalar> validator;
+
   static std::string name()
   {
     if (CheiralCheck)

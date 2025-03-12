@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <cstdio>
+#include <ento-math/gemv.h>
 #include <Eigen/Dense>
 #include <ento-bench/harness.h>
 #include <ento-bench/roi.h>
@@ -68,14 +69,14 @@ void __attribute__((noinline)) gemv_handwritten( std::array< T, ( rows * cols ) 
 {
 //    start_roi();
 //    asm volatile( "" ::: "memory" );
-    for ( int i = 0; i < rows; i++ ) {
-        T sum = 0;
-	int row_idx = i * cols;
-        for ( int j = 0; j < cols; j++ ) {
-            sum += a[row_idx + j] * b[j];
-        }
-        c[i] = sum;
+  for ( int i = 0; i < rows; i++ ) {
+    T sum = 0;
+    int row_idx = i * cols;
+    for ( int j = 0; j < cols; j++ ) {
+      sum += a[row_idx + j] * b[j];
     }
+    c[i] = sum;
+  }
 //    asm volatile( "" ::: "memory" );
 //    end_roi();
 }
@@ -119,7 +120,7 @@ void __attribute__((noinline)) gemm_eigen( Eigen::Matrix< T, rows_a, cols_a >& a
 {
 //    start_roi();
 //    asm volatile( "" ::: "memory" );
-    c = a * b;
+    c.noalias() = a * b;
 //    asm volatile( "" ::: "memory" );
 //    end_roi();
 }
@@ -128,13 +129,13 @@ int main()
 {
     using namespace bench;
     #ifdef SEMIHOSTING
-        initialise_monitor_handles();
+    //initialise_monitor_handles();
     #endif
 
     bool is_systick_enabled = ( SysTick->CTRL & SysTick_CTRL_ENABLE_Msk ) != 0;
 
     printf( "Is systick enabled: %i\n", is_systick_enabled );
-    constexpr int reps = 5;
+    constexpr int reps = 1;
 
     // Configure max clock rate and set flash latency
     sys_clk_cfg();
@@ -160,24 +161,24 @@ int main()
     printf( "ICache is enabled!\n\n" );
     printf( "============================================================\n\n" );
 
-    const int vlen = 64;
+    const int vlen = 16;
 
-    auto vvadd_handwritten_harness = make_harness<reps>( vvadd_handwritten< int, vlen >,
-                                                         "vvadd handwritten benchmark");
-    auto vvadd_eigen_harness       = make_harness<reps>( vvadd_eigen< int, vlen >,
-                                                         "vvadd eigen benchmark");
-    auto vdot_handwritten_harness  = make_harness<reps>( vdot_handwritten< int, vlen >,
-                                                         "vdot handwritten benchmark");
-    auto vdot_eigen_harness        = make_harness<reps>( vdot_eigen< int, vlen >,
-                                                         "vdot eigen benchmark");
+    //auto vvadd_handwritten_harness = make_harness<reps>( vvadd_handwritten< int, vlen >,
+    //                                                     "vvadd handwritten benchmark");
+    //auto vvadd_eigen_harness       = make_harness<reps>( vvadd_eigen< int, vlen >,
+    //                                                     "vvadd eigen benchmark");
+    //auto vdot_handwritten_harness  = make_harness<reps>( vdot_handwritten< int, vlen >,
+    //                                                     "vdot handwritten benchmark");
+    //auto vdot_eigen_harness        = make_harness<reps>( vdot_eigen< int, vlen >,
+    //                                                     "vdot eigen benchmark");
     auto gemv_handwritten_harness  = make_harness<reps>( gemv_handwritten< int, vlen, vlen, vlen >,
                                                          "gemv handwritten benchmark");
     auto gemv_eigen_harness        = make_harness<reps>( gemv_eigen< int, vlen, vlen, vlen >,
                                                          "gemv eigen benchmark");
-    auto gemm_handwritten_harness  = make_harness<reps>( gemm_handwritten< int, vlen, vlen, vlen, vlen >,
-                                                         "gemm handwritten benchmark");
-    auto gemm_eigen_harness        = make_harness<reps>( gemm_eigen< int, vlen, vlen, vlen, vlen >,
-                                                         "gemm eigen benchmark");
+    //auto gemm_handwritten_harness  = make_harness<reps>( gemm_handwritten< int, vlen, vlen, vlen, vlen >,
+    //                                                     "gemm handwritten benchmark");
+    //auto gemm_eigen_harness        = make_harness<reps, ProfileMode::Aggregate>( gemm_eigen< int, vlen, vlen, vlen, vlen >,
+    //                                                     "gemm eigen benchmark");
 
     std::array< int, vlen > a_vec_arr;
     std::array< int, vlen > b_vec_arr;
@@ -185,6 +186,7 @@ int main()
     Eigen::Matrix< int, vlen, 1 > a_vec_eig;
     Eigen::Matrix< int, vlen, 1 > b_vec_eig;
     Eigen::Matrix< int, vlen, 1 > c_vec_eig;
+    c_vec_eig.setZero();
     int c_scalar;
     for ( int i = 0; i < vlen; i++ ) {
         a_vec_arr[i] = i;
@@ -199,6 +201,7 @@ int main()
     Eigen::Matrix< int, vlen, vlen > a_mat_eig;
     Eigen::Matrix< int, vlen, vlen > b_mat_eig;
     Eigen::Matrix< int, vlen, vlen > c_mat_eig;
+    //c_mat_eig.setZero();
     for ( int i = 0; i < vlen; i++ ) {
         for ( int j = 0; j < vlen; j++ ) {
             a_mat_arr[( i * vlen ) + j] = ( i * j ) + j;
@@ -208,17 +211,17 @@ int main()
         }
     }
 
-    vvadd_handwritten_harness.run( a_vec_arr, b_vec_arr, c_vec_arr );
+    //vvadd_handwritten_harness.run( a_vec_arr, b_vec_arr, c_vec_arr );
     printf( "Finished running vvadd handwritten benchmark.\n\n" );
 
-    vdot_handwritten_harness.run( a_vec_arr, b_vec_arr, c_scalar );
-    printf( "Finished running vdot handwritten benchmark.\n\n" );
+    //vdot_handwritten_harness.run( a_vec_arr, b_vec_arr, c_scalar );
+    //printf( "Finished running vdot handwritten benchmark.\n\n" );
 
-    vvadd_eigen_harness.run( a_vec_eig, b_vec_eig, c_vec_eig );
-    printf( "Finished running vvadd eigen benchmark.\n\n" );
+    //vvadd_eigen_harness.run( a_vec_eig, b_vec_eig, c_vec_eig );
+    //printf( "Finished running vvadd eigen benchmark.\n\n" );
 
-    vdot_eigen_harness.run( a_vec_eig, b_vec_eig, c_scalar );
-    printf( "Finished running vdot eigen benchmark.\n\n" );
+    //vdot_eigen_harness.run( a_vec_eig, b_vec_eig, c_scalar );
+    //printf( "Finished running vdot eigen benchmark.\n\n" );
 
     gemv_handwritten_harness.run( a_mat_arr, b_vec_arr, c_vec_arr );
     printf( "Finished running gemv handwritten benchmark.\n\n" );
@@ -226,11 +229,11 @@ int main()
     gemv_eigen_harness.run( a_mat_eig, b_vec_eig, c_vec_eig );
     printf( "Finished running gemv eigen benchmark.\n\n" );
 
-    gemm_handwritten_harness.run( a_mat_arr, b_mat_arr, c_mat_arr );
-    printf( "Finished running gemm handwritten benchmark.\n\n" );
+    //gemm_handwritten_harness.run( a_mat_arr, b_mat_arr, c_mat_arr );
+    //printf( "Finished running gemm handwritten benchmark.\n\n" );
 
-    gemm_eigen_harness.run( a_mat_eig, b_mat_eig, c_mat_eig );
-    printf( "Finished running gemm eigen benchmark.\n\n" );
+    //gemm_eigen_harness.run( a_mat_eig, b_mat_eig, c_mat_eig );
+    //printf( "Finished running gemm eigen benchmark.\n\n" );
 
     printf( "============================================================\n\n" );
 

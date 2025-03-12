@@ -20,6 +20,9 @@ namespace EntoPose
     Check jacobian_impl.h for examples
 */
 
+template <typename Scalar>
+using IterationCallback = std::function<void(const BundleStats<Scalar> &stats)>;
+
 template <typename Scalar, typename Problem, typename Param = typename Problem::param_t>
 BundleStats<Scalar> lm_impl(Problem &problem,
                             Param *parameters,

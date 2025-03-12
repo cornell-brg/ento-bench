@@ -53,7 +53,7 @@ int up2p(const std::vector<Vec3<Scalar>>       &x,
 template <typename Scalar, std::size_t N>
 int up2p(const EntoArray<Vec3<Scalar>, N> &x,
          const EntoArray<Vec3<Scalar>, N> &X,
-         EntoArray<CameraPose<Scalar>, N> *output) {
+         EntoArray<CameraPose<Scalar>, 4> *output) {
     Eigen::Matrix<Scalar, 4, 4> A;
     Eigen::Matrix<Scalar, 4, 2> b;
 

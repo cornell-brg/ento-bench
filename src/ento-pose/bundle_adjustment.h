@@ -1,100 +1,133 @@
 #ifndef BUNDLE_ADJUSTMENT_H
 #define BUNDLE_ADJUSTMENT_H
 
+#include <cstdio>
+#include <type_traits>
+
 #include <Eigen/Dense>
 #include <ento-math/core.h>
 #include <ento-math/quaternion.h>
 #include <ento-pose/pose_util.h>
+#include <ento-pose/camera_models.h>
+#include <ento-pose/levenberg_marquadt.h>
+#include <ento-pose/jacobian_accumulator.h>
+#include <ento-pose/robust-est/loss.h>
 
 namespace EntoPose
 {
 
-// Minimizes reprojection error. Assumes identity intrinsics (calibrated camera)
+using namespace EntoUtil;
+
 template <typename Scalar>
-BundleStats<Scalar> bundle_adjust(const std::vector<Point2D<Scalar>>    &x,
-                                  const std::vector<Point3D<Scalar>>    &X,
-                                  CameraPose<Scalar>         *pose,
+void print_iteration(const BundleStats<Scalar> &stats)
+{
+  if (stats.iterations == 0)
+  {
+    std::printf("initial_cost=%f\n", static_cast<double>(stats.initial_cost));
+  }
+  std::printf("iter=%d, cost=%f, step=%f, grad=%f, lambda=%f\n",
+              stats.iterations,
+              static_cast<Scalar>(stats.cost),
+              static_cast<Scalar>(stats.step_norm),
+              static_cast<Scalar>(stats.grad_norm),
+              static_cast<Scalar>(stats.lambda));
+}
+
+template <typename Scalar, typename LossFunction>
+IterationCallback<Scalar> setup_callback(const BundleOptions<Scalar> &opt, LossFunction &loss_fn)
+{
+  if constexpr(std::is_same_v<LossFunction, TruncatedLossLeZach<Scalar>>)
+  {
+    if (opt.verbose)
+    {
+      return [&loss_fn](const BundleStats<Scalar> &stats)
+      {
+        print_iteration(stats);
+        loss_fn.mu *= TruncatedLossLeZach<Scalar>::alpha;
+      };
+    }
+    else
+    {
+      return [&loss_fn](const BundleStats<Scalar> &stats)
+      {
+        loss_fn.mu *= TruncatedLossLeZach<Scalar>::alpha;
+      };
+    }
+  }
+  else
+  {
+    if (opt.verbose)
+    {
+      return print_iteration;
+    }
+    else
+    {
+      return nullptr;
+    }
+  }
+}
+
+// Minimizes reprojection error. Assumes identity intrinsics (calibrated camera)
+template <typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+BundleStats<Scalar> bundle_adjust(const EntoContainer<Point2D<Scalar>, N>    &x,
+                                  const EntoContainer<Point3D<Scalar>, N>    &X,
+                                  CameraPose<Scalar>                   *pose,
                                   const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                  const std::vector<Scalar> &weights = std::vector<Scalar>());
+                                  const EntoContainer<Scalar, N> &weights = EntoContainer<Scalar, N>())
+{
+  Camera<Scalar> camera;
+  bundle_adjust(x, X, camera, pose, opt);
+}
+
 
 // Uses intrinsic calibration from Camera (see colmap_models.h)
 // Slightly slower than bundle_adjust above
-template <typename Scalar>
+template <typename Scalar, typename WeightType, typename CameraModel, typename LossFunction, size_t N = 0>
 BundleStats<Scalar> bundle_adjust(const std::vector<Point2D<Scalar>> &x,
                                   const std::vector<Point3D<Scalar>> &X,
-                                  const Camera<Scalar> &camera,
+                                  const Camera<Scalar, CameraModel> &camera,
                                   CameraPose<Scalar> *pose,
                                   const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                  const std::vector<Scalar> &weights = std::vector<Scalar>());
+                                  const std::vector<Scalar> &weights = std::vector<Scalar>())
+{
+  LossFunction loss_fn(opt.loss_scale);
+  IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
+  CameraJacobianAccumulator<Scalar, CameraModel, LossFunction, WeightType, N> accum(x, X, camera, loss_fn, weights);
+  return lm_impl<decltype(accum)>(accum, pose, opt, callback);
+}
 
-// opt_line is used to define the robust loss used for the line correspondences
-template <typename Scalar>
-BundleStats<Scalar> bundle_adjust(const std::vector<Point2D<Scalar>> &points2D,
-                                  const std::vector<Point3D<Scalar>> &points3D,
-                                  const std::vector<Line2D<Scalar>>  &lines2D,
-                                  const std::vector<Line3D<Scalar>>  &lines3D,
-                                  CameraPose<Scalar>                    *pose,
-                                  const BundleOptions<Scalar>            &opt = BundleOptions<Scalar>(),
-                                  const BundleOptions<Scalar>       &opt_line = BundleOptions<Scalar>(),
-                                  const std::vector<Scalar>      &weights_pts = std::vector<Scalar>(),
-                                  const std::vector<Scalar>      &weights_line = std::vector<Scalar>());
 
-/*
-// Camera models for lines are currently not supported...
-int bundle_adjust(const std::vector<Point2D> &points2D,
-                  const std::vector<Point3D> &points3D,
-                  const std::vector<Line2D> &lines2D,
-                  const std::vector<Line3D> &lines3D,
-                  const Camera &camera,
-                  CameraPose *pose,
-                  const BundleOptions &opt = BundleOptions(),
-                  const std::vector<Scalar> &weights = std::vector<Scalar>());
-*/
-
-// Minimizes reprojection error. Assumes identity intrinsics (calibrated camera)
-template <typename Scalar>
-BundleStats<Scalar>
-generalized_bundle_adjust(const std::vector<std::vector<Point2D<Scalar>>> &x,
-                          const std::vector<std::vector<Point3D<Scalar>>> &X,
-                          const std::vector<CameraPose<Scalar>>  &camera_ext,
-                          CameraPose<Scalar>                           *pose,
-                          const BundleOptions<Scalar>                   &opt = BundleOptions<Scalar>(),
-                          const std::vector<std::vector<Scalar>>    &weights = std::vector<std::vector<Scalar>>());
-
-// Uses intrinsic calibration from Camera (see colmap_models.h)
-// Slightly slower than bundle_adjust above
-template<typename Scalar>
-BundleStats<Scalar>
-generalized_bundle_adjust(const std::vector<std::vector<Point2D<Scalar>>> &x,
-                          const std::vector<std::vector<Point3D<Scalar>>> &X,
-                          const std::vector<CameraPose<Scalar>> &camera_ext,
-                          const std::vector<Camera<Scalar>> &cameras,
-                          CameraPose<Scalar> *pose,
-                          const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                          const std::vector<std::vector<Scalar>> &weights = std::vector<std::vector<Scalar>>());
 
 // Relative pose refinement. Minimizes Sampson error error. Assumes identity intrinsics (calibrated camera)
-template<typename Scalar>
-BundleStats<Scalar>refine_relpose(const std::vector<Point2D<Scalar>> &x1,
-                                  const std::vector<Point2D<Scalar>> &x2,
-                                  CameraPose<Scalar> *pose,
-                                  const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                  const std::vector<Scalar> &weights = std::vector<Scalar>());
-
-// Fundamental matrix refinement. Minimizes Sampson error error.
-template <typename Scalar>
-BundleStats<Scalar> refine_fundamental(const std::vector<Point2D<Scalar>> &x1, const std::vector<Point2D<Scalar>> &x2, Eigen::Matrix3d *F,
-                                       const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                       const std::vector<Scalar> &weights = std::vector<Scalar>());
+template<typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+BundleStats<Scalar>
+refine_relpose(const EntoContainer<Point2D<Scalar>, N> &x1,
+               const EntoContainer<Point2D<Scalar>, N> &x2,
+               CameraPose<Scalar> *pose,
+               const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
+               const EntoContainer<Scalar, N> &weights = std::vector<Scalar>())
+{
+  LossFunction loss_fn(opt.loss_scale);
+  IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
+  RelativePoseJacobianAccumulator<Scalar, LossFunction, WeightType, N> accum(x1, x2, loss_fn, weights);
+  return lm_impl<decltype(accum)>(accum, pose, opt, callback);
+}
 
 // Homography matrix refinement.
-template <typename Scalar>
-BundleStats<Scalar> refine_homography(const std::vector<Point2D<Scalar>> &x1, const std::vector<Point2D<Scalar>> &x2, Eigen::Matrix3d *H,
-                                      const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                      const std::vector<Scalar> &weights = std::vector<Scalar>());
-
-
-
+template <typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+BundleStats<Scalar>
+refine_homography(const EntoContainer<Point2D<Scalar>, N> &x1,
+                  const std::vector<Point2D<Scalar>> &x2,
+                  Eigen::Matrix3d *H,
+                  const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
+                  const std::vector<Scalar> &weights = std::vector<Scalar>())
+{
+  LossFunction loss_fn(opt.loss_scale);
+  IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
+  HomographyJacobianAccumulator<Scalar, LossFunction, WeightType, N> accum(x1, x2, loss_fn, weights);
+  return lm_impl<decltype(accum)>(accum, H, opt, callback);
 }
+
+} // namespace EntoPose
 
 #endif // BUNDLE_ADJUSTMENT_H

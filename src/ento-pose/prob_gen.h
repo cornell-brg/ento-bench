@@ -11,16 +11,142 @@
 #include <iomanip>
 #include <vector>
 #include <limits>
+#include <algorithm>
 
 #include <ento-pose/pose_util.h>
 #include <ento-util/containers.h>
+#include <ento-pose/problem-types/absolute_pose_problem.h>
+#include <ento-pose/problem-types/relative_pose_problem.h>
 
 using namespace EntoUtil;
 
 namespace EntoPose
 {
 
-template <typename Scalar, std::size_t NumPts=0>
+template <typename Scalar, size_t NumPts=0>
+class RobustPoseProblemInstance
+{
+private:
+  static constexpr size_t calculate_container_size(size_t num_points)
+  {
+    return (num_points + 7) / 8;
+  }
+  static constexpr size_t StaticInlierFlagSize = (NumPts > 0) ? calculate_container_size(NumPts) : 0;
+  size_t dyn_inlier_flag_size_ = 0;
+
+protected:
+  Scalar inlier_ratio_;
+
+  using InlierFlagsContainer = EntoContainer<uint8_t, StaticInlierFlagSize>;
+  InlierFlagsContainer inlier_flags_;
+
+public:
+  RobustPoseProblemInstance() = default;
+
+
+  std::string serialize() const
+  {
+#ifdef NATIVE
+    std::string result;
+    for (size_t i = 0; i < inlier_flags_.size(); ++i)
+    {
+      result += std::to_string(inlier_flags_[i]); // Convert each byte to a string
+      if (i != inlier_flags_.size() - 1)
+      {
+        result += ','; // Add a comma between bytes
+      }
+    }
+    return result;
+#endif
+  }
+
+  static bool deserialize(const char* line, RobustPoseProblemInstance* instance)
+  {
+#ifdef NATIVE
+    std::istringstream iss(line);
+    std::string token;
+
+    // Clear and resize the inlier_flags_ container
+    instance->inlier_flags_.clear();
+
+    while (std::getline(iss, token, ',')) // Parse each byte as a token
+    {
+      try
+      {
+        // Convert the token to a byte (uint8_t) and add it to the container
+        uint8_t byte_value = static_cast<uint8_t>(std::stoi(token));
+        instance->inlier_flags_.push_back(byte_value);
+      }
+      catch (const std::exception& e)
+      {
+        ENTO_DEBUG("Error: Failed to parse token '%s' as a byte.", token.c_str());
+        return false; // Parsing failed
+      }
+    }
+
+    return true; // Successfully parsed
+#else
+    char* pos = const_cast<char*>(line);
+
+    // Clear and resize the inlier_flags_ container
+    instance->inlier_flags_.clear();
+
+    uint8_t byte_value;
+    while (sscanf(pos, "%hhu,", &byte_value) == 1) // Parse each byte as an unsigned 8-bit integer
+    {
+      instance->inlier_flags_.push_back(byte_value);
+      pos = strchr(pos, ','); // Move to the next comma
+      if (!pos) break; // Stop if no more commas are found
+      pos += 1; // Skip the comma
+    }
+
+    return true; // Successfully parsed
+#endif
+  }
+  // Inititalize inlier flags with given size
+  void initialize_inliers()
+  {
+    //if constexpr (NumPts == 0)
+    //{
+    //  ENTO_DEBUG("Resizing inlier flags to: %i", InlierFlagSize);
+    //  inlier_flags_.resize(InlierFlagSize);
+    //}
+    std::fill(inlier_flags_.begin(), inlier_flags_.end(), 0);
+  }
+
+  void initialize_inliers(size_t num_pts)
+  {
+    static_assert(NumPts == 0);
+    dyn_inlier_flag_size_ = calculate_container_size(num_pts);
+    ENTO_DEBUG("Resizing inlier flags to: %i", dyn_inlier_flag_size_);
+    inlier_flags_.resize(dyn_inlier_flag_size_);
+  }
+
+  void is_inlier(size_t index)
+  {
+    size_t byte_index = index / 8;
+    uint8_t bit_mask = (1 << (index % 8));
+    return (inlier_flags_[byte_index] & bit_mask) != 0;
+  }
+
+  // Set a specific point as inlier or outlier
+  void set_inlier(size_t index, bool flag)
+  {
+    ENTO_DEBUG("Setting inlier at %i with %i", index, flag);
+    size_t byte_index = index / 8;
+    uint8_t bit_mask = (1 << (index % 8));
+    ENTO_DEBUG("Byte index: %i", byte_index);
+    ENTO_DEBUG("Bit mask: %i", bit_mask);
+    ENTO_DEBUG("Index at: %i", inlier_flags_[byte_index]);
+    if (flag) inlier_flags_[byte_index] |= bit_mask;
+    else inlier_flags_[byte_index] &= ~bit_mask;
+    ENTO_DEBUG("Inlier Flags post set: %i", inlier_flags_[byte_index]);
+  }
+
+  Scalar get_inlier_ratio() const { return inlier_ratio_; }
+};
+
+template <typename Scalar, size_t NumPts=0>
 struct AbsolutePoseProblemInstance {
 public:
   // Ground truth camera pose
@@ -119,7 +245,6 @@ public:
       if (!(iss >> problem_type >> comma) || problem_type != 1 || comma != ',') {
           return false; // Parsing failed
       }
-      //ENTO_DEBUG("Problem type: %i", problem_type);
 
       int num_points;
       if (!(iss >> num_points >> comma) || problem_type != 1 || comma != ',') {
@@ -148,7 +273,6 @@ public:
             return false; // Parsing failed
         }
       }
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
       // Parse translation (t)
       for (int i = 0; i < 3; ++i) {
@@ -156,7 +280,6 @@ public:
               return false; // Parsing failed
           }
       }
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.t, 3, 1, float)
 
       // Parse scale_gt and focal_gt
       if (!(iss >> instance->scale_gt >> comma) || comma != ',') {
@@ -166,7 +289,6 @@ public:
       if (!(iss >> instance->focal_gt >> comma) || comma != ',') {
           return false; // Parsing failed
       }
-      //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
       // Parse x_point correspondences
       Scalar x, y, z;
@@ -181,7 +303,6 @@ public:
               return false; // Parsing failed
           }
           instance->x_point_.push_back(Vec3<Scalar>(x, y, z));
-          //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
       }
 
@@ -265,8 +386,11 @@ public:
 
 };
 
+
+
 template <typename Scalar, std::size_t NumPts=0>
-struct RelativePoseProblemInstance {
+struct RelativePoseProblemInstance
+{
 public:
 
   // Ground truth camera pose
@@ -278,18 +402,13 @@ public:
   size_t n_point_point_ = NumPts;
 
   // Point-to-point correspondences
-  //EntoContainer<Vec3<Scalar>, NumPts> p1_;
   EntoContainer<Vec3<Scalar>, NumPts> x1_;
-
-  //EntoContainer<Vec3<Scalar>, NumPts> p2_;
   EntoContainer<Vec3<Scalar>, NumPts> x2_;
 
   void clear()
   {
     x1_.clear();
     x2_.clear();
-    //p1_.clear();
-    //p2_.clear();
     n_point_point_ = 0;
   }
 
@@ -394,13 +513,11 @@ public:
     // Parse quaternion (q)
     for (int i = 0; i < 4; ++i)
     {
-      //ENTO_DEBUG("i: %i", i);
       if (!(iss >> instance->pose_gt.q[i] >> comma) || (comma != ','))
       {
         return false; // Parsing failed
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
     // Parse translation (t)
     for (int i = 0; i < 3; ++i)
@@ -410,7 +527,6 @@ public:
         return false; // Parsing failed
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.t, 3, 1, float)
 
 
     // Parse scale_gt and focal_gt
@@ -423,7 +539,6 @@ public:
     {
       return false; // Parsing failed
     }
-    //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
     // Parse x1 point correspondences
     Scalar x, y, z;
@@ -441,7 +556,6 @@ public:
         return false; // Parsing failed
       }
       instance->x1_.push_back(Vec3<Scalar>(x, y, z));
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
     }
 
@@ -528,6 +642,8 @@ public:
   }
 
 };
+
+
 
 template <typename Scalar, std::size_t NumPts=0>
 struct HomographyProblemInstance
@@ -668,14 +784,12 @@ public:
     {
       for (int j = 0; j < 3; ++j)
       {
-        //ENTO_DEBUG("i: %i", i);
         if (!(iss >> instance->H_gt(i, j) >> comma) || (comma != ','))
         {
           return false; // Parsing failed
         }
       }
     }
-    //ENTO_DEBUG_EIGEN_MATRIX(instance->pose_gt.q, 4, 1, float)
 
 
     // Parse scale_gt and focal_gt
@@ -688,7 +802,6 @@ public:
     {
       return false; // Parsing failed
     }
-    //ENTO_DEBUG("Scale gt, focal gt: %f, %f", instance->scale_gt, instance->focal_gt);
 
     // Parse x_point correspondences
     Scalar x, y, z;
@@ -706,7 +819,6 @@ public:
         return false; // Parsing failed
       }
       instance->x1_.push_back(Vec3<Scalar>(x, y, z));
-      //ENTO_DEBUG_EIGEN_MATRIX(instance->x_point_[i], 3, 1, float)
 
     }
 
@@ -793,6 +905,47 @@ public:
   }
 };
 
+// NumPts differs from the non Robust problem instances. Here it is the total number of
+// points and not the number to satisfy the model used. 
+template <typename Scalar, size_t NumPts = 0>
+struct RobustAbsolutePoseProblemInstance : AbsolutePoseProblemInstance<Scalar, NumPts>,
+                                           RobustPoseProblemInstance<Scalar, NumPts>
+{
+  std::string serialize() const
+  {
+    std::string exp_data    = AbsolutePoseProblemInstance<Scalar, NumPts>::serialize();
+    std::string ransac_data = RobustPoseProblemInstance<Scalar, NumPts>::serialize();
+    return exp_data + "," + ransac_data;
+  }
+
+};
+
+// NumPts differs from the non Robust problem instances. Here it is the total number of
+// points and not the number to satisfy the model used. 
+template <typename Scalar, size_t NumPts = 0>
+struct RobustRelativePoseProblemInstance : RelativePoseProblemInstance<Scalar, NumPts>,
+                                           RobustPoseProblemInstance<Scalar, NumPts>
+{
+  std::string serialize() const
+  {
+    std::string exp_data    = RelativePoseProblemInstance<Scalar, NumPts>::serialize();
+    std::string ransac_data = RobustPoseProblemInstance<Scalar, NumPts>::serialize();
+    return exp_data + "," + ransac_data;
+  }
+};
+
+template <typename Scalar, size_t NumPts = 0>
+struct RobustHomographyPoseProblemInstance : RelativePoseProblemInstance<Scalar, NumPts>,
+                                             RobustPoseProblemInstance<Scalar, NumPts>
+{
+  std::string serialize() const
+  {
+    std::string exp_data    = HomographyProblemInstance<Scalar, NumPts>::serialize();
+    std::string ransac_data = RobustPoseProblemInstance<Scalar, NumPts>::serialize();
+    return exp_data + "," + ransac_data;
+  }
+};
+
 
 template <typename Scalar, size_t NumPts = 0>
 struct CalibPoseValidator
@@ -812,8 +965,9 @@ struct CalibPoseValidator
     return (instance.pose_gt.R() - pose.R()).norm() + (instance.pose_gt.t - pose.t).norm();
   }
 
+  template <typename CameraModel>
   static Scalar compute_pose_error(const RelativePoseProblemInstance<Scalar> &instance,
-                                   const ImagePair<Scalar> &image_pair)
+                                   const ImagePair<Scalar, CameraModel> &image_pair)
   {
     return (instance.pose_gt.R() - image_pair.pose.R()).norm() + (instance.pose_gt.t - image_pair.pose.t).norm() +
            std::abs(instance.focal_gt - image_pair.camera1.focal()) / instance.focal_gt +
@@ -862,8 +1016,9 @@ struct CalibPoseValidator
     return true;
   }
 
+  template <typename CameraModel>
   static bool is_valid(const RelativePoseProblemInstance<Scalar> &instance,
-                       const ImagePair<Scalar> &image_pair, Scalar tol)
+                       const ImagePair<Scalar, CameraModel> &image_pair, Scalar tol)
   {
     if ((image_pair.pose.R().transpose() * image_pair.pose.R() - Matrix3x3<Scalar>::Identity()).norm() > tol)
       return false;
@@ -890,10 +1045,10 @@ struct CalibPoseValidator
   }
 };
 
-template <typename Scalar>
+/*template <typename Scalar, std::size_t NumPts = 0>
 struct HomographyValidator {
   // Computes the distance to the ground truth pose
-  static Scalar compute_pose_error(const RelativePoseProblemInstance<Scalar> &instance, const Matrix3x3<Scalar> &H)
+  static Scalar compute_pose_error(const RelativePoseProblemInstance<Scalar, NumPts> &instance, const Matrix3x3<Scalar> &H)
   {
     Scalar err1 = (H.normalized() - instance.H_gt.normalized()).norm();
     Scalar err2 = (H.normalized() + instance.H_gt.normalized()).norm();
@@ -901,7 +1056,7 @@ struct HomographyValidator {
   }
 
   // Checks if the solution is valid (i.e. is rotation matrix and satisfies projection constraints)
-  static bool is_valid(const RelativePoseProblemInstance<Scalar> &instance, const Matrix3x3<Scalar> &H, Scalar tol)
+  static bool is_valid(const RelativePoseProblemInstance<Scalar, NumPts> &instance, const Matrix3x3<Scalar> &H, Scalar tol)
   {
     for (size_t i = 0; i < instance.x1_.size(); ++i) {
       Vec3<Scalar> z = H * instance.x1_[i];
@@ -912,7 +1067,7 @@ struct HomographyValidator {
     return true;
   }
 
-  static Scalar compute_pose_error(const HomographyProblemInstance<Scalar> &instance,
+  static Scalar compute_pose_error(const HomographyProblemInstance<Scalar, NumPts> &instance,
                                    const Matrix3x3<Scalar> &H)
   {
     Scalar err1 = (H.normalized() - instance.H_gt.normalized()).norm();
@@ -921,7 +1076,7 @@ struct HomographyValidator {
   }
 
   // Checks if the solution is valid (i.e. is rotation matrix and satisfies projection constraints)
-  static bool is_valid(const HomographyProblemInstance<Scalar> &instance,
+  static bool is_valid(const HomographyProblemInstance<Scalar, NumPts> &instance,
                        const Matrix3x3<Scalar> &H,
                        Scalar tol)
   {
@@ -933,7 +1088,7 @@ struct HomographyValidator {
     }
     return true;
   }
-};
+};*/
 
 template <typename Scalar>
 struct ProblemOptions {
@@ -983,11 +1138,14 @@ void set_random_pose(CameraPose<Scalar> &pose,
 }
 
 #ifdef NATIVE
-template <typename Scalar, size_t NumPts = 0>
+template <AbsolutePoseProblemConcept Problem>
 void generate_abspose_problems(int n_problems,
-                               std::vector<AbsolutePoseProblemInstance<Scalar, NumPts>> *problem_instances,
-                               const ProblemOptions<Scalar> &options)
+                               std::vector<Problem> *problem_instances,
+                               const ProblemOptions<typename Problem::Scalar_> &options)
 {
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+
   problem_instances->clear();
   problem_instances->reserve(n_problems);
 
@@ -1005,17 +1163,10 @@ void generate_abspose_problems(int n_problems,
 
   for (int i = 0; i < n_problems; ++i)
   {
-    AbsolutePoseProblemInstance<Scalar, NumPts> instance;
-    set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
+    //AbsolutePoseProblemInstance<Scalar, NumPts> instance;
+    Problem instance(Solver{});
 
-    if (options.unknown_scale_)
-    {
-      instance.scale_gt = scale_gen(random_engine);
-    }
-    if (options.unknown_focal_)
-    {
-      instance.focal_gt = focal_gen(random_engine);
-    }
+    set_random_pose<Scalar>(instance.pose_gt_, options.upright_, options.planar_);
 
     // Point to point correspondences
     instance.x_point_.reserve(options.n_point_point_);
@@ -1028,52 +1179,26 @@ void generate_abspose_problems(int n_problems,
       x.normalize();
       Vec3<Scalar> X;
 
-      if (options.generalized_)
-      {
-        p << offset_gen(random_engine), offset_gen(random_engine), offset_gen(random_engine);
-      }
+      X = instance.scale_gt_ * p + x * depth_gen(random_engine);
 
-      X = instance.scale_gt * p + x * depth_gen(random_engine);
-
-      X = instance.pose_gt.R().transpose() * (X - instance.pose_gt.t);
-
-      if (options.unknown_focal_)
-      {
-        x.template block<2, 1>(0, 0) *= instance.focal_gt;
-        x.normalize();
-      }
+      X = instance.pose_gt_.R().transpose() * (X - instance.pose_gt_.t);
 
       instance.x_point_.push_back(x);
       instance.X_point_.push_back(X);
-      //instance.p_point_.push_back(p);
     }
-
-    // This generates instances where the same 3D point is observed twice in a generalized camera
-    // This is degenerate case for the 3Q3 based gp3p/gp4ps solver unless specifically handled.
-    //if (options.generalized_ && options.generalized_duplicate_obs_)
-    //{
-    //  std::vector<int> ind = {0, 1, 2, 3};
-    //  assert(options.n_point_point_ >= 4);
-
-    //  std::random_device rd;
-    //  std::mt19937 g(rd());
-    //  std::shuffle(ind.begin(), ind.end(), g);
-    //  instance.X_point_[ind[1]] = instance.X_point_[ind[0]];
-    //  instance.x_point_[ind[1]] = (instance.pose_gt.R() * instance.X_point_[ind[0]] + instance.pose_gt.t -
-    //                               instance.scale_gt * instance.p_point_[ind[1]])
-    //                                  .normalized();
-    //}
-
 
     problem_instances->push_back(instance);
   }
 }
 
-template <typename Scalar>
+template <RelativePoseProblemConcept Problem>
 void generate_relpose_problems(int n_problems,
-                               std::vector<RelativePoseProblemInstance<Scalar>> *problem_instances,
-                               const ProblemOptions<Scalar> &options)
+                               std::vector<Problem> *problem_instances,
+                               const ProblemOptions<typename Problem::Scalar_> &options)
 {
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+
   problem_instances->clear();
   problem_instances->reserve(n_problems);
 
@@ -1090,19 +1215,9 @@ void generate_relpose_problems(int n_problems,
   std::normal_distribution<Scalar> offset_gen(0.0, 1.0);
 
   for (int i = 0; problem_instances->size() < n_problems; ++i) {
-      RelativePoseProblemInstance<Scalar> instance;
-      set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
-
-      if (options.unknown_scale_) {
-          instance.scale_gt = scale_gen(random_engine);
-      }
-      if (options.unknown_focal_) {
-          instance.focal_gt = focal_gen(random_engine);
-      }
-
-      if (!options.generalized_) {
-          instance.pose_gt.t.normalize();
-      }
+      //RelativePoseProblemInstance<Scalar> instance;
+      Problem instance(Solver{}) ;
+      set_random_pose<Scalar>(instance.pose_gt_, options.upright_, options.planar_);
 
       // Point to point correspondences
       //instance.p1_.reserve(options.n_point_point_);
@@ -1118,22 +1233,12 @@ void generate_relpose_problems(int n_problems,
           x1.normalize();
           Vec3<Scalar> X;
 
-          /*if (options.generalized_) {
-              p1 << offset_gen(random_engine), offset_gen(random_engine), offset_gen(random_engine);
-              p2 << offset_gen(random_engine), offset_gen(random_engine), offset_gen(random_engine);
-
-              if (j > 0 && j < options.generalized_first_cam_obs_) {
-                  p1 = instance.p1_[0];
-                  p2 = instance.p2_[0];
-              }
-          }*/
-
           //X = instance.scale_gt * p1 + x1 * depth_gen(random_engine);
           X = x1 * depth_gen(random_engine);
           // Map into second image
-          X = instance.pose_gt.R() * X + instance.pose_gt.t;
+          X = instance.pose_gt_.R() * X + instance.pose_gt_.t;
 
-          Vec3<Scalar> x2 = (X - instance.scale_gt * p2).normalized();
+          Vec3<Scalar> x2 = (X - instance.scale_gt_ * p2).normalized();
 
           //@TODO: ensure FoV of second cameras as well...
 
@@ -1151,11 +1256,13 @@ void generate_relpose_problems(int n_problems,
   }
 }
 
-template <typename Scalar>
+template <RelativePoseProblemConcept Problem>
 void generate_homography_problems(int n_problems,
-                                  std::vector<RelativePoseProblemInstance<Scalar>> *problem_instances,
-                                  const ProblemOptions<Scalar> &options)
+                                  std::vector<Problem> *problem_instances,
+                                  const ProblemOptions<typename Problem::Scalar_> &options)
 {
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
   problem_instances->clear();
   problem_instances->reserve(n_problems);
 
@@ -1172,19 +1279,8 @@ void generate_homography_problems(int n_problems,
   std::normal_distribution<Scalar> offset_gen(0.0, 1.0);
 
   while (problem_instances->size() < static_cast<size_t>(n_problems)) {
-      RelativePoseProblemInstance<Scalar> instance;
-      set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
-
-      if (options.unknown_scale_) {
-          instance.scale_gt = scale_gen(random_engine);
-      }
-      if (options.unknown_focal_) {
-          instance.focal_gt = focal_gen(random_engine);
-      }
-
-      if (!options.generalized_) {
-          instance.pose_gt.t.normalize();
-      }
+      Problem instance(Solver{});
+      set_random_pose<Scalar>(instance.pose_gt_, options.upright_, options.planar_);
 
       // Point to point correspondences
       instance.x1_.reserve(options.n_point_point_);
@@ -1201,7 +1297,7 @@ void generate_homography_problems(int n_problems,
       // plane is n'*X = alpha
 
       // ground truth homography
-      instance.H_gt = alpha * instance.pose_gt.R() + instance.pose_gt.t * n.transpose();
+      instance.H_gt_ = alpha * instance.pose_gt_.R() + instance.pose_gt_.t * n.transpose();
 
       bool failed_instance = false;
       for (int j = 0; j < options.n_point_point_; ++j) {
@@ -1215,7 +1311,7 @@ void generate_homography_problems(int n_problems,
               Scalar lambda = alpha / n.dot(x1);
               X = x1 * lambda;
               // Map into second image
-              X = instance.pose_gt.R() * X + instance.pose_gt.t;
+              X = instance.pose_gt_.R() * X + instance.pose_gt_.t;
 
               Vec3<Scalar> x2 = X.normalized();
 
@@ -1258,10 +1354,379 @@ void generate_homography_problems(int n_problems,
       problem_instances->push_back(instance);
   }
 }
+
+
+template <typename Scalar>
+void generate_robust_abspose_problems(size_t n_problems,
+                                      Scalar inlier_ratio,
+                                      std::vector<RobustAbsolutePoseProblemInstance<Scalar>> *problem_instances,
+                                      const ProblemOptions<Scalar> &options)
+{
+  problem_instances->clear();
+  problem_instances->reserve(n_problems);
+
+  constexpr Scalar kPI = Scalar(3.14159265358979323846);
+  Scalar fov_scale = std::tan(options.camera_fov_ / 2.0 * kPI / 180.0);
+
+  // Random generators
+  std::default_random_engine random_engine;
+  std::uniform_real_distribution<Scalar> depth_gen(options.min_depth_, options.max_depth_);
+  std::uniform_real_distribution<Scalar> coord_gen(-fov_scale, fov_scale);
+  std::uniform_real_distribution<Scalar> scale_gen(options.min_scale_, options.max_scale_);
+  std::uniform_real_distribution<Scalar> focal_gen(options.min_focal_, options.max_focal_);
+  std::normal_distribution<Scalar> direction_gen(0.0, 1.0);
+  std::normal_distribution<Scalar> offset_gen(0.0, 1.0);
+
+  ENTO_DEBUG("Starting experiment loop");
+  for (size_t i = 0; i < n_problems; ++i)
+  {
+    RobustAbsolutePoseProblemInstance<Scalar> instance;
+    instance.set_num_pts(options.n_point_point_);
+    set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
+
+    if (options.unknown_scale_)
+    {
+      instance.scale_gt = scale_gen(random_engine);
+    }
+    if (options.unknown_focal_)
+    {
+      instance.focal_gt = focal_gen(random_engine);
+    }
+
+    // Point to point correspondences
+    instance.x_point_.reserve(options.n_point_point_);
+    instance.X_point_.reserve(options.n_point_point_);
+    
+    size_t num_inliers = static_cast<int>(inlier_ratio * options.n_point_point_);
+    size_t num_outliers = options.n_point_point_ - num_inliers;
+    
+    
+    ENTO_DEBUG("Generating inliers");
+    for (size_t j = 0; j < num_inliers; ++j)
+    {
+      Vec3<Scalar> p{Scalar(0.0), Scalar(0.0), Scalar(0.0)};
+      Vec3<Scalar> x{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x.normalize();
+      Vec3<Scalar> X;
+
+      X = instance.scale_gt * p + x * depth_gen(random_engine);
+
+      X = instance.pose_gt.R().transpose() * (X - instance.pose_gt.t);
+
+      instance.x_point_.push_back(x);
+      instance.X_point_.push_back(X);
+    }
+
+    // Generate outliers
+    ENTO_DEBUG("Generating outliers");
+    for (size_t j = 0; j < num_outliers; ++j)
+    {
+      Vec3<Scalar> x{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x.normalize();
+
+      Vec3<Scalar> X{depth_gen(random_engine), depth_gen(random_engine), depth_gen(random_engine)};
+
+      instance.x_point_.push_back(x);
+      instance.X_point_.push_back(X);
+      
+    }
+
+    ENTO_DEBUG("Starting to shuffle correspondences...");
+    // Generate indices and shuffle them
+    std::vector<size_t> indices(instance.x_point_.size());
+    std::iota(indices.begin(), indices.end(), 0); // Fill indices with 0, 1, ..., n-1
+    std::shuffle(indices.begin(), indices.end(), random_engine);
+
+    // Create temporary vectors for shuffled points
+    std::vector<Vec3<Scalar>> shuffled_x_points;
+    std::vector<Vec3<Scalar>> shuffled_X_points;
+    std::vector<bool>         shuffled_inlier_flags;
+    shuffled_x_points.reserve(indices.size());
+    shuffled_X_points.reserve(indices.size());
+
+    // Reorder the points based on the shuffled indices
+    ENTO_DEBUG("Reordering correspondences...");
+    for (size_t idx : indices) {
+        shuffled_x_points.push_back(instance.x_point_[idx]);
+        shuffled_X_points.push_back(instance.X_point_[idx]);
+        shuffled_inlier_flags.push_back(idx < num_inliers);
+    }
+
+    // Replace the original points with the shuffled ones
+    ENTO_DEBUG("Moving correspondences into instance...");
+    instance.x_point_ = std::move(shuffled_x_points);
+    instance.X_point_ = std::move(shuffled_X_points);
+
+    // Set inlier flags.
+    ENTO_DEBUG("Initializing inlier flags...");
+    instance.initialize_inliers(options.n_point_point_);
+    ENTO_DEBUG("Setting inlier flags");
+    for (size_t idx = 0; idx < shuffled_inlier_flags.size(); ++idx)
+    {
+      ENTO_DEBUG("Setting inlier at idx: %i", idx);
+      instance.set_inlier(idx, shuffled_inlier_flags[idx]);
+    }
+
+    ENTO_DEBUG("Pushing back instance!");
+    problem_instances->push_back(instance);
+  }
+}
+
+template <typename Scalar>
+void generate_robust_relpose_problems(size_t n_problems,
+                                      Scalar inlier_ratio,
+                                      std::vector<RobustRelativePoseProblemInstance<Scalar>> *problem_instances,
+                                      const ProblemOptions<Scalar> &options)
+{
+  problem_instances->clear();
+  problem_instances->reserve(n_problems);
+
+  constexpr Scalar kPI = Scalar(3.14159265358979323846);
+  Scalar fov_scale = std::tan(options.camera_fov_ / 2.0 * kPI / 180.0);
+
+  // Random generators
+  std::default_random_engine random_engine;
+  std::uniform_real_distribution<Scalar> depth_gen(options.min_depth_, options.max_depth_);
+  std::uniform_real_distribution<Scalar> coord_gen(-fov_scale, fov_scale);
+  std::uniform_real_distribution<Scalar> scale_gen(options.min_scale_, options.max_scale_);
+  std::uniform_real_distribution<Scalar> focal_gen(options.min_focal_, options.max_focal_);
+  std::normal_distribution<Scalar> direction_gen(0.0, 1.0);
+  std::normal_distribution<Scalar> offset_gen(0.0, 1.0);
+
+  for (size_t i = 0; problem_instances->size() < n_problems; ++i)
+  {
+    RobustRelativePoseProblemInstance<Scalar> instance;
+    instance.set_num_pts(options.n_point_point_);
+    set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
+
+    // Point to point correspondences
+    instance.x1_.reserve(options.n_point_point_);
+    instance.x2_.reserve(options.n_point_point_);
+
+    size_t num_inliers = static_cast<int>(inlier_ratio * options.n_point_point_);
+    size_t num_outliers = options.n_point_point_ - num_inliers;
+
+    // Generate Inliers
+    for (size_t j = 0; j < num_inliers; ++j)
+    {
+      Vec3<Scalar> p1{0.0, 0.0, 0.0};
+      Vec3<Scalar> p2{0.0, 0.0, 0.0};
+      Vec3<Scalar> x1{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x1.normalize();
+      Vec3<Scalar> X;
+
+
+      //X = instance.scale_gt * p1 + x1 * depth_gen(random_engine);
+      X = x1 * depth_gen(random_engine);
+      // Map into second image
+      X = instance.pose_gt.R() * X + instance.pose_gt.t;
+
+      Vec3<Scalar> x2 = (X - instance.scale_gt * p2).normalized();
+
+      //@TODO: ensure FoV of second cameras as well...
+
+      //instance.p1_.push_back(p1);
+      instance.x1_.push_back(x1);
+      //instance.p2_.push_back(p2);
+      instance.x2_.push_back(x2);
+    }
+
+    // Generate Outliers
+    for (size_t j = 0; j < num_outliers; ++j)
+    {
+      Vec3<Scalar> x1{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x1.normalize();
+
+      Vec3<Scalar> x2{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x2.normalize();
+
+      instance.x1_.push_back(x1);
+      instance.x2_.push_back(x2);
+    }
+
+    // we do not add instance if not all points were valid
+    if (instance.x1_.size() < options.n_point_point_)
+      continue;
+
+    // Generate indices and shuffle them
+    std::vector<size_t> indices(instance.x1_.size());
+    std::iota(indices.begin(), indices.end(), 0); // Fill indices with 0, 1, ..., n-1
+    std::shuffle(indices.begin(), indices.end(), random_engine);
+
+    // Create temporary vectors for shuffled points
+    std::vector<Vec3<Scalar>> shuffled_x1_points;
+    std::vector<Vec3<Scalar>> shuffled_x2_points;
+    std::vector<bool>         shuffled_inlier_flags;
+    shuffled_x1_points.reserve(indices.size());
+    shuffled_x2_points.reserve(indices.size());
+
+    // Reorder the points based on the shuffled indices
+    for (size_t idx : indices)
+    {
+      shuffled_x1_points.push_back(instance.x1_[idx]);
+      shuffled_x2_points.push_back(instance.x2_[idx]);
+      shuffled_inlier_flags.push_back(idx < num_inliers);
+    }
+
+    // Replace the original points with the shuffled ones
+    instance.x1_ = std::move(shuffled_x1_points);
+    instance.x2_ = std::move(shuffled_x2_points);
+
+    instance.initialize_inliers(options.n_point_point_);
+    for (size_t idx = 0; idx < shuffled_inlier_flags.size(); ++idx)
+    {
+      instance.set_inlier(idx, shuffled_inlier_flags[idx]);
+    }
+
+    problem_instances->push_back(instance);
+  }
+}
+
+
+template <typename Scalar>
+void generate_robust_homography_problems(size_t n_problems,
+                                         Scalar inlier_ratio,
+                                         std::vector<RobustRelativePoseProblemInstance<Scalar>> *problem_instances,
+                                         const ProblemOptions<Scalar> &options)
+{
+  problem_instances->clear();
+  problem_instances->reserve(n_problems);
+
+  constexpr Scalar kPI = Scalar(3.14159265358979323846);
+  Scalar fov_scale = std::tan(options.camera_fov_ / 2.0 * kPI / 180.0);
+
+  // Random generators
+  std::default_random_engine random_engine;
+  std::uniform_real_distribution<Scalar> depth_gen(options.min_depth_, options.max_depth_);
+  std::uniform_real_distribution<Scalar> coord_gen(-fov_scale, fov_scale);
+  std::uniform_real_distribution<Scalar> scale_gen(options.min_scale_, options.max_scale_);
+  std::uniform_real_distribution<Scalar> focal_gen(options.min_focal_, options.max_focal_);
+  std::normal_distribution<Scalar> direction_gen(0.0, 1.0);
+  std::normal_distribution<Scalar> offset_gen(0.0, 1.0);
+
+  while (problem_instances->size() < static_cast<size_t>(n_problems))
+  {
+    RobustRelativePoseProblemInstance<Scalar> instance;
+    instance.set_num_pts(options.n_point_point_);
+    set_random_pose<Scalar>(instance.pose_gt, options.upright_, options.planar_);
+
+    // Point to point correspondences
+    instance.x1_.reserve(options.n_point_point_);
+    instance.x2_.reserve(options.n_point_point_);
+
+    // Generate plane
+    Vec3<Scalar> n;
+    n << direction_gen(random_engine), direction_gen(random_engine), direction_gen(random_engine);
+    n.normalize();
+
+    // Choose depth of plane such that center point of image 1 is at depth d
+    Scalar d_center = depth_gen(random_engine);
+    Scalar alpha = d_center / n(2);
+    // plane is n'*X = alpha
+
+    // ground truth homography
+    instance.H_gt_ = alpha * instance.pose_gt.R() + instance.pose_gt.t * n.transpose();
+
+    size_t num_inliers = static_cast<int>(inlier_ratio * options.n_point_point_);
+    size_t num_outliers = options.n_point_point_ - num_inliers;
+
+    bool failed_instance = false;
+    for (size_t j = 0; j < num_inliers; ++j)
+    {
+      bool point_okay = false;
+      for (int trials = 0; trials < 10; ++trials)
+      {
+        Vec3<Scalar> x1{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+        x1.normalize();
+        Vec3<Scalar> X;
+
+        // compute depth
+        Scalar lambda = alpha / n.dot(x1);
+        X = x1 * lambda;
+        // Map into second image
+        X = instance.pose_gt.R() * X + instance.pose_gt.t;
+
+        Vec3<Scalar> x2 = X.normalized();
+
+        // Check cheirality
+        if (x2(2) < 0 || lambda < 0)
+        {
+            // try to generate another point
+            continue;
+        }
+
+        // Check FoV of second camera
+        Vec2<Scalar> x2h = x2.hnormalized();
+        if (x2h(0) < -fov_scale || x2h(0) > fov_scale || x2h(1) < -fov_scale || x2h(1) > fov_scale)
+        {
+            // try to generate another point
+            continue;
+        }
+
+        instance.x1_.push_back(x1);
+        instance.x2_.push_back(x2);
+        point_okay = true;
+        break;
+      }
+      if (!point_okay) {
+          failed_instance = true;
+          break;
+      }
+    }
+    if (failed_instance) {
+        continue;
+    }
+
+    // Generate outliers
+    for (size_t j = 0; j < num_outliers; ++j)
+    {
+      Vec3<Scalar> x1{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x1.normalize();
+      Vec3<Scalar> x2{coord_gen(random_engine), coord_gen(random_engine), 1.0};
+      x2.normalize();
+
+      instance.x1_.push_back(x1);
+      instance.x2_.push_back(x2);
+    }
+
+    // Generate indices and shuffle them
+    std::vector<size_t> indices(instance.x1_.size());
+    std::iota(indices.begin(), indices.end(), 0); // Fill indices with 0, 1, ..., n-1
+    std::shuffle(indices.begin(), indices.end(), random_engine);
+
+    // Create temporary vectors for shuffled points
+    std::vector<Vec3<Scalar>> shuffled_x1_points;
+    std::vector<Vec3<Scalar>> shuffled_x2_points;
+    std::vector<bool>         shuffled_inlier_flags;
+    shuffled_x1_points.reserve(indices.size());
+    shuffled_x2_points.reserve(indices.size());
+
+    // Reorder the points based on the shuffled indices
+    for (size_t idx : indices)
+    {
+      shuffled_x1_points.push_back(instance.x1_[idx]);
+      shuffled_x2_points.push_back(instance.x2_[idx]);
+      shuffled_inlier_flags.push_back(idx < num_inliers);
+    }
+
+    // Replace the original points with the shuffled ones
+    instance.x1_ = std::move(shuffled_x1_points);
+    instance.x2_ = std::move(shuffled_x2_points);
+
+    instance.initialize_inliers(options.n_point_point_);
+    for (size_t idx = 0; idx < shuffled_inlier_flags.size(); ++idx)
+    {
+      instance.set_inlier(idx, shuffled_inlier_flags[idx]);
+    }
+
+    problem_instances->push_back(instance);
+  }
+}
+
 #endif
 
 }; // namespace poselib
 
 #endif
 
-#endif // PROB_GEN_H
+#endif // PROB_GEN_H;

@@ -7,6 +7,7 @@ if (STM32_BUILD)
   set(MODULES
     bench
     mcu-util
+    ento_math
     Eigen
     CMSIS::STM32::${STM_PRODUCT}
   )

@@ -1,6 +1,4 @@
 #include <stdlib.h>
-#include <cstdio>
-#include <typeinfo>
 
 #include <Eigen/Dense>
 
@@ -24,7 +22,7 @@ const char* dataset_path = DATASET_PATH;
 
 void test_p4p_lu_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -56,7 +54,7 @@ void test_p4p_lu_single()
   bool found_gt_pose = false;
   if (success)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solution);
 
     Scalar H_error = std::numeric_limits<Scalar>::max();
     const Matrix3x3<Scalar> &H_gt = solution;
@@ -78,7 +76,7 @@ void test_p4p_lu_single()
 
 void test_p4p_qr_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -110,7 +108,7 @@ void test_p4p_qr_single()
   bool found_gt_pose = false;
   if (success)
   {
-    ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+    ENTO_DEBUG_EIGEN_MATRIX(solution);
 
     Scalar H_error = std::numeric_limits<Scalar>::max();
     const Matrix3x3<Scalar> &H_gt = solution;
@@ -131,7 +129,7 @@ void test_p4p_qr_single()
 
 void test_p4p_tsj_svd_single()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -162,7 +160,7 @@ void test_p4p_tsj_svd_single()
     int success = homography_Npt<Scalar>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -198,12 +196,62 @@ void test_p4p_gram_eigen_decomp_single()
 
 void test_p4p_ento_array_single()
 {
+  using Scalar = float;
+  using Problem = HomographyProblemInstance<Scalar, 4>;
+  typedef HomographyValidator<Scalar, 4> validator;
+
+  constexpr Scalar tol = 1e-4;
+  const char* base_path = DATASET_PATH;
+  const char* rel_path = "homography/test/homography4pt_float_5.csv";
+
+  char full_path[256];
+  ENTO_DEBUG("================\n");
+  ENTO_DEBUG("Running test_p4p_tsj_svd_multi...");
+  if (!EntoUtil::build_file_path(base_path, rel_path, full_path, sizeof(full_path)))
+  {
+    ENTO_DEBUG("ERROR! Could not build file path for test_p4p_tsj_svd_multi!");
+  }
+  Problem problem;
+
+  ENTO_DEBUG("File path: %s", full_path);
+  DatasetReader<Problem> reader(full_path);
+
+  int num_experiments = 0;
+  Matrix3x3<Scalar> solution;
+  bool found_gt_pose = true;
+  bool found_all_poses = true;
+  while (reader.read_next(problem))
+  {
+    num_experiments++;
+    int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
+    if (success)
+    {
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
+
+      Scalar H_error = std::numeric_limits<Scalar>::max();
+      const Matrix3x3<Scalar> &H_gt = solution;
+      H_error = std::min(H_error, validator::compute_pose_error(problem, H_gt));
+      ENTO_DEBUG("Pose error for homography: %f", H_error);
+      found_gt_pose = (H_error < tol);
+    }
+    else
+    {
+      ENTO_DEBUG("Did not find homography!");
+      found_gt_pose = false;
+    }
+  }
+  ENTO_TEST_CHECK_TRUE(found_gt_pose);
+  ENTO_TEST_CHECK_INT_EQ(num_experiments, 5);
+
+
+  
+  ENTO_DEBUG("================\n");
 
 }
 
 void test_p4p_lu_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -234,7 +282,7 @@ void test_p4p_lu_multi()
     int success = homography_4pt<Scalar, 0, 0>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -252,15 +300,12 @@ void test_p4p_lu_multi()
   }
   ENTO_TEST_CHECK_INT_EQ(num_experiments, 5);
   ENTO_TEST_CHECK_TRUE(found_all_poses);
-
-
-  
   ENTO_DEBUG("================\n");
 }
 
 void test_p4p_qr_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -291,7 +336,7 @@ void test_p4p_qr_multi()
     int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -317,7 +362,7 @@ void test_p4p_qr_multi()
 
 void test_p4p_tsj_svd_multi()
 {
-  using Scalar = float32_t;
+  using Scalar = float;
   using Problem = HomographyProblemInstance<Scalar>;
   typedef HomographyValidator<Scalar> validator;
 
@@ -348,7 +393,7 @@ void test_p4p_tsj_svd_multi()
     int success = homography_Npt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
     if (success)
     {
-      ENTO_DEBUG_EIGEN_MATRIX(solution, 3, 3, Scalar);
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
 
       Scalar H_error = std::numeric_limits<Scalar>::max();
       const Matrix3x3<Scalar> &H_gt = solution;
@@ -384,6 +429,59 @@ void test_p4p_gram_eigen_decomp_multi()
 
 void test_p4p_ento_array_multi()
 {
+  using Scalar = float;
+  using Problem = HomographyProblemInstance<Scalar, 4>;
+  typedef HomographyValidator<Scalar, 4> validator;
+
+  constexpr Scalar tol = 1e-4;
+  const char* base_path = DATASET_PATH;
+  const char* rel_path = "homography/test/homography4pt_float_5.csv";
+
+  char full_path[256];
+  ENTO_DEBUG("================\n");
+  ENTO_DEBUG("Running test_p4p_tsj_svd_multi...");
+  if (!EntoUtil::build_file_path(base_path, rel_path, full_path, sizeof(full_path)))
+  {
+    ENTO_DEBUG("ERROR! Could not build file path for test_p4p_tsj_svd_multi!");
+  }
+  Problem problem;
+
+  ENTO_DEBUG("File path: %s", full_path);
+  DatasetReader<Problem> reader(full_path);
+
+  int num_experiments = 0;
+  Matrix3x3<Scalar> solution;
+  bool found_gt_pose = true;
+  bool found_all_poses = true;
+  while (reader.read_next(problem))
+  {
+    num_experiments++;
+    ENTO_DEBUG("Test %i/10", num_experiments);
+    int success = homography_4pt<Scalar, 0, 1>(problem.x1_, problem.x2_, &solution);
+    if (success)
+    {
+      ENTO_DEBUG_EIGEN_MATRIX(solution);
+
+      Scalar H_error = std::numeric_limits<Scalar>::max();
+      const Matrix3x3<Scalar> &H_gt = solution;
+      H_error = std::min(H_error, validator::compute_pose_error(problem, H_gt));
+      ENTO_DEBUG("Pose error for homography: %f", H_error);
+      found_gt_pose = (H_error < tol);
+    }
+    else
+    {
+      ENTO_DEBUG("Did not find homography!");
+      found_gt_pose = false;
+    }
+    found_all_poses &= found_gt_pose;
+    ENTO_TEST_CHECK_TRUE(found_gt_pose);
+  }
+  ENTO_TEST_CHECK_INT_EQ(num_experiments, 5);
+  ENTO_TEST_CHECK_TRUE(found_all_poses);
+
+
+  
+  ENTO_DEBUG("================\n");
 
 }
 
