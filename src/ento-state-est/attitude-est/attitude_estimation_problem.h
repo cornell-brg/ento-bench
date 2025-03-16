@@ -4,8 +4,6 @@
 #include "attitude_measurement.h"
 #include <ento-bench/problem.h>
 
-
-
 namespace EntoAttitude
 {
 
@@ -35,6 +33,9 @@ public:
   Eigen::Quaternion<Scalar> q_prev_;
   Eigen::Quaternion<Scalar> q_;
 
+  // Validation threshold in degrees (set in constructor)
+  Scalar angle_threshold_deg_;
+
 #ifdef NATIVE
   std::string serialize_impl() const;
   bool deserialize_impl(const std::string &line);
@@ -47,12 +48,18 @@ public:
   // @TODO: Add deserialize implementation for embedded builds
   bool deserialize_impl(const char* line);
 
-  // @TODO: Complete validate implementation. 
+  // Compute quaternion angle distance between estimated and ground truth
+  Scalar computeQuaternionAngleDistance(const Eigen::Quaternion<Scalar>& q1, 
+                                        const Eigen::Quaternion<Scalar>& q2) const;
+  
+  // Validate implementation that accepts a threshold
   bool validate_impl();
+  
+  // Helper function to validate with a specified threshold
+  bool validate(Scalar angle_threshold_deg);
 
   // @TODO: Complete solve implementation.
   void solve_impl();
-
 
   // @TODO: Complete clear implementation.
   bool clear_impl();
@@ -62,7 +69,10 @@ public:
     return ""; //@TODO: Add string for header (input)
   }
 
-  AttitudeProblem(Kernel kernel) : kernel_(std::move(kernel)) {};
+  // Constructor with kernel and angle threshold parameter
+  AttitudeProblem(Kernel kernel, Scalar angle_threshold_deg = static_cast<Scalar>(1.0)) 
+    : kernel_(std::move(kernel)),
+      angle_threshold_deg_(angle_threshold_deg) {};
 };
 
 
@@ -98,8 +108,6 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::deserialize_impl(const c
   q_gt_ = Eigen::Quaternion<Scalar>(qw, qx, qy, qz);
   dt_ = dt;
   return true;
-  
-
 }
 
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
@@ -137,13 +145,12 @@ void AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::solve_impl()
 }
 
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
-bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::validate_impl()
+Scalar AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::computeQuaternionAngleDistance(
+    const Eigen::Quaternion<Scalar>& q1, const Eigen::Quaternion<Scalar>& q2) const
 {
-    // Compute the quaternion angle distance (QAD) between estimated quaternion q_ and ground truth q_gt_
-    
     // Compute the absolute value of the dot product of the quaternions
     // This gives the cosine of half the rotation angle between them
-    Scalar dot_product = std::abs(q_.dot(q_gt_));
+    Scalar dot_product = std::abs(q1.dot(q2));
     
     // Clamp the dot product to [-1, 1] to handle numerical errors
     dot_product = std::min(static_cast<Scalar>(1.0), std::max(static_cast<Scalar>(-1.0), dot_product));
@@ -155,12 +162,25 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::validate_impl()
     // Convert to degrees for better interpretation
     Scalar angle_distance_deg = angle_distance * static_cast<Scalar>(180.0 / M_PI);
     
-    // Validate based on a threshold (set to 5 degrees for now)
-    // Threshold can be adjusted based on application requirements
-    static constexpr Scalar ANGLE_THRESHOLD_DEG = static_cast<Scalar>(5.0);
+    return angle_distance_deg;
+}
+
+template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
+bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::validate_impl()
+{
+    // Use the threshold that was set in the constructor, but pass it to the validate function
+    // This way the threshold is not hardcoded here
+    return validate(angle_threshold_deg_);
+}
+
+template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
+bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::validate(Scalar angle_threshold_deg)
+{
+    // Compute angle distance using the dedicated function
+    Scalar angle_distance_deg = computeQuaternionAngleDistance(q_, q_gt_);
     
     // Return true if the angle distance is below the threshold
-    return angle_distance_deg < ANGLE_THRESHOLD_DEG;
+    return angle_distance_deg < angle_threshold_deg;
 }
 
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
@@ -181,10 +201,6 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::clear_impl()
     
     return true;
 }
-
-
-
-
 
 } // namespace EntoAttitude
 
