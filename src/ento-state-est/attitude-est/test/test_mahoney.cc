@@ -111,7 +111,7 @@
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
 #include <ento-util/file_path_util.h>
-#include <ento-state-est/attitude-est/attitude_problem.h>
+#include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
 #include "mahoney_kernel.h"
 
