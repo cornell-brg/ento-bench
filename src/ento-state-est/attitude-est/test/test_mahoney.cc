@@ -113,7 +113,6 @@
 #include <ento-util/file_path_util.h>
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
-#include "mahoney_kernel.h"
 
 // Include the ENTO_TEST_CHECK_QUAT_EQ macro if not defined in unittest.h
 #ifndef ENTO_TEST_CHECK_QUAT_EQ
