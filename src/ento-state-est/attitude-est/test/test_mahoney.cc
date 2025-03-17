@@ -383,7 +383,7 @@ int main( int argc, char** argv )
   if (__ento_test_num(__n, 4)) test_mahoney_marg_problem();
 
   if (__ento_test_num(__n, 5)) test_mahoney_imu_serialization();
-//   if (__ento_test_num(__n, 6)) test_mahoney_marg_serialization();
+  if (__ento_test_num(__n, 6)) test_mahoney_marg_serialization();
 
   ENTO_TEST_END();
   //return 0;
