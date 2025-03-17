@@ -143,7 +143,7 @@ void test_mahoney_marg_update()
 
 
 //------------------------------------------------------------------------------
-// Test for mahoney IMU Problem
+// Test for mahoney IMU Solve
 //------------------------------------------------------------------------------
 void test_mahoney_imu_problem()
 {
@@ -183,7 +183,7 @@ void test_mahoney_imu_problem()
 }
 
 //------------------------------------------------------------------------------
-// Test for mahoney MARG Problem
+// Test for mahoney MARG Solve
 //------------------------------------------------------------------------------
 void test_mahoney_marg_problem()
 {
@@ -224,7 +224,9 @@ void test_mahoney_marg_problem()
 }
 
 
-// Test serialization and deserialization for Mahoney IMU problem
+//------------------------------------------------------------------------------
+// Test for mahoney IMU Serialization + Deserialization
+//------------------------------------------------------------------------------
 void test_mahoney_imu_serialization()
 {
     ENTO_DEBUG("Running test_mahoney_imu_serialization...");
@@ -282,7 +284,7 @@ void test_mahoney_imu_serialization()
     
     new_problem.q_ = Eigen::Quaternion<Scalar>(w, x, y, z);
     
-    // Check that the result matches what we expect
+    // Check that the result
     ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
     ENTO_DEBUG_EIGEN_QUATERNION(expected_q);
     ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(new_problem.q_.coeffs(), expected_q.coeffs());
@@ -290,7 +292,9 @@ void test_mahoney_imu_serialization()
     ENTO_DEBUG("test_mahoney_imu_serialization PASSED!");
 }
 
-// Test serialization and deserialization for Mahoney MARG problem
+//------------------------------------------------------------------------------
+// Test for mahoney MARG Serialization + Deserialization
+//------------------------------------------------------------------------------
 void test_mahoney_marg_serialization()
 {
     ENTO_DEBUG("Running test_mahoney_marg_serialization...");
@@ -348,7 +352,6 @@ void test_mahoney_marg_serialization()
     
     new_problem.q_ = Eigen::Quaternion<Scalar>(w, x, y, z);
     
-    // Check that the result matches what we expect
     ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
     ENTO_DEBUG_EIGEN_QUATERNION(expected_q);
     ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(new_problem.q_.coeffs(), expected_q.coeffs());
@@ -357,7 +360,9 @@ void test_mahoney_marg_serialization()
 }
 
 
-// Test validation for Mahoney IMU problem
+//------------------------------------------------------------------------------
+// Test for mahoney IMU Validate
+//------------------------------------------------------------------------------
 void test_mahoney_imu_validation()
 {
     ENTO_DEBUG("Running test_mahoney_imu_validation...");
@@ -387,7 +392,6 @@ void test_mahoney_imu_validation()
     ENTO_TEST_CHECK_TRUE(validation_result);
     
     // Test validate with a tight threshold (0.1 degrees)
-    // This should also pass because the filter should be accurate with these test values
     bool tight_validation = problem.validate(0.1);
     ENTO_DEBUG("Tight validation result (0.1 deg threshold): %s", tight_validation ? "PASSED" : "FAILED");
     ENTO_TEST_CHECK_TRUE(tight_validation);
@@ -408,7 +412,9 @@ void test_mahoney_imu_validation()
     ENTO_DEBUG("test_mahoney_imu_validation PASSED!");
 }
 
-// Test validation for Mahoney MARG problem with adjusted thresholds
+//------------------------------------------------------------------------------
+// Test for mahoney MARG Validate
+//------------------------------------------------------------------------------
 void test_mahoney_marg_validation()
 {
     ENTO_DEBUG("Running test_mahoney_marg_validation...");
@@ -453,7 +459,6 @@ void test_mahoney_marg_validation()
     ENTO_TEST_CHECK_TRUE(validation_result);
     
     // Test with a threshold based on the expected error (0.0001132924459462383)
-    // We'll use a threshold that's about 10x the expected error to be safe
     Scalar expected_error_deg = 0.5;  // 0.5 degrees should be enough
     bool adjusted_validation = problem.validate(expected_error_deg);
     ENTO_DEBUG("Adjusted validation result (%f deg threshold): %s", 
@@ -465,11 +470,12 @@ void test_mahoney_marg_validation()
     Eigen::Quaternion<Scalar> expected_q(9.99999994e-01, -7.29375589e-05, -7.75753231e-05, 3.93137128e-05);
     
     // Check the current result against the expected quaternion with a looser tolerance
-    const float custom_tol = 0.0005f;  // Adjust based on your needs
+    const float custom_tol = 0.0005f;  
     ENTO_TEST_CHECK_EIGEN_MATRIX_EQ_TOL(problem.q_.coeffs(), expected_q.coeffs(), custom_tol);
     
     ENTO_DEBUG("test_mahoney_marg_validation PASSED!");
 }
+
 //------------------------------------------------------------------------------
 // Main Test Runner
 //------------------------------------------------------------------------------
