@@ -356,6 +356,108 @@ void test_mahoney_marg_serialization()
     ENTO_DEBUG("test_mahoney_marg_serialization PASSED!");
 }
 
+
+// Test validation for Mahoney IMU problem
+void test_mahoney_imu_validation()
+{
+    ENTO_DEBUG("Running test_mahoney_imu_validation...");
+    
+    // Create the adapter with optimized parameters
+    MahoneyAdapter<Scalar, false> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter - use a 5 degree threshold
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, false>, 
+                                false> problem(adapter, 5.0);
+    
+    // Create a sample line that matches the expected format for deserialize_impl
+    // Format for IMU (no mag): ax ay az gx gy gz qw qx qy qz dt
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
+    
+    // Deserialize the input line
+    bool deserialize_success = problem.deserialize_impl(input_line.c_str());
+    ENTO_TEST_CHECK_TRUE(deserialize_success);
+    
+    // Solve the problem to update q_
+    problem.solve_impl();
+    
+    // Test validate_impl (should use the default threshold of 5 degrees)
+    bool validation_result = problem.validate_impl();
+    ENTO_DEBUG("Default validation result (5 deg threshold): %s", validation_result ? "PASSED" : "FAILED");
+    ENTO_TEST_CHECK_TRUE(validation_result);
+    
+    // Test validate with a tight threshold (0.1 degrees)
+    // This should also pass because the filter should be accurate with these test values
+    bool tight_validation = problem.validate(0.1);
+    ENTO_DEBUG("Tight validation result (0.1 deg threshold): %s", tight_validation ? "PASSED" : "FAILED");
+    ENTO_TEST_CHECK_TRUE(tight_validation);
+    
+    // Calculate and display the actual quaternion angle distance for debugging
+    Scalar angle_distance = problem.computeQuaternionAngleDistance(problem.q_, problem.q_gt_);
+    ENTO_DEBUG("Quaternion angle distance (degrees): %f", angle_distance);
+    
+    // Test with a very tight threshold that should fail
+    // Only do this if the angle distance is non-zero
+    if (angle_distance > 1e-10) {
+        bool super_tight_validation = problem.validate(angle_distance * 0.5);
+        ENTO_DEBUG("Super tight validation result (%f deg threshold): %s", 
+                  angle_distance * 0.5, super_tight_validation ? "PASSED" : "FAILED");
+        ENTO_TEST_CHECK_FALSE(super_tight_validation);
+    }
+    
+    ENTO_DEBUG("test_mahoney_imu_validation PASSED!");
+}
+
+// Test validation for Mahoney MARG problem
+void test_mahoney_marg_validation()
+{
+    ENTO_DEBUG("Running test_mahoney_marg_validation...");
+    
+    // Create the adapter with optimized parameters
+    MahoneyAdapter<Scalar, true> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter - use a 5 degree threshold
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, true>, 
+                                true> problem(adapter, 5.0);
+    
+    // Create a sample line that matches the expected format for deserialize_impl
+    // Format for MARG (with mag): ax ay az gx gy gz mx my mz qw qx qy qz dt
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 16925.5042314 1207.22593348 34498.24159392 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
+    
+    // Deserialize the input line
+    bool deserialize_success = problem.deserialize_impl(input_line.c_str());
+    ENTO_TEST_CHECK_TRUE(deserialize_success);
+    
+    // Solve the problem to update q_
+    problem.solve_impl();
+    
+    // Test validate_impl (should use the default threshold of 5 degrees)
+    bool validation_result = problem.validate_impl();
+    ENTO_DEBUG("Default validation result (5 deg threshold): %s", validation_result ? "PASSED" : "FAILED");
+    ENTO_TEST_CHECK_TRUE(validation_result);
+    
+    // Test validate with a tighter threshold (1 degree)
+    bool tight_validation = problem.validate(1.0);
+    ENTO_DEBUG("Tight validation result (1 deg threshold): %s", tight_validation ? "PASSED" : "FAILED");
+    ENTO_TEST_CHECK_TRUE(tight_validation);
+    
+    // Calculate and display the actual quaternion angle distance for debugging
+    Scalar angle_distance = problem.computeQuaternionAngleDistance(problem.q_, problem.q_gt_);
+    ENTO_DEBUG("Quaternion angle distance (degrees): %f", angle_distance);
+    
+    // Test with a very tight threshold that should fail
+    // Only do this if the angle distance is non-zero
+    if (angle_distance > 1e-10) {
+        bool super_tight_validation = problem.validate(angle_distance * 0.5);
+        ENTO_DEBUG("Super tight validation result (%f deg threshold): %s", 
+                  angle_distance * 0.5, super_tight_validation ? "PASSED" : "FAILED");
+        ENTO_TEST_CHECK_FALSE(super_tight_validation);
+    }
+    
+    ENTO_DEBUG("test_mahoney_marg_validation PASSED!");
+}
+
 //------------------------------------------------------------------------------
 // Main Test Runner
 //------------------------------------------------------------------------------
@@ -384,6 +486,9 @@ int main( int argc, char** argv )
 
   if (__ento_test_num(__n, 5)) test_mahoney_imu_serialization();
   if (__ento_test_num(__n, 6)) test_mahoney_marg_serialization();
+
+  if (__ento_test_num(__n, 7)) test_mahoney_imu_validation();
+//   if (__ento_test_num(__n, 8)) test_mahoney_marg_validation();
 
   ENTO_TEST_END();
   //return 0;
