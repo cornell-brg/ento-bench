@@ -291,7 +291,7 @@ def analyze_multiple_experiments(parent_dir, window_size, rising_threshold, fall
             numeric_values = [int(s) for s in last_part if s.isdigit()]
             if numeric_values:
                 m_value = int(''.join(map(str, numeric_values)))
-                print(f"Extracted dimension: {m_value}")
+                # print(f"Extracted dimension: {m_value}")
             else:
                 print(f"Skipping non-matching experiment: {dataset_name}")
                 continue

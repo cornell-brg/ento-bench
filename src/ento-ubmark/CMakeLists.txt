@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 include (${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
-set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/floating_point.cc)
+set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/add_bits.cc)
 
 add_library(
   ento-ubmark
@@ -24,3 +24,6 @@ if (STM32_BUILD)
 
   add_stm32_flash_and_debug_targets(ubmark)
 endif()
+
+
+
