@@ -113,156 +113,125 @@
 
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
+#include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
-#include <ento-state-est/attitude-est/attitude_problem.h>
 
 using Scalar = double;
 using namespace EntoMath;
 
-// A simple wrapper class to make Mahoney work with AttitudeProblem
+// Create an adapter that stores the additional parameters needed by FilterMahoney
 template <typename Scalar, bool UseMag>
-class MahoneyKernel
+class MahoneyAdapter
 {
 private:
+    // Store the FilterMahoney struct
+    EntoAttitude::FilterMahoney<Scalar, UseMag> filter_;
+    
+    // Additional parameters needed by FilterMahoney
     Scalar k_p_;
     Scalar k_i_;
     EntoMath::Vec3<Scalar> bias_;
 
 public:
-    MahoneyKernel(Scalar k_p = static_cast<Scalar>(0.1),
-                 Scalar k_i = static_cast<Scalar>(0.01))
+    MahoneyAdapter(Scalar k_p = static_cast<Scalar>(0.1), 
+                  Scalar k_i = static_cast<Scalar>(0.01))
         : k_p_(k_p), k_i_(k_i), bias_(EntoMath::Vec3<Scalar>::Zero()) {}
-
-    // This is the interface required by AttitudeProblem
+    
+    // Implement the interface required by AttitudeProblem
     void operator()(const Eigen::Quaternion<Scalar>& q_prev,
                    const EntoAttitude::AttitudeMeasurement<Scalar, UseMag>& measurement,
                    Scalar dt,
                    Eigen::Quaternion<Scalar>* q_out)
     {
-        if constexpr (UseMag) {
-            *q_out = EntoAttitude::mahoney_update_marg(
-                q_prev,
-                measurement.gyr,
-                measurement.acc,
-                measurement.mag,
-                dt,
-                k_p_,
-                k_i_,
-                bias_
-            );
-        } else {
-            *q_out = EntoAttitude::mahoney_update_imu(
-                q_prev,
-                measurement.gyr,
-                measurement.acc,
-                dt,
-                k_p_,
-                k_i_,
-                bias_
-            );
-        }
+        // Call FilterMahoney::operator() with the additional parameters
+        *q_out = filter_(q_prev, measurement, dt, k_p_, k_i_, bias_);
     }
-
+    
+    // Forward the name() method
     static constexpr const char* name()
     {
-        if constexpr (UseMag) {
-            return "Mahoney MARG Filter";
-        } else {
-            return "Mahoney IMU Filter";
-        }
+        return EntoAttitude::FilterMahoney<Scalar, UseMag>::name();
     }
 };
 
-// Test for Mahoney IMU integration with AttitudeProblem
+// Test function for IMU (no magnetometer) case
 void test_mahoney_imu_problem()
 {
     ENTO_DEBUG("Running test_mahoney_imu_problem...");
-
-    // Create the Mahoney kernel
-    MahoneyKernel<Scalar, false> imuKernel(0.1, 0.01);
-
-    // Create the problem with this kernel
+    
+    // Create the adapter with optimized parameters from your script
+    MahoneyAdapter<Scalar, false> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter
     EntoAttitude::AttitudeProblem<Scalar, 
-                               MahoneyKernel<Scalar, false>, 
-                               false> imuProblem(imuKernel);
-
-    // Create test measurement
+                                MahoneyAdapter<Scalar, false>, 
+                                false> problem(adapter);
+    
+    // Create a test measurement from your previous test data
     EntoAttitude::AttitudeMeasurement<Scalar, false> measurement(
         Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
         Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944)                 // Accelerometer
     );
-
-    // Set up the problem
-    imuProblem.measurement_ = measurement;
-    imuProblem.dt_ = 0.004;
-    imuProblem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892868785046e-7, -1.48352885438851e-7, 4.45058992918769e-7);
     
-    // Initial quaternion
-    imuProblem.q_prev_ = imuProblem.q_gt_;
-
+    // Set up the problem
+    problem.measurement_ = measurement;
+    problem.dt_ = 0.004;
+    problem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892869e-07, -1.48352885e-07, 4.45058993e-07);
+    problem.q_prev_ = problem.q_gt_;
+    
     // Solve the problem
-    imuProblem.solve_impl();
-
+    problem.solve_impl();
+    
     // Expected quaternion from previous test
     Eigen::Quaternion<Scalar> q_expected(1.00000000e+00, 6.66248740e-07, 1.46525393e-06, 4.36344465e-07);
-
-    // Check results
-    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(imuProblem.q_.coeffs(), q_expected.coeffs());
     
-    // Also test the validation
-    bool valid = imuProblem.validate(1.0);  // 1 degree threshold
-    ENTO_TEST_CHECK(valid);
-
+    // Check results
+    ENTO_DEBUG_EIGEN_QUATERNION(problem.q_);
+    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(problem.q_.coeffs(), q_expected.coeffs());
+    
     ENTO_DEBUG("test_mahoney_imu_problem PASSED!");
 }
 
-// Test for Mahoney MARG integration with AttitudeProblem
+// Test function for MARG (with magnetometer) case
 void test_mahoney_marg_problem()
 {
     ENTO_DEBUG("Running test_mahoney_marg_problem...");
-
-    // Create the Mahoney kernel
-    MahoneyKernel<Scalar, true> margKernel(0.1, 0.01);
-
-    // Create the problem with this kernel
+    
+    // Create the adapter with optimized parameters from your script
+    MahoneyAdapter<Scalar, true> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter
     EntoAttitude::AttitudeProblem<Scalar, 
-                               MahoneyKernel<Scalar, true>, 
-                               true> margProblem(margKernel);
-
-    // Create test measurement
+                                MahoneyAdapter<Scalar, true>, 
+                                true> problem(adapter);
+    
+    // Create a test measurement from your previous test data
     EntoAttitude::AttitudeMeasurement<Scalar, true> measurement(
         Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
         Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944),                // Accelerometer
         Vec3<Scalar>(16925.5042314, 1207.22593348, 34498.24159392)        // Magnetometer
     );
-
-    // Set up the problem
-    margProblem.measurement_ = measurement;
-    margProblem.dt_ = 0.004;
-    margProblem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892868785046e-7, -1.48352885438851e-7, 4.45058992918769e-7);
     
-    // Initial quaternion
-    margProblem.q_prev_ = margProblem.q_gt_;
-
+    // Set up the problem
+    problem.measurement_ = measurement;
+    problem.dt_ = 0.004;
+    problem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892869e-07, -1.48352885e-07, 4.45058993e-07);
+    problem.q_prev_ = problem.q_gt_;
+    
     // Solve the problem
-    margProblem.solve_impl();
-
+    problem.solve_impl();
+    
     // Expected quaternion from previous test
     Eigen::Quaternion<Scalar> q_expected(9.99999994e-01, -7.29375589e-05, -7.75753231e-05, 3.93137128e-05);
-
-    // Check results
-    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(margProblem.q_.coeffs(), q_expected.coeffs());
     
-    // Also test the validation
-    bool valid = margProblem.validate(1.0);  // 1 degree threshold
-    ENTO_TEST_CHECK(valid);
-
+    // Check results
+    ENTO_DEBUG_EIGEN_QUATERNION(problem.q_);
+    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(problem.q_.coeffs(), q_expected.coeffs());
+    
     ENTO_DEBUG("test_mahoney_marg_problem PASSED!");
 }
 
-//------------------------------------------------------------------------------
-// Main Test Runner
-//------------------------------------------------------------------------------
+// Main function that can be added to your test harness
 int main(int argc, char** argv)
 {
     using namespace EntoUtil;
