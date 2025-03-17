@@ -271,7 +271,7 @@ void test_mahoney_imu_serialization()
     bool deserialize_success = new_problem.deserialize_impl(serialized.c_str());
     
     // Verify deserialization succeeded
-    ENTO_TEST_CHECK(deserialize_success);
+    ENTO_TEST_CHECK_TRUE(deserialize_success);
     
     // Check that the quaternion was correctly deserialized
     ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
@@ -330,7 +330,7 @@ void test_mahoney_marg_serialization()
     bool deserialize_success = new_problem.deserialize_impl(serialized.c_str());
     
     // Verify deserialization succeeded
-    ENTO_TEST_CHECK(deserialize_success);
+    ENTO_TEST_CHECK_TRUE(deserialize_success);
     
     // Check that the quaternion was correctly deserialized
     ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
