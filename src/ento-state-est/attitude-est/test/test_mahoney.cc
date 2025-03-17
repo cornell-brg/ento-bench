@@ -224,6 +224,123 @@ void test_mahoney_marg_problem()
 }
 
 
+// Test serialization and deserialization for Mahoney IMU problem
+void test_mahoney_imu_serialization()
+{
+    ENTO_DEBUG("Running test_mahoney_imu_serialization...");
+    
+    // Create the adapter with optimized parameters
+    MahoneyAdapter<Scalar, false> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, false>, 
+                                false> problem(adapter);
+    
+    // Create a test measurement
+    EntoAttitude::AttitudeMeasurement<Scalar, false> measurement(
+        Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
+        Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944)                 // Accelerometer
+    );
+    
+    // Set up the problem
+    problem.measurement_ = measurement;
+    problem.dt_ = 0.004;
+    problem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892869e-07, -1.48352885e-07, 4.45058993e-07);
+    problem.q_prev_ = problem.q_gt_;
+    
+    // Solve the problem to update q_
+    problem.solve_impl();
+    
+    // Get the expected quaternion for comparison later
+    Eigen::Quaternion<Scalar> expected_q = problem.q_;
+    
+    // Test serialization
+    std::string serialized = problem.serialize_impl();
+    ENTO_DEBUG("Serialized quaternion: %s", serialized.c_str());
+    
+    // Create a new problem instance
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, false>, 
+                                false> new_problem(adapter);
+    
+    // Reset q_ to identity
+    new_problem.q_ = Eigen::Quaternion<Scalar>::Identity();
+    
+    // Deserialize into the new problem
+    bool deserialize_success = new_problem.deserialize_impl(serialized.c_str());
+    
+    // Verify deserialization succeeded
+    ENTO_TEST_CHECK(deserialize_success);
+    
+    // Check that the quaternion was correctly deserialized
+    ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
+    ENTO_DEBUG_EIGEN_QUATERNION(expected_q);
+    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(new_problem.q_.coeffs(), expected_q.coeffs());
+    
+    ENTO_DEBUG("test_mahoney_imu_serialization PASSED!");
+}
+
+
+// Test serialization and deserialization for Mahoney MARG problem
+void test_mahoney_marg_serialization()
+{
+    ENTO_DEBUG("Running test_mahoney_marg_serialization...");
+    
+    // Create the adapter with optimized parameters
+    MahoneyAdapter<Scalar, true> adapter(0.1, 0.01);
+    
+    // Create the problem with this adapter
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, true>, 
+                                true> problem(adapter);
+    
+    // Create a test measurement
+    EntoAttitude::AttitudeMeasurement<Scalar, true> measurement(
+        Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
+        Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944),                // Accelerometer
+        Vec3<Scalar>(16925.5042314, 1207.22593348, 34498.24159392)        // Magnetometer
+    );
+    
+    // Set up the problem
+    problem.measurement_ = measurement;
+    problem.dt_ = 0.004;
+    problem.q_gt_ = Eigen::Quaternion<Scalar>(1.0, 2.26892869e-07, -1.48352885e-07, 4.45058993e-07);
+    problem.q_prev_ = problem.q_gt_;
+    
+    // Solve the problem to update q_
+    problem.solve_impl();
+    
+    // Get the expected quaternion for comparison later
+    Eigen::Quaternion<Scalar> expected_q = problem.q_;
+    
+    // Test serialization
+    std::string serialized = problem.serialize_impl();
+    ENTO_DEBUG("Serialized quaternion: %s", serialized.c_str());
+    
+    // Create a new problem instance
+    EntoAttitude::AttitudeProblem<Scalar, 
+                                MahoneyAdapter<Scalar, true>, 
+                                true> new_problem(adapter);
+    
+    // Reset q_ to identity
+    new_problem.q_ = Eigen::Quaternion<Scalar>::Identity();
+    
+    // Deserialize into the new problem
+    bool deserialize_success = new_problem.deserialize_impl(serialized.c_str());
+    
+    // Verify deserialization succeeded
+    ENTO_TEST_CHECK(deserialize_success);
+    
+    // Check that the quaternion was correctly deserialized
+    ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
+    ENTO_DEBUG_EIGEN_QUATERNION(expected_q);
+    ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(new_problem.q_.coeffs(), expected_q.coeffs());
+    
+    ENTO_DEBUG("test_mahoney_marg_serialization PASSED!");
+}
+
+
 //------------------------------------------------------------------------------
 // Main Test Runner
 //------------------------------------------------------------------------------
@@ -249,6 +366,9 @@ int main( int argc, char** argv )
 
   if (__ento_test_num(__n, 3)) test_mahoney_imu_problem();
   if (__ento_test_num(__n, 4)) test_mahoney_marg_problem();
+
+  if (__ento_test_num(__n, 5)) test_mahoney_imu_serialization();
+  if (__ento_test_num(__n, 6)) test_mahoney_marg_serialization();
 
   ENTO_TEST_END();
   //return 0;
