@@ -116,18 +116,16 @@
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
 
+
 using Scalar = double;
 using namespace EntoMath;
 
-// Create an adapter that stores the additional parameters needed by FilterMahoney
+
 template <typename Scalar, bool UseMag>
 class MahoneyAdapter
 {
 private:
-    // Store the FilterMahoney struct
-    EntoAttitude::FilterMahoney<Scalar, UseMag> filter_;
-    
-    // Additional parameters needed by FilterMahoney
+    // Additional parameters needed by Mahoney functions
     Scalar k_p_;
     Scalar k_i_;
     EntoMath::Vec3<Scalar> bias_;
@@ -143,14 +141,40 @@ public:
                    Scalar dt,
                    Eigen::Quaternion<Scalar>* q_out)
     {
-        // Call FilterMahoney::operator() with the additional parameters
-        *q_out = filter_(q_prev, measurement, dt, k_p_, k_i_, bias_);
+        if constexpr (UseMag) {
+            // For MARG (with magnetometer)
+            *q_out = EntoAttitude::mahoney_update_marg(
+                q_prev,
+                measurement.gyr,  // Gyroscope vector
+                measurement.acc,  // Accelerometer vector
+                measurement.mag,  // Magnetometer vector
+                dt,
+                k_p_,
+                k_i_,
+                bias_
+            );
+        } else {
+            // For IMU (no magnetometer)
+            *q_out = EntoAttitude::mahoney_update_imu(
+                q_prev,
+                measurement.gyr,  // Gyroscope vector
+                measurement.acc,  // Accelerometer vector
+                dt,
+                k_p_,
+                k_i_,
+                bias_
+            );
+        }
     }
     
-    // Forward the name() method
+    // Name method for identification
     static constexpr const char* name()
     {
-        return EntoAttitude::FilterMahoney<Scalar, UseMag>::name();
+        if constexpr (UseMag) {
+            return "Mahoney MARG Filter";
+        } else {
+            return "Mahoney IMU Filter";
+        }
     }
 };
 
@@ -159,7 +183,7 @@ void test_mahoney_imu_problem()
 {
     ENTO_DEBUG("Running test_mahoney_imu_problem...");
     
-    // Create the adapter with optimized parameters from your script
+    // Create the adapter with optimized parameters
     MahoneyAdapter<Scalar, false> adapter(0.1, 0.01);
     
     // Create the problem with this adapter
@@ -167,7 +191,7 @@ void test_mahoney_imu_problem()
                                 MahoneyAdapter<Scalar, false>, 
                                 false> problem(adapter);
     
-    // Create a test measurement from your previous test data
+    // Create a test measurement
     EntoAttitude::AttitudeMeasurement<Scalar, false> measurement(
         Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
         Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944)                 // Accelerometer
@@ -197,7 +221,7 @@ void test_mahoney_marg_problem()
 {
     ENTO_DEBUG("Running test_mahoney_marg_problem...");
     
-    // Create the adapter with optimized parameters from your script
+    // Create the adapter with optimized parameters
     MahoneyAdapter<Scalar, true> adapter(0.1, 0.01);
     
     // Create the problem with this adapter
@@ -205,7 +229,7 @@ void test_mahoney_marg_problem()
                                 MahoneyAdapter<Scalar, true>, 
                                 true> problem(adapter);
     
-    // Create a test measurement from your previous test data
+    // Create a test measurement
     EntoAttitude::AttitudeMeasurement<Scalar, true> measurement(
         Vec3<Scalar>(-1.52713681e-04, -6.10919329e-05, -4.35697544e-06),  // Gyroscope
         Vec3<Scalar>(-0.07215829, 0.03096613, 8.31740944),                // Accelerometer
@@ -231,25 +255,5 @@ void test_mahoney_marg_problem()
     ENTO_DEBUG("test_mahoney_marg_problem PASSED!");
 }
 
-// Main function that can be added to your test harness
-int main(int argc, char** argv)
-{
-    using namespace EntoUtil;
-    if (argc > 1)
-    {
-        __n = atoi(argv[1]);
-    }
-    else
-    {
-        __ento_replace_file_suffix(__FILE__, "test_harness_cmdline.txt");
-        __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
-    }
-
-    ENTO_DEBUG("N: %i", __n);
-    ENTO_TEST_START();
-
-    if (__ento_test_num(__n, 1)) test_mahoney_imu_problem();
-    if (__ento_test_num(__n, 2)) test_mahoney_marg_problem();
-
-    ENTO_TEST_END();
-}
+// You can add these functions to your existing test_mahoney.cc file
+// and update the main() function to call them with new test numbers
