@@ -488,7 +488,7 @@ int main( int argc, char** argv )
   if (__ento_test_num(__n, 6)) test_mahoney_marg_serialization();
 
   if (__ento_test_num(__n, 7)) test_mahoney_imu_validation();
-//   if (__ento_test_num(__n, 8)) test_mahoney_marg_validation();
+  if (__ento_test_num(__n, 8)) test_mahoney_marg_validation();
 
   ENTO_TEST_END();
   //return 0;
