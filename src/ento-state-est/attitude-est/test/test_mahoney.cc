@@ -241,9 +241,7 @@ void test_mahoney_imu_serialization()
     
     // Create a sample line that matches the expected format for deserialize_impl
     // Format for IMU (no mag): ax ay az gx gy gz qw qx qy qz dt
-    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 
-    -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 
-    4.45058993e-07 0.004";
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
     
     // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
@@ -311,9 +309,7 @@ void test_mahoney_marg_serialization()
     
     // Create a sample line that matches the expected format for deserialize_impl
     // Format for MARG (with mag): ax ay az gx gy gz mx my mz qw qx qy qz dt
-    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 
-    -6.10919329e-05 -4.35697544e-06 16925.5042314 1207.22593348 34498.24159392 
-    1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 16925.5042314 1207.22593348 34498.24159392 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
     
     // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
@@ -381,9 +377,7 @@ void test_mahoney_imu_validation()
     
     // Create a sample line that matches the expected format for deserialize_impl
     // Format for IMU (no mag): ax ay az gx gy gz qw qx qy qz dt
-    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 
-    -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 
-    4.45058993e-07 0.004";
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
     
     // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
@@ -394,14 +388,12 @@ void test_mahoney_imu_validation()
     
     // Test validate_impl (should use the default threshold of 5 degrees)
     bool validation_result = problem.validate_impl();
-    ENTO_DEBUG("Default validation result (5 deg threshold): %s", 
-        validation_result ? "PASSED" : "FAILED");
+    ENTO_DEBUG("Default validation result (5 deg threshold): %s", validation_result ? "PASSED" : "FAILED");
     ENTO_TEST_CHECK_TRUE(validation_result);
     
     // Test validate with a tight threshold (0.1 degrees)
     bool tight_validation = problem.validate(0.1);
-    ENTO_DEBUG("Tight validation result (0.1 deg threshold): %s", 
-        tight_validation ? "PASSED" : "FAILED");
+    ENTO_DEBUG("Tight validation result (0.1 deg threshold): %s", tight_validation ? "PASSED" : "FAILED");
     ENTO_TEST_CHECK_TRUE(tight_validation);
     
     // Calculate and display the actual quaternion angle distance for debugging
@@ -437,9 +429,7 @@ void test_mahoney_marg_validation()
     
     // Create a sample line that matches the expected format for deserialize_impl
     // Format for MARG (with mag): ax ay az gx gy gz mx my mz qw qx qy qz dt
-    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 
-    -6.10919329e-05 -4.35697544e-06 16925.5042314 1207.22593348 34498.24159392 
-    1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
+    std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 16925.5042314 1207.22593348 34498.24159392 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
     
     // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
