@@ -2,7 +2,7 @@
 #include <Eigen/Dense>
 
 #include <ento-util/debug.h>
-#include <ento-feature2d/fixed_point.h>
+#include <math/FixedPoint.hh>
 #include <ento-feature2d/feat2d_util.h>
 
 #include <ento-feature2d/lk_optical_flow_iter.h>

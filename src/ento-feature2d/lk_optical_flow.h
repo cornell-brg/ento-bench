@@ -3,7 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include <Eigen/Dense>
-#include <ento-feature2d/fixed_point.h>
+#include <math/FixedPoint.hh>
 #include <ento-feature2d/image_pyramid.h>
 #include <ento-feature2d/lk_optical_flow_iter.h>
 #include <image_io/Image.h>

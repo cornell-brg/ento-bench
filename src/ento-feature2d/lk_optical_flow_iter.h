@@ -3,7 +3,7 @@
 #include <iostream>
 #include <math.h>
 #include <Eigen/Dense>
-#include <ento-feature2d/fixed_point.h>
+#include <math/FixedPoint.hh>
 #include <ento-feature2d/feat2d_util.h>
 #include <image_io/Image.h>
 // g++ -std=c++11 $(pkg-config --cflags eigen3 --libs opencv4) lk_optical_flow_fp_gem5.cpp -o lk_optical_flow_fp_gem5  -I/opt/homebrew/include
