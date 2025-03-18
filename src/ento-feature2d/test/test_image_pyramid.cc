@@ -42,7 +42,8 @@ void test_pyramid_zero_level() {
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
 
   constexpr size_t NUM_LEVELS = 0;
-  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid(topImg);
+  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid;
+  pyramid.set_top_image(topImg);
   using MyTupleType = decltype(pyramid.pyramid);
   // Print the types of each level in the pyramid:
   pyramid.initialize_pyramid();
@@ -61,7 +62,8 @@ void test_pyramid_one_level() {
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
 
   constexpr size_t NUM_LEVELS = 1;
-  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid(topImg);
+  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid;
+  pyramid.set_top_image(topImg);
   using MyTupleType = decltype(pyramid.pyramid);
   pyramid.initialize_pyramid();
   test_pyramid_helper<MyTupleType, DIM, DIM, uint8_t>(
@@ -76,10 +78,11 @@ void test_pyramid_three_level() {
   const char* prev_image_path = top_str.c_str();
   constexpr size_t DIM = (size_t) 320;
   Image<DIM, DIM, uint8_t> topImg;
+
+
+  ImagePyramid<2, 320, 320, uint8_t> pyramid;
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
-
-
-  ImagePyramid<2, 320, 320, uint8_t> pyramid(topImg);
+  pyramid.set_top_image(topImg);
   pyramid.initialize_pyramid();
   using MyTupleType = decltype(pyramid.pyramid);
   test_pyramid_helper<MyTupleType, DIM, DIM, uint8_t>(

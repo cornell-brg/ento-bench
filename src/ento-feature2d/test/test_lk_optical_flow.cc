@@ -35,12 +35,14 @@ void test_lk_optical_flow_pyramidal() {
     ENTO_TEST_CHECK_INT_EQ(nextImg.image_from_pgm(next_image_path), 1);
 
     constexpr size_t NUM_LEVELS = 1;
-    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> prevPyramid(prevImg);
+    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> prevPyramid;
+    prevPyramid.set_top_image(prevImg);
     // Print the types of each level in the pyramid:
     prevPyramid.initialize_pyramid();
 
 
-    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> nextPyramid(nextImg);
+    ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> nextPyramid;
+    nextPyramid.set_top_image(nextImg);
     // Print the types of each level in the pyramid:
     nextPyramid.initialize_pyramid();
 
