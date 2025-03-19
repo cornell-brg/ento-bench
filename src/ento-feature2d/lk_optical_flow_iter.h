@@ -24,8 +24,8 @@ template<size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, t
 void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & src, int* Ix_arr, int* Iy_arr, const int halfWin) {
     
     // Indices for top left corner of window in src
-    int32_t x_i = pt.x.to_int32()-halfWin;
-    int32_t y_i = pt.y.to_int32()-halfWin;
+    int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
+    int32_t y_i = static_cast<int32_t>(pt.y)-halfWin;
 
     for (size_t i = 0; i < WIN_DIM; i++) { // row / height / y
         for (size_t j = 0; j < WIN_DIM; j++) { // col / width / x
@@ -54,8 +54,8 @@ void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDT
 // WIN_DIM is dimension of output window
 template <typename SrcT, size_t WIN_DIM, typename CoordT>
 void interpolate(const Keypoint<CoordT> & pt, const SrcT * src, Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & dst, int src_width, int src_height) {
-    int32_t x_i = pt.x.to_int32();
-    int32_t y_i = pt.y.to_int32();
+    int32_t x_i = static_cast<int32_t>(pt.x);
+    int32_t y_i = static_cast<int32_t>(pt.y);
     CoordT a = pt.x - CoordT(x_i);
     CoordT b = pt.y - CoordT(y_i);
 
@@ -102,16 +102,16 @@ CoordT a_transpose_a(const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & Ix_win_squa
     }
 
     // Separate int and decimal calculations because determinant needs 20 integer bits
-    int IxIx_int = IxIx.to_int32();
-    int IyIy_int = IyIy.to_int32();
-    int IxIy_int = IxIy.to_int32();
+    int IxIx_int = static_cast<int32_t>(IxIx);
+    int IyIy_int = static_cast<int32_t>(IyIy);
+    int IxIy_int = static_cast<int32_t>(IxIy);
     CoordT det = IxIx * IyIy - IxIy * IxIy;
     long det_int = ((long)IxIx_int) * ((long)IyIy_int) - ((long)IxIy_int) * ((long)IxIy_int);
-    float full_det = ((float) det_int) + det.get_decimal(); // restore the integer bits
+    float full_det = ((float) det_int) + (static_cast<float>(det) - static_cast<long>(det)); // restore the integer bits
     det = CoordT(full_det); 
 
     // If matrix is nonsingular, mark status as failed
-    if (det.to_int32() < DET_EPSILON && det.to_int32() > (-DET_EPSILON)) {
+    if (static_cast<int32_t>(det) < DET_EPSILON && static_cast<int32_t>(det) > (-DET_EPSILON)) {
         return det;
     }
 
@@ -134,8 +134,8 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         // Get previous point (fixed point and int)
         CoordT x(nextPts[i].x);
         CoordT y(nextPts[i].y);
-        int x_i = x.to_int32();
-        int y_i = y.to_int32();
+        int x_i = static_cast<int32_t>(x);
+        int y_i = static_cast<int32_t>(x);
         
         Keypoint<CoordT> prevPt = prevPts[i];
 
@@ -165,7 +165,7 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         // Calculate ATA_inv
         Eigen::Matrix<CoordT, 2, 2> ATA_inv;
         CoordT det = a_transpose_a<WIN_DIM, CoordT>(Ix_win_square, Iy_win_square, ATA_inv, DET_EPSILON);
-        if (det.to_int32() != 0) {
+        if (static_cast<int32_t>(det) != 0) {
             // cout << "Singular matrix at point (" << x << ", " << y << ")" << endl;
             status[i] = 0;
             nextPts[i] = guessPt;
@@ -180,8 +180,8 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
 
             // Calculate the time derivative
             Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_n;
-            int guessPt_y_i = guessPt.y.to_int32();
-            int guessPt_x_i = guessPt.x.to_int32();
+            int guessPt_y_i = static_cast<int32_t>(guessPt.y);
+            int guessPt_x_i = static_cast<int32_t>(guessPt.x);
             interpolate<PixelT, WIN_DIM, CoordT>(guessPt, ((PixelT *)nextImg.data)+(guessPt_y_i - halfWin)*nextImg.cols+(guessPt_x_i-halfWin), It_win_n, nextImg.cols, nextImg.rows-guessPt_y_i); 
             Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win = It_win_n - It_win_p;
 
