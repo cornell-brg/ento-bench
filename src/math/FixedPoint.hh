@@ -56,6 +56,11 @@ struct IntermediateType<int32_t> {
   using type = int64_t;
 };
 
+template <>
+struct IntermediateType<int64_t> {
+  using type = int64_t;
+};
+
 template <typename T>
 using IntermediateType_t = typename IntermediateType<T>::type;
 
@@ -88,6 +93,10 @@ public:
     return static_cast<float>(value) / (1 << FractionalBits);
   }
 
+  float get_decimal() const {
+    return static_cast<float>((value << IntegerBits) >> IntegerBits) / (1 << FractionalBits);
+  }
+  
   int8_t to_int8() const requires SignedIntegral<UnderlyingType> {
     return static_cast<int8_t>(value >> FractionalBits);
   }
@@ -112,6 +121,21 @@ public:
     return static_cast<uint32_t>(value >> FractionalBits);
   }
 
+  // Casting to int
+  explicit operator int32_t() const {
+    return static_cast<int32_t>(value >> FractionalBits);
+  }
+
+  // Casting to int
+  explicit operator float() const {
+    return static_cast<float>(value) / (1 << FractionalBits);
+  }
+
+  // Casting to int
+  explicit operator long() const {
+    return static_cast<long>(value) / (1 << FractionalBits);
+  }
+
   UnderlyingType raw() const {
     return value;
   }
@@ -123,6 +147,10 @@ public:
 
   FixedPoint operator-(const FixedPoint& other) const {
     return FixedPoint::from_raw(value - other.raw());
+  }
+
+  FixedPoint operator-() const {
+    return FixedPoint::from_raw(((UnderlyingType) 0 ) - value);
   }
 
   FixedPoint operator*(const FixedPoint& other) const {
