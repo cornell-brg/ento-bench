@@ -121,6 +121,21 @@ public:
     return static_cast<uint32_t>(value >> FractionalBits);
   }
 
+  // Casting to int
+  explicit operator int32_t() const {
+    return static_cast<int32_t>(value >> FractionalBits);
+  }
+
+  // Casting to int
+  explicit operator float() const {
+    return static_cast<float>(value) / (1 << FractionalBits);
+  }
+
+  // Casting to int
+  explicit operator long() const {
+    return static_cast<long>(value) / (1 << FractionalBits);
+  }
+
   UnderlyingType raw() const {
     return value;
   }
