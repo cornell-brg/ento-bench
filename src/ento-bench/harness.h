@@ -156,7 +156,7 @@ public:
     init_roi_tracking();
 
     // Initialize ExperimentIO if necessary
-    static_assert(!Problem::RequiresDataset_, "Problem does not require dataset. Use constructor without filepaths.");
+    static_assert(Problem::RequiresDataset_, "Problem does not require dataset. Use constructor without filepaths.");
     if constexpr (Problem::RequiresDataset_)
     {
       strncpy(input_filepath_, input_filepath, MAX_FILEPATH_LENGTH_ - 1);
@@ -169,8 +169,8 @@ public:
       output_filepath_[MAX_FILEPATH_LENGTH_ - 1] = '\0';
       output_filepath_set_ = true;
 
-      experiment_io_ = EntoUtil::ExperimentIO(input_filepath_, output_filepath_);
     }
+    experiment_io_ = EntoUtil::ExperimentIO(input_filepath_, output_filepath_);
   }
 
 #endif
@@ -196,7 +196,9 @@ public:
     ENTO_DEBUG("Running benchmark %s for %lu iterations...\n", name_, Reps);
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
     trigger_pin_high();
-    software_delay_cycles(10000);
+    Delay::ms(100);
+
+    //software_delay_cycles(1000000);
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
     
     if constexpr (!Problem::RequiresDataset_)
@@ -228,7 +230,8 @@ public:
         experiment_io_.write_results(problem_);
       }
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-        software_delay_cycles(100000); // delay in between experiments
+      Delay::ms(100);
+        //software_delay_cycles(100000); // delay in between experiments
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
     }
     else
@@ -236,6 +239,10 @@ public:
       size_t i = 0;
       while (experiment_io_.read_next(problem_))
       {
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+        Delay::ms(50);
+#endif
+        //software_delay_cycles(100000); // delay in between experiments
         if constexpr (DoWarmup)
         {
           start_roi();
@@ -250,7 +257,6 @@ public:
           start_roi();
           problem_.solve();
           end_roi();
-
           // Get Stats. Update global metrics.
           metrics_ = get_roi_stats();
           update_aggregate(metrics_);
@@ -263,14 +269,17 @@ public:
         }
         ++i;
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-        software_delay_cycles(100000); // delay in between experiments
+        Delay::ms(50);
+        //software_delay_cycles(100000); // delay in between experiments
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
       }
       iters_ = i; // Number of experiments for full dataset. We do not figure this out until after processing all.
+      ENTO_DEBUG("Finished running %i experiments!", iters_);
     }
 
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-    software_delay_cycles(10000);
+    //software_delay_cycles(10000);
+    Delay::ms(50);
     trigger_pin_low(); // trigger pin low to signal end of all experiments
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
 
@@ -332,6 +341,7 @@ private:
   // Print summary results
   void print_summary() const
   {
+    software_delay_cycles(1000000);
     printf("Results from running %s for %i iterations.\n", name_, iters_);
 
     if constexpr (DoWarmup)

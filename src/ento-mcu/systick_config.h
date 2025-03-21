@@ -5,20 +5,7 @@
 extern "C" {
 #endif
 
-#if defined(SMT32G4)
-
-#include <stm32g4xx.h>
-
-#elif defined(STM32H7)
-
-#include <stm32h7xx.h>
-
-#elif defined(STM32F7)
-
-#include <stm32f7xx.h>
-
-#endif
-
+#include <ento-mcu/conf.h>
 
 typedef void (*SysTick_Callback)(void);
 
@@ -27,10 +14,9 @@ typedef struct {
   unsigned int update_freq;
 } SysTick_Handle;
 
-static volatile SysTick_Handle gSysTickHandle;
-static volatile unsigned int gSysTickCount;
+extern volatile unsigned int g_systick_ms_counter;
 
-void SysTick_Setup(SysTick_Callback callback, unsigned int update_freq);
+void SysTick_Setup();
 void SysTick_Handler(void);
 
 #ifdef __cplusplus

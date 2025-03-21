@@ -53,7 +53,7 @@ template <typename Scalar, std::size_t N>
 void encode_epipolar_equation(const EntoContainer<Vec3<Scalar>, N> &x1,
                               const EntoContainer<Vec3<Scalar>, N> &x2,
                               Eigen::Matrix<Scalar, N, 9> *A) {
-  for (size_t i = 0; i < x1.size(); ++i)
+  for (size_t i = 0; i < N; ++i)
   {
     A->row(i) << x2[i].x() * x1[i].transpose(), x2[i].y() * x1[i].transpose(), x2[i].z() * x1[i].transpose();
   }
@@ -103,7 +103,7 @@ void essential_matrix_8pt(const EntoArray<Vec3<Scalar>, N> &x1,
 {
   using MatX9 = Eigen::Matrix<Scalar, N, 9>;
   MatX9 epipolar_constraint;
-  encode_epipolar_equation<Scalar>(x1, x2, &epipolar_constraint);
+  encode_epipolar_equation<Scalar, N>(x1, x2, &epipolar_constraint);
 
   using RMat3 = Eigen::Matrix<Scalar, 3, 3, Eigen::RowMajor>;
   Matrix3x3<Scalar> E;
@@ -146,7 +146,7 @@ int relpose_8pt(const EntoContainer<Vec3<Scalar>, N> &x1,
 
   // Generate plausible relative motion from E
   output->clear();
-  motion_from_essential(essential_matrix, x1, x2, output);
+  motion_from_essential<Scalar, N, 4>(essential_matrix, x1, x2, output);
   return output->size();
 }
 

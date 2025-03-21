@@ -124,6 +124,7 @@ void init_roi_tracking()
 static inline
 void start_roi(void)
 {
+  __asm__ volatile("" ::: "memory");
 #ifdef STM32_BUILD
   //@TODO Disable Clear it Enable it. All in one go
   disable_and_reset_all_counters(); // Disables and resets counters
@@ -146,20 +147,23 @@ void start_roi(void)
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_RESET_STATS;
 #endif
+  __asm__ volatile("" ::: "memory");
 }
 
 static inline
 void end_roi(void)
 {
+  __asm__ volatile("" ::: "memory");
 #if defined(STM32_BUILD)
-    //@TODO Disable all in one go.
-    disable_all_counters();
+  //@TODO Disable all in one go.
+  disable_all_counters();
 #if defined(LATENCY_MEASUREMENT)
-    latency_pin_low();
+  latency_pin_low();
 #endif // defined(LATENCY_MEASUREMENT)
 #elif defined(RISCV_GEM5) || defined(ARM_GEM5)
   M5OP_DUMP_RESET_STATS;
 #endif // defined(STM32_BUILD)
+  __asm__ volatile("" ::: "memory");
 }
 
 static inline

@@ -292,6 +292,7 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
+add_subdirectory(${BENCHMARK_DIR})
 
 
 if(BUILD_H7A3ZIQ)

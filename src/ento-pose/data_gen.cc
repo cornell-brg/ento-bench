@@ -377,7 +377,7 @@ void display_result(const std::vector<EntoPose::BenchmarkResult<Scalar>> &result
 
 int main(int argc, char* argv[])
 {
-  using Scalar = double;
+  using Scalar = float;
   std::vector<EntoPose::BenchmarkResult<Scalar>> results;
 
   // Argument parsing

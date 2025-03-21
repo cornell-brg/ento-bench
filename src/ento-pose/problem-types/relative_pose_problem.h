@@ -24,6 +24,9 @@ public:
   using Solver_ = Solver;
   static constexpr size_t NumPts_ = NumPts;
   static constexpr Scalar tol = 1e-6;
+  static constexpr bool RequiresDataset_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr size_t MaxSolns_ = Solver::MaxSolns;
   //////// Class Members /////////
   // Solver Callable
   Solver solver_;
@@ -43,7 +46,12 @@ public:
   //  solutions even if we don't need the space depending on the current input
   //  data. Alternatively, we could always use std::vector and perform a solns.reserve().
   //  As of now it is defaulting to a std::vector.
+#ifdef NATIVE
   EntoContainer<EntoPose::CameraPose<Scalar>, 0> solns_; 
+#else
+  EntoContainer<EntoPose::CameraPose<Scalar>, MaxSolns_> solns_;
+
+#endif
 
   // Point-to-point (2D-2D, homogeneous) correspondence containers
   EntoContainer<Vec3<Scalar>, NumPts> x1_;
@@ -99,6 +107,13 @@ auto makeRelativePoseProblem(Solver solver)
 }
 
 ///////////////////// IMPLEMENTATIONS /////////////////////
+
+template <typename Scalar, typename Solver, size_t NumPts>
+void RelativePoseProblem<Scalar, Solver, NumPts>::solve_impl()
+{
+  num_solns_ = solver_.solve(*this, &solns_);
+}
+
 
 template <typename Scalar, typename Solver, size_t NumPts>
 void RelativePoseProblem<Scalar, Solver, NumPts>::clear_impl()
@@ -274,60 +289,93 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
 {
   char* pos = const_cast<char*>(line);
   int problem_type;
-  if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 1)
+
+
+  if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 3)
   {
       return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
 
+  
+  int num_pts;
+  if (sscanf(pos, "%d,", &num_pts) != 1 )
+  {
+    if (NumPts == 0) n_point_point_ = num_pts;
+    else if (NumPts != n_point_point_) return false;
+    return false; // Parsing failed
+  }
+  pos = strchr(pos, ',') + 1;
+
+
   // Parse quaternion (q)
+  Scalar qi = 0;
   for (int i = 0; i < 4; ++i)
   {
-    if (sscanf(pos, "%lf,", pose_gt_.q[i]) != 1)
+    if (sscanf(pos, "%f,", &qi) != 1)
     {
       return false; // Parsing failed
     }
+    pose_gt_.q[i] = qi;
     pos = strchr(pos, ',') + 1;
   }
 
   // Parse translation (t)
+  Scalar ti = 0;
   for (int i = 0; i < 3; ++i)
   {
-    if (sscanf(pos, "%lf,", pose_gt_.t[i]) != 1)
+    if (sscanf(pos, "%f,", &ti) != 1)
     {
         return false; // Parsing failed
     }
+    pose_gt_.t[i] = ti;
     pos = strchr(pos, ',') + 1;
   }
 
   // Parse scale_gt and focal_gt
-  if (sscanf(pos, "%lf,%lf,", scale_gt_, focal_gt_) != 2)
+  if (sscanf(pos, "%f,%f,", &scale_gt_, &focal_gt_) != 2)
   {
     return false; // Parsing failed
   }
+  pos = strchr(pos, ',') + 1;
   pos = strchr(pos, ',') + 1;
 
   // Parse x_point correspondences
   Scalar x, y, z;
   for (std::size_t i = 0; i < x1_.capacity(); ++i)
   {
-    if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3)
+    if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
     {
       return false; // Parsing failed
     }
     x1_.push_back(Vec3<Scalar>(x, y, z));
+    pos = strchr(pos, ',') + 1;
+    pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
   }
 
   // Parse X_point correspondences
   for (std::size_t i = 0; i < x2_.capacity(); ++i)
   {
-    if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3)
+    if ( i != x2_.capacity() - 1)
     {
+      if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
+      {
       return false; // Parsing failed
+      }
+    }
+    else
+    {
+      if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
+      {
+        return false; // Parsing failed
+      }
     }
     x2_.push_back(Vec3<Scalar>(x, y, z));
     pos = strchr(pos, ',') + 1;
+    pos = strchr(pos, ',') + 1;
+    if ( i != x2_.capacity() - 1)
+      pos = strchr(pos, ',') + 1;
   }
 
   return true; // Successfully parsed

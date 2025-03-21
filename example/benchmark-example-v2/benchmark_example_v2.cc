@@ -127,7 +127,7 @@ int main()
 {
   using namespace EntoBench;
 #if defined(SEMIHOSTING)
-  initialise_monitor_handles();
+ initialise_monitor_handles();
 #endif
 
   bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;

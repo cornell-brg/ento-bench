@@ -17,6 +17,6 @@ if (STM32_BUILD)
                 SOURCES ${SOURCE_FILE}
                 LIBRARIES ${MODULES})
 
-  add_stm32_flash_and_debug_targets(blas-comparison)
-  add_stm32_no_semihosting_flash_targets(blas-comparison-no-semihosting)
+  add_stm32_target(blas-comparison)
+  add_stm32_no_semihosting_target(blas-comparison-no-semihosting)
 endif()
