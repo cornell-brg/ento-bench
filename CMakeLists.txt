@@ -317,4 +317,3 @@ if(BUILD_H7A3ZIQ)
         message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
     endif()
 endif()
-

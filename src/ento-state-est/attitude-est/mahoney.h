@@ -2,6 +2,7 @@
 #define MAHONEY_H
 
 #include <Eigen/Dense>
+
 #include <ento-math/core.h>
 
 #include <ento-state-est/attitude-est/attitude_measurement.h>
@@ -184,6 +185,10 @@ Eigen::Quaternion<Scalar> mahoney(const Eigen::Quaternion<Scalar>& q,
     return mahoney_update_imu(q, meas, dt, k_p, k_i, bias);
   }
 }
+
+
+
+
 
 template <typename Scalar, bool UseMag>
 struct FilterMahoney
