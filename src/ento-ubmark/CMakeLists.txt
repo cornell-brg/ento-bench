@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 include (${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
-set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/add_bits.cc)
+set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/float_add_rand.cc)
 
 add_library(
   ento-ubmark

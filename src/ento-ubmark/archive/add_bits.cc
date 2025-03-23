@@ -26,7 +26,7 @@ void __attribute__((noinline)) add6400x8(){
     "mov %5, #0xAAAAAAAA    \n"
     "mov %6, #0x55555555    \n"
     "mov %7, #0xAAAAAAAA    \n"
-    : "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+    : "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3), // Outputs
       "=r" (r4), "=r" (r5), "=r" (r6), "=r" (r7) 
     : 
     : 
@@ -49,10 +49,9 @@ void __attribute__((noinline)) add6400x8(){
       ".endr           \n"
       : 
       : [r0] "r" (r0), [r1] "r" (r1), [r2] "r" (r2), [r3] "r" (r3), 
-        [r4] "r" (r4), [r5] "r" (r5), [r6] "r" (r6), [r7] "r" (r7) // Input operands
+        [r4] "r" (r4), [r5] "r" (r5), [r6] "r" (r6), [r7] "r" (r7) // Inputs
       : "r8"  // Clobbered registers
     );
-  
   }
   end_roi();
 }
