@@ -1,0 +1,61 @@
+#include <ento-bench/harness.h>
+#include <ento-util/file_path_util.h>
+#include <ento-util/debug.h>
+#include <ento-util/unittest.h>
+
+#include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
+#include <ento-mcu/clk_util.h>
+#include <ento-pose/data_gen.h>
+#include <ento-pose/prob_gen.h>
+#include <ento-pose/pose_util.h>
+#include <ento-pose/abs-pose/up2p.h>
+#include <ento-pose/problem-types/relative_pose_problem.h>
+
+extern "C" void initialise_monitor_handles(void);
+
+using namespace EntoBench;
+using namespace EntoUtil;
+
+int main()
+{
+  using Scalar  = float;
+  using Solver  = EntoPose::SolverRel5pt<Scalar>;
+  using Problem = EntoPose::RelativePoseProblem<Scalar, Solver, 5>;
+  constexpr Scalar tol = 1e-4;
+  initialise_monitor_handles();
+
+  // Configure max clock rate and set flash latency
+  sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
+
+  // Turn on caches if applicable
+  enable_instruction_cache();
+  enable_instruction_cache_prefetch();
+  icache_enable();
+
+  const char* base_path = DATASET_PATH;
+  const char* rel_path = "rel-pose/rel_5pt_float_1000.csv";
+  char dataset_path[512];
+  char output_path[256];
+
+  if (!EntoUtil::build_file_path(base_path, rel_path,
+                                 dataset_path, sizeof(dataset_path)))
+  {
+    ENTO_DEBUG("ERROR! Could not build file path for bench_5pt!");
+  }
+  Problem problem(Solver{});
+
+  printf("File path: %s", dataset_path);
+  EntoBench::Harness harness(problem, "Bench Relative Pose 5pt [float]",
+                             dataset_path,
+                             output_path);
+
+  harness.run();
+
+  exit(1);
+  return 0;
+}
+
+
