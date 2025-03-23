@@ -341,7 +341,7 @@ private:
   // Print summary results
   void print_summary() const
   {
-    software_delay_cycles(1000000);
+    //software_delay_cycles(1000000);
     printf("Results from running %s for %i iterations.\n", name_, iters_);
 
     if constexpr (DoWarmup)
