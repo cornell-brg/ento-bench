@@ -82,7 +82,7 @@ M5OP_FUNC(m5_exit, 0x21)
 
 // Struct to encapsulate all ROI metrics
 struct ROIMetrics {
-    uint32_t elapsed_cycles;
+    uint64_t elapsed_cycles;
     uint32_t delta_cpi;
     uint32_t delta_fold;
     uint32_t delta_lsu;

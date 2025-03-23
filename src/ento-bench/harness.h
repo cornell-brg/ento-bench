@@ -366,10 +366,10 @@ private:
       printf("No warmup lsu events: %lu\n",  metrics_.delta_lsu);
       printf("No warmup exc events: %lu\n",  metrics_.delta_exc);
     }
-    printf("Total cycles: %lu\n", total_metrics_.elapsed_cycles);
-    printf("Average cycles: %lu\n", total_metrics_.elapsed_cycles / iters_);
-    printf("Max cycles: %lu\n", max_metrics_.elapsed_cycles);
-    printf("Min cycles: %lu\n", min_metrics_.elapsed_cycles);
+    printf("Total cycles: %llu\n", total_metrics_.elapsed_cycles);
+    printf("Average cycles: %llu\n", total_metrics_.elapsed_cycles / iters_);
+    printf("Max cycles: %llu\n", max_metrics_.elapsed_cycles);
+    printf("Min cycles: %llu\n", min_metrics_.elapsed_cycles);
   }
 };
 
