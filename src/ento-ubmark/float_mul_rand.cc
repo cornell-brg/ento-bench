@@ -34,7 +34,7 @@ void __attribute__((noinline)) fp_mul_benchmark() {
         : "s0", "s1", "s2", "s3", "s4", "s5"
     );
 
-    start_roi();
+    
     for (int i = 0; i < reps; i++) {
         s0_ = rand_float_01();
         s1_ = rand_float_01();
@@ -54,7 +54,7 @@ void __attribute__((noinline)) fp_mul_benchmark() {
             : "t"(s0_), "t"(s1_), "t"(s2_), "t"(s3_), "t"(s4_), "t"(s5_)
             : "s0", "s1", "s2", "s3", "s4", "s5"
         );
-
+        start_roi();
         asm volatile (
             ".rept 8              \n"
             "  vmul.f32 s6, s0, s1 \n"
@@ -68,8 +68,9 @@ void __attribute__((noinline)) fp_mul_benchmark() {
             :
             : "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"
         );
+        end_roi();
     }
-    end_roi();
+    
 }
 
 int main()

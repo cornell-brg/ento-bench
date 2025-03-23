@@ -14,7 +14,8 @@ base_path="$1"
 datasets=("curr_data")
 
 # Base command
-base_command="python sync_current_logic_traces.py --traverse_subdirs True --field_order=1"
+# Field order 0 if trigger on top of latency curve
+base_command="python sync_current_logic_traces.py --traverse_subdirs True --field_order=0"
 
 # Iterate over each dataset and run the command
 for dataset in "${datasets[@]}"; do
