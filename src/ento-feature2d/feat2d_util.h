@@ -43,6 +43,7 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
 {
   using Scalar_ = Scalar;
   Scalar orientation;
+  size_t octave;
   ORBKeypoint() : FastKeypoint<CoordT>(), orientation(0) {}
   ORBKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
     : FastKeypoint<CoordT>(_x, _y, _score), orientation(_ori) {} 

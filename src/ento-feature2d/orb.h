@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-feature2d/brief.h>
+#include <ento-feature2d/image_pyramid.h>
 
 namespace EntoFeature2D
 {
@@ -12,7 +13,7 @@ namespace EntoFeature2D
 template <typename ImageType,
           int Threshold,
           size_t MaxFeatures,
-          size_t NumLevels = 3,  // Number of pyramid levels
+          size_t NumLevels = 1,  // Number of pyramid levels
           typename KeypointT = ORBKeypoint<int16_t, float>>
 void orb(const ImageType& img, 
          FeatureArray<KeypointT, MaxFeatures>& fdo,
@@ -156,17 +157,17 @@ void orb(const ImageType& img,
          std::array<BRIEFDescriptor, MaxFeatures>& descriptors)
 {
   // 1. Construct Image Pyramid
-  ImagePyramid<NumLevels - 1, ImageType::rows, ImageType::cols> pyramid(img);
+  ImagePyramid<NumLevels - 1, ImageType::rows, ImageType::cols, typename ImageType::PixelType> pyramid(img);
 
   // 2. Feature Detection (FAST on each pyramid level)
   FeatureArray<KeypointT, MaxFeatures> all_keypoints;
 
   for (size_t level = 0; level < NumLevels; ++level)
   {
-    const auto& img_level = *static_cast<const ImageType*>(pyramid.get_level(level));
+    const auto& img_level = std::get<level>(pyramid.pyramid);
     
     // Run FAST feature detection
-    fast<ImageType, KeypointT, 16, Threshold, 9, MaxFeatures>(img_level, all_keypoints);
+    fast<ImageType, KeypointT, 16, Threshold, 9, MaxFeatures, true, true>(img_level, all_keypoints);
   }
 
   // 3. Compute Keypoint Orientations

@@ -47,7 +47,9 @@ template <typename Image,
           int PatternSize,
           int Threshold,
           int ContiguityRequirement = 9,
-          size_t MaxFeatures = 100>
+          size_t MaxFeatures = 100,
+          bool PerformNMS = false,
+          bool Orb = false>
 void fast(const Image& img,
           FeatureArray<KeypointType, MaxFeatures>& feats );
 
@@ -114,7 +116,8 @@ template <typename ImageType,
           int Threshold,
           int ContiguityRequirement,
           size_t MaxFeatures,
-          bool PerformNMS = true>
+          bool PerformNMS,
+          bool Orb>
 void fast(const ImageType& img,
           FeatureArray<KeypointType, MaxFeatures>& feats)
 {
@@ -127,6 +130,13 @@ void fast(const ImageType& img,
   using PixelType = ImageType::pixel_type;
   constexpr int bit_depth = ImageType::bit_depth;
   constexpr int middle_value = (1 << (bit_depth + 1)) / 2;
+
+  // Calculate fast attention region
+  constexpr int BORDER = Orb ? 22 : 3;
+  constexpr int START_X = BORDER;
+  constexpr int END_X = BORDER;
+  constexpr int START_Y = BORDER;
+  constexpr int END_Y = img_height - BORDER;
 
 
   // Coordinate type
@@ -158,14 +168,14 @@ void fast(const ImageType& img,
   constexpr auto threshold_tab = ThresholdTable<bit_depth, Threshold>::table;
   // constexpr int tab_size = (1 << (bit_depth + 1));
   
-  for (i = 3; i < (img_height - 2); ++i)
+  for (i = START_Y; i < END_Y; ++i)
   {
     ptr = &img.data[i*img_width] + 3;
 
     if (i < img_height - 3)
     {
       j = 3;
-      for (; j < img_width - 3; j++, ptr++)
+      for (; j < END_X; j++, ptr++)
       {
         int v = ptr[0];
 
