@@ -248,16 +248,12 @@ void test_madgwick_imu_serialization()
                                 MadgwickAdapter<Scalar, false>, 
                                 false> new_problem(adapter);
     
-    // For testing the quaternion deserialization, we need to:
-    // 1. First set up the new problem with the same input data
     new_problem.deserialize_impl(input_line.c_str());
     
-    // 2. Manually set the q_ value from our serialized output
-    // Parse the serialized string (format is "w,x,y,z")
+ 
     std::istringstream iss(serialized);
     std::string w_str, x_str, y_str, z_str;
     
-    // Parse using ',' as delimiter
     std::getline(iss, w_str, ',');
     std::getline(iss, x_str, ',');
     std::getline(iss, y_str, ',');
@@ -270,7 +266,6 @@ void test_madgwick_imu_serialization()
     
     new_problem.q_ = Eigen::Quaternion<Scalar>(w, x, y, z);
     
-    // Check that the result
     ENTO_DEBUG_EIGEN_QUATERNION(new_problem.q_);
     ENTO_DEBUG_EIGEN_QUATERNION(expected_q);
     ENTO_TEST_CHECK_EIGEN_MATRIX_EQ(new_problem.q_.coeffs(), expected_q.coeffs());
@@ -285,47 +280,36 @@ void test_madgwick_marg_serialization()
 {
     ENTO_DEBUG("Running test_madgwick_marg_serialization...");
     
-    // Create the adapter with optimized parameters
     MadgwickAdapter<Scalar, true> adapter(0.001);
     
-    // Create the problem with this adapter
     EntoAttitude::AttitudeProblem<Scalar, 
                                 MadgwickAdapter<Scalar, true>, 
                                 true> problem(adapter);
     
-    // Create a sample line that matches the expected format for deserialize_impl
-    // Format for MARG (with mag): ax ay az gx gy gz mx my mz qw qx qy qz dt
+    
     std::string input_line = "1.13147340585962E-01 1.5124603405802E-01 8.4355704699742E+00 1.31868102828397E-06 -2.71143525493424E-06 3.17779011484456E-06 -1.69710456595215E+04 -9.92469996952225E+02 3.46472685717592E+04 1.0 0.0 0.0 0.0 0.04";
     
-    // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
     ENTO_TEST_CHECK_TRUE(deserialize_success);
     
-    // Solve the problem to update q_
     problem.solve_impl();
     
-    // Now serialize the result
     std::string serialized = problem.serialize_impl();
     ENTO_DEBUG("Serialized quaternion: %s", serialized.c_str());
     
-    // Get the expected quaternion for comparison
+  
     Eigen::Quaternion<Scalar> expected_q = problem.q_;
-    
-    // Create a new problem instance for testing deserialization of the quaternion
+
     EntoAttitude::AttitudeProblem<Scalar, 
                                 MadgwickAdapter<Scalar, true>, 
                                 true> new_problem(adapter);
     
-    // For testing the quaternion deserialization, we need to:
-    // 1. First set up the new problem with the same input data
     new_problem.deserialize_impl(input_line.c_str());
     
-    // 2. Manually set the q_ value from our serialized output
-    // Parse the serialized string (format is "w,x,y,z")
+  
     std::istringstream iss(serialized);
     std::string w_str, x_str, y_str, z_str;
     
-    // Parse using ',' as delimiter
     std::getline(iss, w_str, ',');
     std::getline(iss, x_str, ',');
     std::getline(iss, y_str, ',');
@@ -352,26 +336,19 @@ void test_madgwick_imu_validation()
 {
     ENTO_DEBUG("Running test_madgwick_imu_validation...");
     
-    // Create the adapter with optimized parameters
     MadgwickAdapter<Scalar, false> adapter(0.001);
     
-    // Create the problem with this adapter - use a 5 degree threshold
     EntoAttitude::AttitudeProblem<Scalar, 
                                 MadgwickAdapter<Scalar, false>, 
                                 false> problem(adapter, 5.0);
-    
-    // Create a sample line that matches the expected format for deserialize_impl
-    // Format for IMU (no mag): ax ay az gx gy gz qw qx qy qz dt
+ 
     std::string input_line = "-0.07215829 0.03096613 8.31740944 -1.52713681e-04 -6.10919329e-05 -4.35697544e-06 1.0 2.26892869e-07 -1.48352885e-07 4.45058993e-07 0.004";
     
-    // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
     ENTO_TEST_CHECK_TRUE(deserialize_success);
     
-    // Solve the problem to update q_
     problem.solve_impl();
     
-    // Test validate_impl (should use the default threshold of 5 degrees)
     bool validation_result = problem.validate_impl();
     ENTO_DEBUG("Default validation result (5 deg threshold): %s", validation_result ? "PASSED" : "FAILED");
     ENTO_TEST_CHECK_TRUE(validation_result);
@@ -412,15 +389,11 @@ void test_madgwick_marg_validation()
                                 MadgwickAdapter<Scalar, true>, 
                                 true> problem(adapter, 10.0);  // 10 degree threshold
     
-    // Create a sample line that matches the expected format for deserialize_impl
-    // Format for MARG (with mag): ax ay az gx gy gz mx my mz qw qx qy qz dt
     std::string input_line = "1.13147340585962E-01 1.5124603405802E-01 8.4355704699742E+00 1.31868102828397E-06 -2.71143525493424E-06 3.17779011484456E-06 -1.69710456595215E+04 -9.92469996952225E+02 3.46472685717592E+04 1.0 0.0 0.0 0.0 0.04";
     
-    // Deserialize the input line
     bool deserialize_success = problem.deserialize_impl(input_line.c_str());
     ENTO_TEST_CHECK_TRUE(deserialize_success);
     
-    // Make sure q_prev_ is set properly
     problem.q_prev_ = problem.q_gt_;
     
     // Calculate angle before solving
@@ -430,7 +403,6 @@ void test_madgwick_marg_validation()
     // Solve the problem to update q_
     problem.solve_impl();
     
-    // Get the resulting quaternion and print it for debugging
     ENTO_DEBUG("Resulting quaternion after solve_impl():");
     ENTO_DEBUG_EIGEN_QUATERNION(problem.q_);
     
