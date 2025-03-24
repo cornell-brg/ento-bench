@@ -16,7 +16,7 @@ class OptControlProblem :
 
     // Required by Problem Interface for Experiment I/O
     static constexpr bool RequiresDataset_ = true;
-    static constexpr bool SavesResults_    = true;
+    static constexpr bool SaveResults_     = true;
     static constexpr bool RequiresSetup_   = true;
     static constexpr int  SetupLines_      = HorizonSize;
 
@@ -30,7 +30,18 @@ class OptControlProblem :
     Eigen::Matrix< Scalar_t, StateSize, CtrlSize > m_Bdyn;
   
   #ifdef NATIVE
-    std::string serialize_impl() const;
+    std::string serialize_impl() const
+    {
+      std::stringstream ss;
+      for ( int i = 0; i < m_iter; i++ ) {
+        for ( int j = 0; j < StateSize; j++ ) {
+          ss << m_real_path[i][j] << ",";
+        }
+        ss << std::endl;
+      }
+      return ss.str();
+    }
+
     bool deserialize_impl(const std::string &line)
     {
       std::stringstream ss( line );
