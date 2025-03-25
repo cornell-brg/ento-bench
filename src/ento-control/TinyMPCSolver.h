@@ -59,6 +59,7 @@ class TinyMPCSolver
             Eigen::Matrix< Scalar_t, NSTATES, NSTATES > Q1 = ( Q + Eigen::Matrix< Scalar_t, NSTATES, 1 >::Constant( 2 * rho ) ).asDiagonal();
             Eigen::Matrix< Scalar_t, NINPUTS, NINPUTS > R1 = ( R + Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Constant( 2 * rho ) ).asDiagonal();
 
+#ifdef NATIVE
             if( verbose ) {
                 std::cout << "A = " << Adyn.format(TinyApiFmt) << std::endl;
                 std::cout << "B = " << Bdyn.format(TinyApiFmt) << std::endl;
@@ -66,6 +67,7 @@ class TinyMPCSolver
                 std::cout << "R = " << R1.format(TinyApiFmt) << std::endl;
                 std::cout << "rho = " << rho << std::endl;
             }
+#endif
 
             // Riccati recursion to get Kinf, Pinf
             Eigen::Matrix< Scalar_t, NINPUTS, NSTATES > Ktp1 = Eigen::Matrix< Scalar_t, NINPUTS, NSTATES >::Zero();
@@ -79,9 +81,11 @@ class TinyMPCSolver
                 // if Kinf converges, break
                 if ( ( Kinf - Ktp1 ).cwiseAbs().maxCoeff() < 1e-5 )
                 {
+#ifdef NATIVE
                     if ( verbose ) {
                         std::cout << "Kinf converged after " << i + 1 << " iterations" << std::endl;
                     }
+#endif
                     break;
                 }
                 Ktp1 = Kinf;
@@ -92,6 +96,7 @@ class TinyMPCSolver
             Quu_inv = ( R1 + Bdyn.transpose() * Pinf * Bdyn ).inverse();
             AmBKt = ( Adyn - Bdyn * Kinf ).transpose();
 
+#ifdef NATIVE
             if ( verbose ) {
                 std::cout << "Kinf = " << Kinf.format(TinyApiFmt) << std::endl;
                 std::cout << "Pinf = " << Pinf.format(TinyApiFmt) << std::endl;
@@ -100,6 +105,7 @@ class TinyMPCSolver
 
                 std::cout << "\nPrecomputation finished!\n" << std::endl;
             }
+#endif
         }
     };
     Cache m_cache;
@@ -272,8 +278,6 @@ class TinyMPCSolver
         m_soln.iter = 0;
         m_work.status = 11; // TINY_UNSOLVED
         m_work.iter = 0;
-
-        // std::cout << "init x: " << m_work.x.format(TinyApiFmt) << std::endl;
 
         for ( int i = 0; i < m_settings.max_iter; i++ ) {
             // Solve linear system with Riccati and roll out to get new trajectory

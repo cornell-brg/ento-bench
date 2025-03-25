@@ -5,9 +5,9 @@
 #include <ento-util/containers.h>
 #include <ento-util/debug.h>
 
-template< typename Scalar, typename Solver, int StateSize, int CtrlSize, int HorizonSize >
+template< typename Scalar, typename Solver, int StateSize, int CtrlSize, int HorizonSize, int PathLen >
 class OptControlProblem :
-  public EntoBench::EntoProblem< OptControlProblem< Scalar, Solver, StateSize, CtrlSize, HorizonSize >>
+  public EntoBench::EntoProblem< OptControlProblem< Scalar, Solver, StateSize, CtrlSize, HorizonSize, PathLen >>
 {
   public:
     // Expose Template Typenames to Others
@@ -20,24 +20,23 @@ class OptControlProblem :
     static constexpr bool RequiresSetup_   = true;
     static constexpr int  SetupLines_      = HorizonSize;
 
+  private:
     Solver_t m_solver;
-    const double m_tol = 0.1;
     int m_trajectory_len;
-    EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, 0 > m_trajectory;
+    EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, PathLen > m_trajectory;
     int m_iter;
-    EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, 0 > m_real_path;
+    EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, PathLen > m_real_path;
     Eigen::Matrix< Scalar_t, StateSize, StateSize > m_Adyn;
     Eigen::Matrix< Scalar_t, StateSize, CtrlSize > m_Bdyn;
+    int m_written_states;
   
+  public:
   #ifdef NATIVE
     std::string serialize_impl() const
     {
       std::stringstream ss;
-      for ( int i = 0; i < m_iter; i++ ) {
-        for ( int j = 0; j < StateSize; j++ ) {
-          ss << m_real_path[i][j] << ",";
-        }
-        ss << std::endl;
+      for ( int j = 0; j < StateSize; j++ ) {
+        ss << m_real_path[m_written_states][j] << ",";
       }
       return ss.str();
     }
@@ -66,23 +65,48 @@ class OptControlProblem :
       return true;
     }
   #else
-    // @TODO: Add serialize implementation for embedded builds.
     const char* serialize_impl() const;
-    // @TODO: Add deserialize implementation for embedded builds
-    bool deserialize_impl(const char* line);
+    {
+      char line[256];
+      int pos = 0;
+      for ( int i = 0; i < m_iter; i++ ) {
+        for ( int j = 0; j < StateSize; j++ ) {
+          pos += sprintf( &line[pos], "%f,", m_real_path[i][j] );
+        }
+        pos += sprintf( &line[pos], "\n" );
+      }
+      return line;
+    }
+    bool deserialize_impl(const char* line)
+    {
+      char* token;
+      token = strtok( line, "," );
+      Eigen::Matrix< Scalar_t, StateSize, 1 > state_vec;
+      int i = 0;
+      while ( token != NULL ) {
+        state_vec[i] = (Scalar_t) atof( token );
+        i++;
+      }
+      m_trajectory.push_back( state_vec );
+      if ( m_trajectory_len == 0 ) {
+        m_real_path.push_back( state_vec );
+      }
+      m_trajectory_len++;
+      return true;
+    }
   #endif
 
-    // @TODO: Complete validate implementation. 
     bool validate_impl() const
     {
       for ( int i = 0; i < m_iter; i++ ) {
         Scalar_t diff = (m_trajectory[i] - m_real_path[i]).norm();
+#ifdef NATIVE
         std::cout << "tracking error: " << diff << std::endl;
+#endif
       }
       return true;
     }
 
-    // @TODO: Complete solve implementation.
     void solve_impl()
     {
       Eigen::Matrix< Scalar_t, StateSize, 1 >& x0 = m_real_path[m_iter];
@@ -98,7 +122,6 @@ class OptControlProblem :
       m_iter++;
     }
 
-    // @TODO: Complete clear implementation.
     void clear_impl()
     {}
 
@@ -110,7 +133,8 @@ class OptControlProblem :
     OptControlProblem(Solver solver) : 
       m_solver(std::move(solver)),
       m_trajectory_len(0),
-      m_iter(0)
+      m_iter(0),
+      m_written_states(0)
     {
       m_Adyn = solver.get_Adyn();
       m_Bdyn = solver.get_Bdyn();
