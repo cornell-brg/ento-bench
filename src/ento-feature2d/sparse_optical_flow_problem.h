@@ -394,7 +394,7 @@ deserialize_features(const char* feats_path, const char* gt_path)
 
   if (fscanf(gt_file, "%d\n", &num_feats_gt) != 1)
   {
-    ENTO_ERROR("Failed to read feature count from gt file: %s", feats_path);
+    ENTO_ERROR("Failed to read feature count from gt file: %s", gt_path);
     fclose(gt_file);
     return false;
   }
