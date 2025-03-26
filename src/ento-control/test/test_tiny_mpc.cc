@@ -6,7 +6,7 @@
 #include <ento-util/experiment_io.h>
 #include <ento-util/file_path_util.h>
 
-const int path_len = 301;
+const int path_len = path_len;
 const int num_states = 12;
 const int num_inputs = 4;
 const int len_horizon = 10;
@@ -16,7 +16,7 @@ void test_linear_trajectory_double()
 {
     using Scalar  = double;
     using Solver  = TinyMPCSolver< Scalar, num_states, num_inputs, len_horizon >;
-    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, 315 >;
+    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, path_len >;
     constexpr Scalar tol = 1e-4;
 
     Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<
@@ -95,7 +95,7 @@ void test_linear_trajectory_float()
 {
     using Scalar  = float;
     using Solver  = TinyMPCSolver< Scalar, num_states, num_inputs, len_horizon >;
-    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, 315 >;
+    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, path_len >;
     constexpr Scalar tol = 1e-4;
 
     Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<
@@ -174,7 +174,7 @@ void test_fig8_trajectory_double()
 {
     using Scalar  = double;
     using Solver  = TinyMPCSolver< Scalar, num_states, num_inputs, len_horizon >;
-    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, 315 >;
+    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, path_len >;
     constexpr Scalar tol = 1e-4;
 
     Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<
@@ -255,7 +255,7 @@ void test_fig8large_trajectory_double()
 {
     using Scalar  = double;
     using Solver  = TinyMPCSolver< Scalar, num_states, num_inputs, len_horizon >;
-    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, 315 >;
+    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, path_len >;
     constexpr Scalar tol = 1e-4;
 
     Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<
@@ -336,7 +336,7 @@ void test_fig8xl_trajectory_double()
 {
     using Scalar  = double;
     using Solver  = TinyMPCSolver< Scalar, num_states, num_inputs, len_horizon >;
-    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, 315 >;
+    using Problem = OptControlProblem< Scalar, Solver, num_states, num_inputs, len_horizon, path_len >;
     constexpr Scalar tol = 1e-4;
 
     Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<

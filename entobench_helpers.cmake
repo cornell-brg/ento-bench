@@ -133,7 +133,7 @@ function(add_benchmark TARGET_NAME)
   # Determine the build type (semihosting, gem5-SE, or native)
   if(STM32_BUILD)
     add_arm_semihosting_executable(${TARGET_NAME}
-      SOURCES ${SOURCE_FILE}
+        SOURCES ${ARG_SOURCSE}
       LIBRARIES ${ARG_LIBRARIES}
     )
     add_arm_executable(${TARGET_NAME}-no-semihosting
@@ -153,7 +153,7 @@ function(add_benchmark TARGET_NAME)
   endif()
 
   # Set output directory based on the target's category
-  get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)
+  # get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)
   #if(BENCHMARK_PATH MATCHES "kernels")
   #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/kernels/bin)
   #elseif(BENCHMARK_PATH MATCHES "ubmarks")
