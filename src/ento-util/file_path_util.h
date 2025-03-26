@@ -138,11 +138,9 @@ inline bool build_file_path(const char* base_path,
                             const char* relative_path,
                             char* output,
                             size_t output_size) {
-  printf("Building file path");
   if (!base_path || !relative_path || !output || output_size == 0)
   {
     ENTO_DEBUG("Invalid input to build_file_path.");
-    printf("Invalid input");
     return false; // Invalid input
   }
 
@@ -150,16 +148,13 @@ inline bool build_file_path(const char* base_path,
   if (result < 0)
   {
     ENTO_DEBUG("Error formatting file path.");
-    printf("Error formatting file path");
     return false; // snprintf error
   }
   if (static_cast<size_t>(result) >= output_size)
   {
     ENTO_DEBUG("File path truncated. Increase buffer size.");
-    printf("File path truncated");
     return false; // Truncation
   }
-  printf("SUCCESS!!!");
 
   return true;
 }

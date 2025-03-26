@@ -52,13 +52,13 @@ int main()
   Problem problem(Solver{});
 
   // Construct harness and run.
-  EntoBench::Harness harness(problem, "Bench Relative 8pt [float]",
-                             dataset_path,
-                             output_path);
+  //EntoBench::Harness harness(problem, "Bench Relative 8pt [float]",
+  //                           dataset_path,
+  //                           output_path);
   // Or run each experiment in the datasets for 10 reps
-  //EntoBench::Harness<Problem, false, 10> harness10reps(problem, "Bench Relative 8pt [float]",
-  //                                                     dataset_path,
-  //                                                     output_path);
+  EntoBench::Harness<Problem, false, 10> harness(problem, "Bench Relative 8pt [float]",
+                                                 dataset_path,
+                                                 output_path);
   harness.run();
 
   exit(1);
