@@ -292,23 +292,31 @@ public:
       size_t i;
       for (i = 0; i < Reps; i++)
       {
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(10);
+#endif
         start_roi();
         problem_.solve();
         end_roi();
         // Get Stats. Update global metrics.
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(10);
+#endif
         rep_metrics_ = get_roi_stats();
 
         if constexpr (Reps > 1 && Verbosity == 1)
         {
           print_rep_metrics(rep_metrics_, i); 
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
           Delay::ms(50);
+#endif
         }
         else if constexpr (Reps > 1 && Verbosity == 2)
         {
           print_rep_metrics_verbose(rep_metrics_, i);
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
           Delay::ms(50);
+#endif
         }
 
         if constexpr (Reps > 1)
@@ -372,7 +380,9 @@ public:
           start_roi();
           problem_.solve();
           end_roi();
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
           Delay::ms(10);
+#endif
           cold_metrics_ = get_roi_stats();
           update_aggregate(cold_metrics_);
         }
@@ -383,7 +393,9 @@ public:
           problem_.solve();
           end_roi();
           // Get Stats. Update global metrics.
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
           Delay::ms(10);
+#endif
           rep_metrics_ = get_roi_stats();
 
           if constexpr (Reps > 1)
@@ -394,12 +406,16 @@ public:
           if constexpr (Reps > 1 && Verbosity == 1)
           {
             print_rep_metrics(rep_metrics_, i); 
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
             Delay::ms(50);
+#endif
           }
           else if constexpr (Reps > 1 && Verbosity == 2)
           {
             print_rep_metrics_verbose(rep_metrics_, i);
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
             Delay::ms(50);
+#endif
           }
         }
 
