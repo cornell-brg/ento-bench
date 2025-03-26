@@ -92,7 +92,7 @@ MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
 // a single experiment, then the Harness will use Problem::deserialize in
 // conjunction with ExperimentIO object that Harness holds. 
 
-template<typename Problem, bool DoWarmup = false, size_t Reps=1>
+template<typename Problem, bool DoWarmup = false, size_t Reps=1, int Verbosity = 1>
 class Harness {
 public:
   // Public Members
@@ -260,6 +260,11 @@ public:
           // Get Stats. Update global metrics.
           metrics_ = get_roi_stats();
           update_aggregate(metrics_);
+
+          if constexpr (Reps > 1)
+          {
+            print_metrics(metrics_, i); 
+          }
         }
 
         // Save Results if necessary for Problem Spec
@@ -268,6 +273,18 @@ public:
           experiment_io_.write_results(problem_);
         }
         ++i;
+
+        // Optionally print out current metrics.
+        // @TODO: Fix verbosity to be enum type maybe...
+        if constexpr (Problem::Verbosity_ == 1)
+        {
+          print_metrics(metrics_, i);
+        }
+        else if constexpr (Problem::Verbosity_ == 2)
+        {
+          print_metrics_verbose(metrics_, i);
+
+        }
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(50);
         //software_delay_cycles(100000); // delay in between experiments
@@ -320,11 +337,12 @@ private:
   // Update aggregate stats for each metric
   void update_aggregate(const ROIMetrics& metrics)
   {
-    total_metrics_.elapsed_cycles += metrics.elapsed_cycles;
-    total_metrics_.delta_cpi += metrics.delta_cpi;
-    total_metrics_.delta_fold += metrics.delta_fold;
-    total_metrics_.delta_lsu += metrics.delta_lsu;
-    total_metrics_.delta_exc += metrics.delta_exc;
+    total_metrics_.elapsed_cycles  += metrics.elapsed_cycles;
+
+    total_metrics_.delta_cpi      += metrics.delta_cpi;
+    total_metrics_.delta_fold     += metrics.delta_fold;
+    total_metrics_.delta_lsu      += metrics.delta_lsu;
+    total_metrics_.delta_exc      += metrics.delta_exc;
 
     max_metrics_.elapsed_cycles = std::max(max_metrics_.elapsed_cycles, metrics.elapsed_cycles);
     min_metrics_.elapsed_cycles = std::min(min_metrics_.elapsed_cycles, metrics.elapsed_cycles);
@@ -333,6 +351,10 @@ private:
 
   // Print metrics for each iteration in PrintOnly mode
   void print_metrics(const ROIMetrics& metrics, int iteration) const {
+    printf("Iteration %i: Cycles=%llu\n", iteration, metrics.elapsed_cycles);
+  }
+
+  void print_metrics_verbose(const ROIMetrics& metrics, int iteration) const {
     printf("Iteration %i: Cycles=%lu, CPIEvents=%lu, Folded=%lu, LSU=%lu, Exc=%lu\n",
            iteration, metrics.elapsed_cycles, metrics.delta_cpi, metrics.delta_fold,
            metrics.delta_lsu, metrics.delta_exc);
@@ -341,32 +363,27 @@ private:
   // Print summary results
   void print_summary() const
   {
-    //software_delay_cycles(1000000);
     printf("Results from running %s for %i iterations.\n", name_, iters_);
 
     if constexpr (DoWarmup)
     {
       printf("Cold cycles: %lu\n",      cold_metrics_.elapsed_cycles);
-      printf("Cold cpi events: %lu\n",  cold_metrics_.delta_cpi);
-      printf("Cold fold events: %lu\n", cold_metrics_.delta_fold);
-      printf("Cold lsu events: %lu\n",  cold_metrics_.delta_lsu);
-      printf("Cold exc events: %lu\n",  cold_metrics_.delta_exc);
-
-      printf("Warm cycles: %lu\n",      metrics_.elapsed_cycles);
-      printf("Warm cpi events: %lu\n",  metrics_.delta_cpi);
-      printf("Warm fold events: %lu\n", metrics_.delta_fold);
-      printf("Warm lsu events: %lu\n",  metrics_.delta_lsu);
-      printf("Warm exc events: %lu\n",  metrics_.delta_exc);
+      if constexpr (Problem::Verbosity_ == 2)
+      {
+        printf("Cold cpi events: %lu\n",  cold_metrics_.delta_cpi);
+        printf("Cold fold events: %lu\n", cold_metrics_.delta_fold);
+        printf("Cold lsu events: %lu\n",  cold_metrics_.delta_lsu);
+        printf("Cold exc events: %lu\n",  cold_metrics_.delta_exc);
+      }
     }
-    else
+    printf("Final ROI cycles: %lu\n",      metrics_.elapsed_cycles);
+    printf("Final ROI cpi events: %lu\n",  metrics_.delta_cpi);
+    if constexpr (Problem::Verbosity_ == 2)
     {
-      printf("No warmup cycles: %lu\n",      metrics_.elapsed_cycles);
-      printf("No warmup cpi events: %lu\n",  metrics_.delta_cpi);
-      printf("No warmup fold events: %lu\n", metrics_.delta_fold);
-      printf("No warmup lsu events: %lu\n",  metrics_.delta_lsu);
-      printf("No warmup exc events: %lu\n",  metrics_.delta_exc);
+      printf("Final ROI fold events: %lu\n", metrics_.delta_fold);
+      printf("Final ROI lsu events: %lu\n",  metrics_.delta_lsu);
+      printf("Final ROI exc events: %lu\n",  metrics_.delta_exc);
     }
-    printf("Total cycles: %llu\n", total_metrics_.elapsed_cycles);
     printf("Average cycles: %llu\n", total_metrics_.elapsed_cycles / iters_);
     printf("Max cycles: %llu\n", max_metrics_.elapsed_cycles);
     printf("Min cycles: %llu\n", min_metrics_.elapsed_cycles);

@@ -10,6 +10,8 @@
 //#include <gem5/m5ops.h>
 #endif
 
+#include <cstring>
+#include <cstdio>
 #include <cstdint>
   
 #ifdef ARM_GEM5
