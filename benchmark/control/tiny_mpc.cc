@@ -5,12 +5,13 @@
 #include <ento-mcu/cache_util.h>
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
+#include <ento-mcu/systick_config.h>
 #include <ento-control/TinyMPCSolver.h>
 #include <ento-control/opt_control_problem.h>
 
 extern "C" void initialise_monitor_handles( void );
 
-const int path_len = path_len;
+const int path_len = 315;
 const int num_states = 12;
 const int num_inputs = 4;
 const int len_horizon = 10;
@@ -20,7 +21,7 @@ int main()
 {
     using Scalar_t = float;
     using Solver   = TinyMPCSolver< Scalar_t, num_states, num_inputs, len_horizon >;
-    using Problem  = OptControlProblem< Scalar_t, Solver, num_states, num_inputsm len_horizon, path_len >;
+    using Problem  = OptControlProblem< Scalar_t, Solver, num_states, num_inputs, len_horizon, path_len >;
 
     initialise_monitor_handles();
 
@@ -41,7 +42,7 @@ int main()
         ENTO_DEBUG( "ERROR! Could not build file path for TinyMPC" );
     }
 
-    Eigen::Matrix< Scalar, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar, num_states, num_states >() <<
+    Eigen::Matrix< Scalar_t, num_states, num_states > Adyn = ( Eigen::Matrix< Scalar_t, num_states, num_states >() <<
         1.0000000, 0.0000000, 0.0000000,  0.0000000, 0.0245250, 0.0000000, 0.0500000, 0.0000000, 0.0000000,  0.0000000, 0.0002044, 0.0000000,
         0.0000000, 1.0000000, 0.0000000, -0.0245250, 0.0000000, 0.0000000, 0.0000000, 0.0500000, 0.0000000, -0.0002044, 0.0000000, 0.0000000,
         0.0000000, 0.0000000, 1.0000000,  0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0500000,  0.0000000, 0.0000000, 0.0000000,
@@ -54,7 +55,7 @@ int main()
         0.0000000, 0.0000000, 0.0000000,  0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000,  1.0000000, 0.0000000, 0.0000000,
         0.0000000, 0.0000000, 0.0000000,  0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000,  0.0000000, 1.0000000, 0.0000000,
         0.0000000, 0.0000000, 0.0000000,  0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000,  0.0000000, 0.0000000, 1.0000000 ).finished();
-    Eigen::Matrix< Scalar, num_states, num_inputs > Bdyn = ( Eigen::Matrix< Scalar, num_states, num_inputs >() <<
+    Eigen::Matrix< Scalar_t, num_states, num_inputs > Bdyn = ( Eigen::Matrix< Scalar_t, num_states, num_inputs >() <<
          -0.0007069,   0.0007773,  0.0007091,  -0.0007795,
           0.0007034,   0.0007747, -0.0007042,  -0.0007739,
           0.0052554,   0.0052554,  0.0052554,   0.0052554,
@@ -67,13 +68,13 @@ int main()
         -13.7677303, -15.1617018, 13.7831318,  15.1463003,
         -13.8353509,  15.2139209, 13.8784751, -15.2570451,
           0.9873856,  -0.3611820, -1.3921880,   0.7659845 ).finished();
-    Eigen::Matrix< Scalar, num_states, 1 > Q{ 100.0000000, 100.0000000, 100.0000000, 4.0000000, 4.0000000, 400.0000000, 4.0000000, 4.0000000, 4.0000000, 2.0408163, 2.0408163, 4.0000000 };
-    Eigen::Matrix< Scalar, num_inputs, 1 > R{ 4.0, 4.0, 4.0, 4.0 };
+    Eigen::Matrix< Scalar_t, num_states, 1 > Q{ 100.0000000, 100.0000000, 100.0000000, 4.0000000, 4.0000000, 400.0000000, 4.0000000, 4.0000000, 4.0000000, 2.0408163, 2.0408163, 4.0000000 };
+    Eigen::Matrix< Scalar_t, num_inputs, 1 > R{ 4.0, 4.0, 4.0, 4.0 };
 
-    Eigen::Matrix< Scalar, num_states, len_horizon >     x_min = Eigen::Matrix< Scalar, num_states, len_horizon >::Constant( -5 );
-    Eigen::Matrix< Scalar, num_states, len_horizon >     x_max = Eigen::Matrix< Scalar, num_states, len_horizon >::Constant( 5 );
-    Eigen::Matrix< Scalar, num_inputs, len_horizon - 1 > u_min = Eigen::Matrix< Scalar, num_inputs, len_horizon - 1 >::Constant( -0.5 );
-    Eigen::Matrix< Scalar, num_inputs, len_horizon - 1 > u_max = Eigen::Matrix< Scalar, num_inputs, len_horizon - 1 >::Constant( 0.5 );
+    Eigen::Matrix< Scalar_t, num_states, len_horizon >     x_min = Eigen::Matrix< Scalar_t, num_states, len_horizon >::Constant( -5 );
+    Eigen::Matrix< Scalar_t, num_states, len_horizon >     x_max = Eigen::Matrix< Scalar_t, num_states, len_horizon >::Constant( 5 );
+    Eigen::Matrix< Scalar_t, num_inputs, len_horizon - 1 > u_min = Eigen::Matrix< Scalar_t, num_inputs, len_horizon - 1 >::Constant( -0.5 );
+    Eigen::Matrix< Scalar_t, num_inputs, len_horizon - 1 > u_max = Eigen::Matrix< Scalar_t, num_inputs, len_horizon - 1 >::Constant( 0.5 );
 
     Solver solver( Adyn, Bdyn, Q, R, rho_value, x_min, x_max, u_min, u_max, true );
 

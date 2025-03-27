@@ -133,7 +133,7 @@ function(add_benchmark TARGET_NAME)
   # Determine the build type (semihosting, gem5-SE, or native)
   if(STM32_BUILD)
     add_arm_semihosting_executable(${TARGET_NAME}
-        SOURCES ${ARG_SOURCSE}
+        SOURCES ${ARG_SOURCES}
       LIBRARIES ${ARG_LIBRARIES}
     )
     add_arm_executable(${TARGET_NAME}-no-semihosting

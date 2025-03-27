@@ -5,7 +5,7 @@ if(STM32_BUILD)
         bench
         mcu-util
         Eigen
-        ento-util
+        ento_util
         ento-control
         CMSIS::STM32::${STM_PRODUCT}
     )

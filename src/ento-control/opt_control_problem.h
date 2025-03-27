@@ -65,7 +65,7 @@ class OptControlProblem :
       return true;
     }
   #else
-    const char* serialize_impl() const;
+    const char* serialize_impl() const
     {
       char line[256];
       int pos = 0;
