@@ -77,14 +77,17 @@ class OptControlProblem :
       }
       return line;
     }
+
     bool deserialize_impl(const char* line)
     {
       char* token;
-      token = strtok( line, "," );
+      char* to_parse = const_cast<char*>(line);
+      token = strtok( to_parse, "," );
       Eigen::Matrix< Scalar_t, StateSize, 1 > state_vec;
       int i = 0;
       while ( token != NULL ) {
         state_vec[i] = (Scalar_t) atof( token );
+        token = strtok( to_parse, "," );
         i++;
       }
       m_trajectory.push_back( state_vec );
