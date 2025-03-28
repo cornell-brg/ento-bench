@@ -22,11 +22,11 @@ set(CMAKE_EXECUTABLE_SUFFIX_CXX .elf)
 set(CMAKE_EXECUTABLE_SUFFIX_ASM .elf)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -fno-exceptions -O0")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -fno-exceptions -O0 -Wl,-Map,output.map -fno-rtti -std=c++20")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -fno-exceptions -O0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -fno-exceptions -O0 -Wl,-Map,output.map -fno-rtti -std=c++20")
 else()
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -fno-exceptions -O3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -fno-exceptions -O3 -Wl,-Map,output.map -fno-rtti -std=c++20")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g3 -fno-exceptions -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g3 -fno-exceptions -O3 -Wl,-Map,output.map -fno-rtti -std=c++20")
 endif()
 
 
