@@ -170,7 +170,7 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         
         rel_lat_error = 100 * (tdiff / (tend - tstart))
         current = current_segment.mean()
-        energy_segment = np.trapezoid(current_segment, time_segment) * voltage * 1e-6  # mJ
+        energy_segment = np.trapz(current_segment, time_segment) * voltage * 1e-6  # mJ
 
         if abs(rel_lat_error) > 10:
             # Use a different adjustment method based on current and time difference
@@ -218,10 +218,13 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
             plt.title(f'Segment: {(i+1)//2 + 1}')
             plt.legend()
             plt.savefig(os.path.join(plot_dir, f'segment_{(i+1)//2 + 1}.png'))
+            #plt.show()
             plt.close()
+
 
     if plot_data:
         plt.legend(['Data', 'Latency Indices', 'Adjusted Indices', 'Search Window'])
+        #plt.show()
         plt.savefig(os.path.join(plot_dir, 'full_plot.png'))
         plt.close()
 
@@ -293,16 +296,7 @@ def analyze_multiple_experiments(parent_dir, window_size, rising_threshold, fall
                 m_value = int(''.join(map(str, numeric_values)))
                 print(f"Extracted dimension: {m_value}")
             else:
-                print(f"Skipping non-matching experiment: {dataset_name}")
-                continue
-        
-        # Adjust window size based on matrix dimension
-        if (m_value > 0) and (m_value < 8) and (dlt_method == 0):
-            window_size = 20
-        elif (m_value > 8) and (m_value < 32) and (dlt_method == 0):
-            window_size = 10
-        elif (m_value < 32) and (m_value > 0) and (dlt_method == 1):
-            window_size = 20
+                m_value = 0
         
         print(f"Analyzing dataset: {dataset_name}")
         
@@ -336,52 +330,6 @@ def analyze_multiple_experiments(parent_dir, window_size, rising_threshold, fall
             'adjusted_latencies': adjusted_latencies,
             'n_value': n_value
         }
-    
-    # Plot generation for results (similar to MATLAB)
-    if results:
-        plt.figure(figsize=(12, 6))
-        
-        # Extract dataset names, energies and N values
-        dataset_names = list(results.keys())
-        avg_energies = [results[name]['average_energy'] for name in dataset_names]
-        n_values = [results[name]['n_value'] for name in dataset_names]
-        
-        # Sort by N values
-        sorted_indices = np.argsort(n_values)
-        sorted_n_values = [n_values[i] for i in sorted_indices]
-        sorted_energies = [avg_energies[i] for i in sorted_indices]
-        sorted_dataset_names = [dataset_names[i] for i in sorted_indices]
-        
-        # Generate group labels
-        group_labels = [f"{int(n)}" for n in sorted_n_values]
-        
-        # Create color map based on unique N values
-        unique_n_values = sorted(list(set(sorted_n_values)))
-        cmap = plt.cm.jet(np.linspace(0, 1, len(unique_n_values)))
-        bar_colors = np.zeros((len(sorted_n_values), 3))
-        
-        for i, n in enumerate(unique_n_values):
-            indices = [j for j, x in enumerate(sorted_n_values) if x == n]
-            for idx in indices:
-                bar_colors[idx] = cmap[i, :3]  # Exclude alpha channel
-        
-        # Plot bar chart
-        bars = plt.bar(range(len(sorted_energies)), sorted_energies)
-        
-        # Set colors for bars
-        for i, bar in enumerate(bars):
-            bar.set_color(cmap[unique_n_values.index(sorted_n_values[i])])
-        
-        plt.xticks(range(len(sorted_energies)), group_labels, rotation=45)
-        plt.xlabel('N (Matrix Dimension)')
-        plt.ylabel('Average Energy (mJ)')
-        plt.title('Average Energy Consumption Across Experiments')
-        plt.tight_layout()
-        
-        # Save plot
-        plot_path = os.path.join(parent_dir, 'average_energy_consumption.png')
-        plt.savefig(plot_path)
-        plt.close()
     
     return results
 

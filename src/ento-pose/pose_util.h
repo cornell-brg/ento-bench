@@ -371,6 +371,22 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
   }
   return true;
 }
+
+template <typename Scalar, size_t N>
+bool check_cheirality(const CameraPose<Scalar> &pose,
+                      const EntoArray<Vec3<Scalar>, N> &x1,
+                      const EntoArray<Vec3<Scalar>, N> &x2,
+                      Scalar min_depth = 0)
+{
+  for (size_t i = 0; i < x1.size(); ++i) {
+    if (!check_cheirality(pose, x1[i], x2[i], min_depth))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Corresponding generalized version
 template <typename Scalar>
 bool check_cheirality(const CameraPose<Scalar> &pose,

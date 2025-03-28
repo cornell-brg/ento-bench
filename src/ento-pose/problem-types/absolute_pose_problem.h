@@ -27,6 +27,9 @@ public:
   using Scalar_ = Scalar;
   using Solver_ = Solver;
   static constexpr size_t NumPts_ = NumPts;
+  static constexpr bool RequiresDataset_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr size_t MaxSolns_ = Solver::MaxSolns;
 
   //////// Class Members /////////
   // Solver Callable
@@ -48,7 +51,11 @@ public:
   //  As of now it is defaulting to a std::vector.
   //  Current idea for a solution is to store a static constexpr in Pose Estimation 
   //  "Solvers"
+#ifdef NATIVE
   EntoContainer<EntoPose::CameraPose<Scalar>, 0> solns_; 
+#else
+  EntoContainer<EntoPose::CameraPose<Scalar>, MaxSolns_> solns_; 
+#endif
 
   // Point-to-point correspondences containers
   EntoContainer<Vec3<Scalar>, NumPts> x_point_;
@@ -72,7 +79,10 @@ public:
 #ifdef NATIVE
   std::string serialize_impl() const;
   bool        deserialize_impl(const std::string& line);
+#else
+  const char* serialize_impl() const;
 #endif
+
   bool        deserialize_impl(const char* line);
 
   void solve_impl();
@@ -112,7 +122,7 @@ auto make_absolute_pose_problem(Solver solver)
 template <typename Scalar, typename Solver, size_t NumPts>
 void AbsolutePoseProblem<Scalar, Solver, NumPts>::solve_impl()
 {
-  num_solns_ = solver_.solve<NumPts>(this, solns_);
+  num_solns_ = solver_.solve(*this, &solns_);
 }
 
 template <typename Scalar, typename Solver, size_t NumPts>
@@ -172,11 +182,13 @@ std::string AbsolutePoseProblem<Scalar, Solver, NumPts>::serialize_impl() const
   oss << scale_gt_ << "," << focal_gt_;
 
   // Serialize x_point and X_point correspondences
-  for (const auto &x_point : x_point_) {
-      oss << "," << x_point.x() << "," << x_point.y() << "," << x_point.z(); 
+  for (const auto &x_point : x_point_)
+  {
+    oss << "," << x_point.x() << "," << x_point.y() << "," << x_point.z(); 
   }
-  for (const auto &X_point : X_point_) {
-      oss << "," << X_point.x() << "," << X_point.y() << "," << X_point.z();
+  for (const auto &X_point : X_point_)
+  {
+    oss << "," << X_point.x() << "," << X_point.y() << "," << X_point.z();
   }
 
   // Remove the trailing comma, if present
@@ -187,12 +199,11 @@ std::string AbsolutePoseProblem<Scalar, Solver, NumPts>::serialize_impl() const
   }
 
   return serialized;
-#else
-  // Serialization is not supported on microcontrollers
-
-  ENTO_DEBUG("WARNING: SERIALIZATION CALLED FROM A MCU. Not supported")
-  return "";
-#endif
+//#else
+//  // Serialization is not supported on microcontrollers
+//
+//  ENTO_DEBUG("WARNING: SERIALIZATION CALLED FROM A MCU. Not supported");
+//  //return "";
 }
 
 template <typename Scalar, typename Solver, size_t NumPts>
@@ -293,6 +304,7 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
 
   return true; // Successfully parsed
 }
+#endif
 
 template <typename Scalar, typename Solver, size_t NumPts>
 bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
