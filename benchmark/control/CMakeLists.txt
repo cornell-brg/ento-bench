@@ -16,4 +16,7 @@ if(STM32_BUILD)
         LIBRARIES ${MODULES}
     )
     list(APPEND BENCH_TARGETS bench-TinyMPC)
+
+    message(STATUS "Bench Targets: ${BENCH_TARGETS}")
+    add_stm32_targets("${BENCH_TARGETS}")
 endif()
