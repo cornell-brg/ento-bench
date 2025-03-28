@@ -19,6 +19,7 @@
 namespace EntoPose
 {
 
+#ifdef NATIVE
 template<typename Scalar>
 struct BenchmarkResult {
     std::string name_;
@@ -29,15 +30,22 @@ struct BenchmarkResult {
     int found_gt_pose_ = 0;
     int runtime_ns_ = 0;
 };
+#endif
 
 // Wrappers for the Benchmarking code
 
 template <typename Scalar>
 struct SolverP3P {
 
-  static constexpr size_t MaxSolns = 2;
-  static inline int solve(const AbsolutePoseProblem<Scalar, SolverP3P<Scalar>, 0>& instance,
+  static constexpr size_t MaxSolns = 4;
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverP3P<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return p3p(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverP3P<Scalar>, 3>& instance,
+                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
     return p3p(instance.x_point_, instance.X_point_, solutions);
   }
@@ -50,15 +58,21 @@ struct SolverP3P {
     return p3p(x, X, solutions);
   }
 
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedAbsolutePoseValidator<Scalar> validator;
   static std::string name() { return "p3p"; }
 };
 
 template <typename Scalar>
 struct SolverUP2P {
-  static constexpr size_t MaxSolns = 2;
+  static constexpr size_t MaxSolns = 4;
   static inline int solve(const AbsolutePoseProblem<Scalar, SolverUP2P<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return up2p(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverUP2P<Scalar>, 2>& instance,
+                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
     return up2p(instance.x_point_, instance.X_point_, solutions);
   }
@@ -71,7 +85,7 @@ struct SolverUP2P {
     return up2p(x, X, solutions);
   }
 
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedAbsolutePoseValidator<Scalar> validator;
   static std::string name() { return "up2p"; }
 };
 
@@ -91,7 +105,7 @@ struct SolverRelUpright3pt {
   {
     return relpose_upright_planar_3pt(x, X, solutions);
   }
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedAbsolutePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "RelUpright3pt"; }
 };
@@ -112,6 +126,13 @@ struct SolverRel8pt
     return sols;
   }
 
+  static inline int solve(RelativePoseProblem<Scalar, SolverRel8pt<Scalar>, 8>& instance,
+                          EntoArray<CameraPose<Scalar>, MaxSolns> *solutions) {
+    //EntoArray<CameraPose<Scalar>, 4> solutions_;
+    int sols = relpose_8pt<Scalar, 8>(instance.x1_, instance.x2_, solutions);
+    return sols;
+  }
+
   template <size_t N = 0>
   static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
                           EntoContainer<Vec3<Scalar>, N>& x2,
@@ -126,7 +147,7 @@ struct SolverRel8pt
     return sols;
 
   }
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "Rel8pt"; }
 };
@@ -147,6 +168,13 @@ struct SolverRel5pt
     return sols;
   }
 
+  static inline int solve(RelativePoseProblem<Scalar, SolverRel5pt, 5>& instance,
+                          EntoArray<CameraPose<Scalar>, MaxSolns> *solutions)
+  {
+    int sols = relpose_5pt<Scalar>(instance.x1_, instance.x2_, solutions);
+    return sols;
+  }
+
   template <size_t N = 0>
   static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
                           EntoContainer<Vec3<Scalar>, N>& x2,
@@ -160,7 +188,7 @@ struct SolverRel5pt
     }
     return sols;
   }
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "Rel5pt"; }
 };
@@ -181,6 +209,13 @@ struct SolverRelUprightPlanar2pt
     return sols;
   }
 
+  static inline int solve(RelativePoseProblem<Scalar, SolverRelUprightPlanar2pt<Scalar>, 2>& instance,
+                          EntoArray<CameraPose<Scalar>, MaxSolns> *solutions)
+  {
+    int sols = relpose_upright_planar_2pt<Scalar, 2>(instance.x1_, instance.x2_, solutions);
+    return sols;
+  }
+
   template <size_t N = 0>
   static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
                           EntoContainer<Vec3<Scalar>, N>& x2,
@@ -194,14 +229,14 @@ struct SolverRelUprightPlanar2pt
     }
     return sols;
   }
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "RelUprightPlanar2pt"; }
 };
 
 template <typename Scalar>
 struct SolverRelUprightPlanar3pt {
-  static inline int solve(const RelativePoseProblemInstance<Scalar> &instance,
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRelUprightPlanar2pt<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>> *solutions)
   {
     EntoArray<CameraPose<Scalar>, 2> solutions_;
@@ -226,7 +261,7 @@ struct SolverRelUprightPlanar3pt {
     }
     return sols;
   }
-  typedef CalibPoseValidator<Scalar> validator;
+  typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "RelUprightPlanar3pt"; }
 };

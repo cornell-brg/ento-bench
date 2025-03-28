@@ -17,12 +17,12 @@ namespace EntoPose
 template <typename Scalar, std::size_t N>
 int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
                 const EntoArray<Vec3<Scalar>, N> &x2,
-                EntoArray<Matrix3x3<Scalar>, N>  *essential_matrices);
+                EntoArray<Matrix3x3<Scalar>, 10>  *essential_matrices);
 
 template <typename Scalar, std::size_t N>
 int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
                 const EntoArray<Vec3<Scalar>, N> &x2,
-                EntoArray<CameraPose<Scalar>, N>  *output);
+                EntoArray<CameraPose<Scalar>, 40>  *output);
 
 
 #if defined(NATIVE)
@@ -201,7 +201,7 @@ void compute_trace_constraints(const Eigen::Matrix<Scalar, 4, 9> &N, Eigen::Matr
 template <typename Scalar, std::size_t N>
 int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
                 const EntoArray<Vec3<Scalar>, N> &x2,
-                EntoArray<Matrix3x3<Scalar>, N>  *essential_matrices)
+                EntoArray<Matrix3x3<Scalar>, 10>  *essential_matrices)
 {
 
   // Compute nullspace to epipolar constraints
@@ -408,7 +408,7 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
   Eigen::Matrix<Scalar, 2, 1> xz;
   Eigen::Matrix<Scalar, 3, 3> E;
   Eigen::Map<Eigen::Matrix<Scalar, 1, 9>> e(E.data());
-  essential_matrices->reserve(n_sols);
+  //essential_matrices->reserve(n_sols);
   for (int i = 0; i < n_sols; ++i)
   {
     const Scalar z = roots[i];
@@ -446,7 +446,7 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>, N> &x1,
 template <typename Scalar, std::size_t N>
 int relpose_5pt(const EntoArray<Vec3<Scalar>,  N> &x1,
                 const EntoArray<Vec3<Scalar>,  N> &x2,
-                EntoArray<CameraPose<Scalar>, 10>  *output)
+                EntoArray<CameraPose<Scalar>, 40>  *output)
 {
   EntoArray<Matrix3x3<Scalar>, 10> essential_matrices;
   int n_sols = relpose_5pt(x1, x2, &essential_matrices);
@@ -454,7 +454,7 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>,  N> &x1,
   output->clear();
   for (int i = 0; i < n_sols; ++i)
   {
-    motion_from_essential(essential_matrices[i], x1, x2, output);
+    motion_from_essential<Scalar, 5, 40>(essential_matrices[i], x1, x2, output);
   }
 
   return output->size();
