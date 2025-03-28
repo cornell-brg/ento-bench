@@ -4,25 +4,16 @@
 
 Eigen::IOFormat TinyApiFmt(4, 0, ", ", "\n", "[", "]");
 
+//template <typename Scalar, int StateDim, int InputDim, int Horizon>
+//struct Solution
+//{
+//}
+
+
 template< typename Scalar_t, int NSTATES, int NINPUTS, int NHORIZON >
 class TinyMPCSolver
 {
   private:
-    struct Solution
-    {
-        int iter;
-        bool solved;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u;
-        Solution() :
-          iter( 0 ),
-          solved( false ),
-          x( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          u( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() )
-        {}
-    };
-    Solution m_soln;
-
     struct Settings
     {
         Scalar_t abs_pri_tol;
@@ -42,6 +33,94 @@ class TinyMPCSolver
     };
     Settings m_settings;
 
+    struct Solution
+    {
+        int iter;
+        bool solved;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u;
+        Solution() :
+          iter( 0 ),
+          solved( false ),
+          x( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          u( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() )
+        {}
+    };
+    Solution m_soln;
+
+    struct Work
+    {
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > q;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> r;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > p;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> d;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > v;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > vnew;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > z;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > znew;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > g;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> y;
+        Eigen::Matrix< Scalar_t, NSTATES, 1 > Q;
+        Eigen::Matrix< Scalar_t, NINPUTS, 1 > R;
+        Eigen::Matrix< Scalar_t, NSTATES, NSTATES > Adyn;
+        Eigen::Matrix< Scalar_t, NSTATES, NINPUTS > Bdyn;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x_min;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x_max;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u_min;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u_max;
+        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > Xref;
+        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > Uref;
+        Eigen::Matrix< Scalar_t, NINPUTS, 1 > Qu;
+        Scalar_t primal_residual_state;
+        Scalar_t primal_residual_input;
+        Scalar_t dual_residual_state;
+        Scalar_t dual_residual_input;
+        int status;
+        int iter;
+        Work( const Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
+              const Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
+              const Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
+              const Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
+              Scalar_t rho,
+              const Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_min,
+              const Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_max,
+              const Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_min,
+              const Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_max ) :
+          x( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          u( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          q( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          r( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          p( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          d( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          v( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          vnew( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          z( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          znew( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          g( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          y( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          Q( Q + Eigen::Matrix< Scalar_t, NSTATES, 1 >::Constant( rho ) ),
+          R( R + Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Constant( rho ) ),
+          Adyn( Adyn ),
+          Bdyn( Bdyn ),
+          x_min( x_min ),
+          x_max( x_max ),
+          u_min( u_min ),
+          u_max( u_max ),
+          Xref( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
+          Uref( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
+          Qu( Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Zero() ),
+          primal_residual_state( 0 ),
+          primal_residual_input( 0 ),
+          dual_residual_state( 0 ),
+          dual_residual_input( 0 ),
+          status( 0 ),
+          iter( 0 )
+        {}
+    };
+    Work m_work;
+
     struct Cache
     {
         Scalar_t rho;
@@ -49,12 +128,12 @@ class TinyMPCSolver
         Eigen::Matrix< Scalar_t, NSTATES, NSTATES > Pinf;
         Eigen::Matrix< Scalar_t, NINPUTS, NINPUTS > Quu_inv;
         Eigen::Matrix< Scalar_t, NSTATES, NSTATES > AmBKt;
-        Cache( Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
-               Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
-               Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
-               Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
-               Scalar_t rho, bool verbose ) :
-          rho( rho )
+        Cache( const Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
+               const Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
+               const Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
+               const Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
+               Scalar_t r, bool verbose ) :
+          rho( r )
         {
             Eigen::Matrix< Scalar_t, NSTATES, NSTATES > Q1 = ( Q + Eigen::Matrix< Scalar_t, NSTATES, 1 >::Constant( 2 * rho ) ).asDiagonal();
             Eigen::Matrix< Scalar_t, NINPUTS, NINPUTS > R1 = ( R + Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Constant( 2 * rho ) ).asDiagonal();
@@ -110,78 +189,6 @@ class TinyMPCSolver
     };
     Cache m_cache;
 
-    struct Work
-    {
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > q;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> r;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > p;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> d;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > v;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > vnew;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > z;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > znew;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > g;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1> y;
-        Eigen::Matrix< Scalar_t, NSTATES, 1 > Q;
-        Eigen::Matrix< Scalar_t, NINPUTS, 1 > R;
-        Eigen::Matrix< Scalar_t, NSTATES, NSTATES > Adyn;
-        Eigen::Matrix< Scalar_t, NSTATES, NINPUTS > Bdyn;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x_min;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > x_max;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u_min;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > u_max;
-        Eigen::Matrix< Scalar_t, NSTATES, NHORIZON > Xref;
-        Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 > Uref;
-        Eigen::Matrix< Scalar_t, NINPUTS, 1 > Qu;
-        Scalar_t primal_residual_state;
-        Scalar_t primal_residual_input;
-        Scalar_t dual_residual_state;
-        Scalar_t dual_residual_input;
-        int status;
-        int iter;
-        Work( Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
-              Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
-              Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
-              Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
-              Scalar_t rho,
-              Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_min,
-              Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_max,
-              Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_min,
-              Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_max ) :
-          x( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          u( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          q( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          r( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          p( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          d( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          v( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          vnew( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          z( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          znew( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          g( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          y( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          Q( Q + Eigen::Matrix< Scalar_t, NSTATES, 1 >::Constant( rho ) ),
-          R( R + Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Constant( rho ) ),
-          Adyn( Adyn ),
-          Bdyn( Bdyn ),
-          x_min( x_min ),
-          x_max( x_max ),
-          u_min( u_min ),
-          u_max( u_max ),
-          Xref( Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >::Zero() ),
-          Uref( Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >::Zero() ),
-          Qu( Eigen::Matrix< Scalar_t, NINPUTS, 1 >::Zero() ),
-          primal_residual_state( 0 ),
-          primal_residual_input( 0 ),
-          dual_residual_state( 0 ),
-          dual_residual_input( 0 ),
-          status( 0 ),
-          iter( 0 )
-        {}
-    };
-    Work m_work;
 
     void backward_pass_grad()
     {
@@ -255,15 +262,15 @@ class TinyMPCSolver
 
   public:
     // replace setup
-    TinyMPCSolver( Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
-                   Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
-                   Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
-                   Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
+    TinyMPCSolver( const Eigen::Matrix< Scalar_t, NSTATES, NSTATES >& Adyn,
+                   const Eigen::Matrix< Scalar_t, NSTATES, NINPUTS >& Bdyn,
+                   const Eigen::Matrix< Scalar_t, NSTATES, 1 >& Q,
+                   const Eigen::Matrix< Scalar_t, NINPUTS, 1 >& R,
                    Scalar_t rho,
-                   Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_min,
-                   Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_max,
-                   Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_min,
-                   Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_max,
+                   const Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_min,
+                   const Eigen::Matrix< Scalar_t, NSTATES, NHORIZON >& x_max,
+                   const Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_min,
+                   const Eigen::Matrix< Scalar_t, NINPUTS, NHORIZON - 1 >& u_max,
                    bool verbose ) :
       m_settings( Settings() ),
       m_soln( Solution() ),

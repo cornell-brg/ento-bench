@@ -132,6 +132,8 @@ public:
       if (!ifile_)
       {
         ENTO_DEBUG("Failed to open input file: %s\n", resolved_input);
+        printf("Failed to open input file: %s\n", input_filepath);
+        printf("Failed to open resolved input file: %s\n", resolved_input);
       }
     }
     if (output_filepath && output_filepath[0] != '\0')
