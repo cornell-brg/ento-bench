@@ -31,7 +31,7 @@ if (GEM5_BUILD)
 elseif (STM32_BUILD)
   target_link_libraries(bench
     PUBLIC
-    mcu-util
+    ento-mcu-semihosted
   )
 else()
   target_link_libraries(bench

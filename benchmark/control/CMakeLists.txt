@@ -3,7 +3,7 @@ include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 if(STM32_BUILD)
     set(MODULES
         bench
-        mcu-util
+        ento-mcu-semihosted
         Eigen
         ento_util
         ento-control
@@ -11,11 +11,11 @@ if(STM32_BUILD)
     )
     set(BENCH_TARGETS)
 
-    add_benchmark(bench-TinyMPC
-        SOURCES tiny_mpc.cc
+    add_benchmark(bench-tinympc
+        SOURCES bench_tinympc.cc
         LIBRARIES ${MODULES}
     )
-    list(APPEND BENCH_TARGETS bench-TinyMPC)
+    list(APPEND BENCH_TARGETS bench-tinympc)
 
     message(STATUS "Bench Targets: ${BENCH_TARGETS}")
     add_stm32_targets("${BENCH_TARGETS}")

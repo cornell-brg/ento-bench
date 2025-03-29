@@ -14,11 +14,17 @@ target_include_directories(image_io
 # =============================================================================
 add_subdirectory(ento-mcu)
 if(STM32_BUILD)
-  target_include_directories(mcu-util
+  target_include_directories(ento-mcu
+    PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  )
+  target_include_directories(ento-mcu-semihosted
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
 elseif(GEM5_ARMV7E-M_BUILD)
+#@TODO: Not sure how up to date these gem5
+#       hooks are
   add_subdirectory(startup)
   target_include_directories(startup
     PUBLIC

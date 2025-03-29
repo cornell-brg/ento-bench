@@ -12,7 +12,7 @@ add_library(
 if (STM32_BUILD)
   set(MODULES
     bench
-    mcu-util
+    ento-mcu-semihosted
     Eigen
     CMSIS::STM32::${STM_PRODUCT}
   )
