@@ -5,8 +5,8 @@ if(STM32_BUILD)
         bench
         ento-mcu-semihosted
         Eigen
-        ento_util
         ento-control
+        ento_util
         CMSIS::STM32::${STM_PRODUCT}
     )
     set(BENCH_TARGETS)

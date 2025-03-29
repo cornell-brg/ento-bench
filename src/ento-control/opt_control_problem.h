@@ -16,7 +16,7 @@ class OptControlProblem :
 
     // Required by Problem Interface for Experiment I/O
     static constexpr bool RequiresDataset_ = true;
-    static constexpr bool SaveResults_     = true;
+    static constexpr bool SaveResults_     = false;
     static constexpr bool RequiresSetup_   = true;
     static constexpr int  SetupLines_      = HorizonSize;
 
@@ -86,10 +86,15 @@ class OptControlProblem :
       Eigen::Matrix< Scalar_t, StateSize, 1 > state_vec;
       int i = 0;
       while ( token != NULL ) {
-        state_vec[i] = (Scalar_t) atof( token );
-        token = strtok( to_parse, "," );
+        state_vec[i] = static_cast<Scalar_t>(atof( token ));
+        token = strtok( nullptr, "," );
         i++;
       }
+      if (i != StateSize)
+      {
+        return false;
+      }
+
       m_trajectory.push_back( state_vec );
       if ( m_trajectory_len == 0 ) {
         m_real_path.push_back( state_vec );

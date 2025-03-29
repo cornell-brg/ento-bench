@@ -131,7 +131,6 @@ target_include_directories(ento-attitude-est
 # =============================================================================
 # Ento Control
 add_subdirectory(ento-control)
-
 target_include_directories(ento-control
   INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
