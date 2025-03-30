@@ -78,11 +78,10 @@ class OptControlProblem :
     {
       char line[256];
       int pos = 0;
-        for ( int j = 0; j < StateSize; j++ ) {
-          pos += sprintf( &line[pos], "%f,", m_real_path[m_real_path.size() - 1][j] );
-        }
-        pos += sprintf( &line[pos], "\n" );
+      for ( int j = 0; j < StateSize; j++ ) {
+        pos += sprintf( &line[pos], "%f,", m_real_path[m_real_path.size() - 1][j] );
       }
+      pos += sprintf( &line[pos], "\n" );
       return line;
     }
 
