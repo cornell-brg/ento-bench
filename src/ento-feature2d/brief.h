@@ -69,8 +69,8 @@ constexpr std::array<PatternPoint, BRIEF_NUM_PAIRS> bit_pattern_31 = {{
     {-9, 12, -5, -13}, {0, 7, 2, 12},   {-1, 2, 1, 7},     {5, 11, 7, -9}
 }};
 
-template <typename PixelType, size_t PatchSize = 31, typename KeypointType = FastKeypoint<int16_t>>
-BRIEFDescriptor compute_brief_descriptor(const PixelType& img,
+template <typename ImageT, size_t PatchSize = 31, typename KeypointType = FastKeypoint<int16_t>>
+BRIEFDescriptor compute_brief_descriptor(const ImageT& img,
                                          const KeypointType& kp)
 {
   constexpr int PATCH_HALF = 16;  // 31x31 patch, half is 16
@@ -98,8 +98,8 @@ BRIEFDescriptor compute_brief_descriptor(const PixelType& img,
   return descriptor;
 }
 
-template <typename Image, typename KeypointType, size_t PatchSize = 31, size_t MaxFeatures = 100>
-void compute_brief_descriptors(const Image& img,
+template <typename ImageT, typename KeypointType, size_t PatchSize = 31, size_t MaxFeatures = 100>
+void compute_brief_descriptors(const ImageT& img,
                                const FeatureArray<KeypointType, MaxFeatures>& feats,
                                std::array<BRIEFDescriptor, MaxFeatures>& descriptors)
 {

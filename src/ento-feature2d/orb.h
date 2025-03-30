@@ -93,7 +93,7 @@ void compute_orb_descriptors(const Image& img,
   }
 }
 
-template <typename ImageType, size_t MaxFeatures, int PatchSize = 31, typename KeypointT = ORBKeypoint<int16_t, float>>
+template <typename ImageType, size_t MaxFeatures, int PatchSize, typename KeypointT>
 void compute_keypoint_orientation(const ImageType& img,
                                   FeatureArray<KeypointT, MaxFeatures>& feats)
 {

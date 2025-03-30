@@ -43,20 +43,6 @@ constexpr size_t num_paths = 10;
 
 using namespace EntoFeature2D;
 
-//   // Image pyramids
-  // ImagePyramid<NumLevels, Rows, Cols, PixelType> pyramid_prev_;
-  // ImagePyramid<NumLevels, Rows, Cols, PixelType> pyramid_next_;
-
-  // // Images
-  // Image<Rows, Cols, PixelType> image_prev_;
-  // Image<Rows, Cols, PixelType> image_next_;
-
-  // // Algorithm inputs
-  // bool status[NumFeats];
-  // int num_good_points;
-  // int MAX_COUNT;
-  // int DET_EPSILON;
-  // float CRITERIA;
 struct NullKernel
 {
   template <typename Img, typename KeypointT, size_t NumFeats>

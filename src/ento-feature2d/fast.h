@@ -332,6 +332,33 @@ void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats)
   feats.num_features = new_size;
 }
 
+struct FastKernel
+{
+  using KeypointType   = Keypoint<uint16_t>;
+  using DescriptorType = std::monostate; // FAST has no descriptor
+
+  static constexpr int PatternSize = 16;
+  static constexpr int Threshold = 10;  // Customize as needed
+  static constexpr size_t MaxFeatures = 100;
+  static constexpr bool PerformNMS = false;
+  static constexpr bool Orb = false;
+
+  template <typename ImageT, typename KeypointT, size_t MaxFeats>
+  void operator()(const ImageT& img, FeatureArray<KeypointT, MaxFeats>& feats)
+  {
+    EntoFeature2D::fast<ImageT,
+                        KeypointT,
+                        PatternSize,
+                        Threshold,
+                        9,
+                        MaxFeatures,
+                        PerformNMS,
+                        Orb>(img, feats);
+  }
+
+  static constexpr const char* name() { return "FAST Kernel"; }
+};
+
 } // namespace EntoFeature2D
 
 #endif // FAST_H
