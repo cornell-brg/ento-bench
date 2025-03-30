@@ -1,12 +1,12 @@
 #include <Eigen/Dense>
 #include <ento-control/opt_control_problem.h>
-#include <ento-control/TinyMPCSolver.h>
+#include <ento-control/tinympc_solver.h>
 #include <ento-util/unittest.h>
 #include <ento-util/debug.h>
 #include <ento-util/experiment_io.h>
 #include <ento-util/file_path_util.h>
 
-const int path_len = path_len;
+const int path_len = 315;
 const int num_states = 12;
 const int num_inputs = 4;
 const int len_horizon = 10;
@@ -239,6 +239,7 @@ void test_fig8_trajectory_double()
     while ( fileIO.read_next( problem ))
     {
         problem.solve();
+        fileIO.write_results( problem );
         num_experiments++;
     }
     ENTO_DEBUG( "experiments run: %d", num_experiments );
@@ -247,8 +248,6 @@ void test_fig8_trajectory_double()
     if ( num_experiments > 0 ) {
         problem.validate();
     }
-
-    fileIO.write_results( problem );
 }
 
 void test_fig8large_trajectory_double()
@@ -320,6 +319,7 @@ void test_fig8large_trajectory_double()
     while ( fileIO.read_next( problem ))
     {
         problem.solve();
+        fileIO.write_results( problem );
         num_experiments++;
     }
     ENTO_DEBUG( "experiments run: %d", num_experiments );
@@ -328,8 +328,6 @@ void test_fig8large_trajectory_double()
     if ( num_experiments > 0 ) {
         problem.validate();
     }
-
-    fileIO.write_results( problem );
 }
 
 void test_fig8xl_trajectory_double()
@@ -401,6 +399,7 @@ void test_fig8xl_trajectory_double()
     while ( fileIO.read_next( problem ))
     {
         problem.solve();
+        fileIO.write_results( problem );
         num_experiments++;
     }
     ENTO_DEBUG( "experiments run: %d", num_experiments );
@@ -408,9 +407,6 @@ void test_fig8xl_trajectory_double()
 
     if ( num_experiments > 0 ) {
         problem.validate();
-    }
-    for ( int i = 0; i < num_experiments; i++ ) {
-      fileIO.write_results( problem );
     }
 }
 

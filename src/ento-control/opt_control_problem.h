@@ -16,7 +16,7 @@ class OptControlProblem :
 
     // Required by Problem Interface for Experiment I/O
     static constexpr bool RequiresDataset_ = true;
-    static constexpr bool SaveResults_     = false;
+    static constexpr bool SaveResults_     = true;
     static constexpr bool RequiresSetup_   = true;
     static constexpr int  SetupLines_      = HorizonSize;
 
@@ -28,7 +28,8 @@ class OptControlProblem :
     EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, PathLen > m_real_path;
     Eigen::Matrix< Scalar_t, StateSize, StateSize > m_Adyn;
     Eigen::Matrix< Scalar_t, StateSize, CtrlSize > m_Bdyn;
-    int m_written_states;
+    Eigen::Matrix< Scalar_t, StateSize, 1 > m_x0;
+    Eigen::Matrix< Scalar_t, StateSize, HorizonSize > m_x_ref;
   
   public:
   #ifdef NATIVE
@@ -36,7 +37,7 @@ class OptControlProblem :
     {
       std::stringstream ss;
       for ( int j = 0; j < StateSize; j++ ) {
-        ss << m_real_path[m_written_states][j] << ",";
+        ss << m_real_path[m_real_path.size() - 1][j] << ",";
       }
       return ss.str();
     }
@@ -62,6 +63,14 @@ class OptControlProblem :
         m_real_path.push_back( state_vec );
       }
       m_trajectory_len++;
+      if ( m_trajectory_len > HorizonSize ) {
+        m_real_path.push_back( m_Adyn * m_x0 + m_Bdyn * m_solver.get_u0() );
+        m_iter++;
+      }
+      m_x0 = m_real_path[m_iter];
+      for ( int i = 0; i < HorizonSize; i++ ) {
+        m_x_ref.col(i) = m_trajectory[m_iter + i];
+      }
       return true;
     }
   #else
@@ -69,9 +78,8 @@ class OptControlProblem :
     {
       char line[256];
       int pos = 0;
-      for ( int i = 0; i < m_iter; i++ ) {
         for ( int j = 0; j < StateSize; j++ ) {
-          pos += sprintf( &line[pos], "%f,", m_real_path[i][j] );
+          pos += sprintf( &line[pos], "%f,", m_real_path[m_real_path.size() - 1][j] );
         }
         pos += sprintf( &line[pos], "\n" );
       }
@@ -100,6 +108,14 @@ class OptControlProblem :
         m_real_path.push_back( state_vec );
       }
       m_trajectory_len++;
+      if ( m_trajectory_len > HorizonSize ) {
+        m_real_path.push_back( m_Adyn * m_x0 + m_Bdyn * m_solver.get_u0() );
+        m_iter++;
+      }
+      m_x0 = m_real_path[m_iter];
+      for ( int i = 0; i < HorizonSize; i++ ) {
+        m_x_ref.col(i) = m_trajectory[m_iter + i];
+      }
       return true;
     }
   #endif
@@ -117,17 +133,10 @@ class OptControlProblem :
 
     void solve_impl()
     {
-      Eigen::Matrix< Scalar_t, StateSize, 1 >& x0 = m_real_path[m_iter];
-      m_solver.set_x0( x0 );
-      Eigen::Matrix< Scalar_t, StateSize, HorizonSize > x_ref;
-      for ( int i = 0; i < HorizonSize; i++ ) {
-        x_ref.col(i) = m_trajectory[m_iter + i];
-      }
-      m_solver.set_x_ref( x_ref );
+      m_solver.set_x0( m_x0 );
+      m_solver.set_x_ref( m_x_ref );
       m_solver.reset_duals();
       m_solver.solve();
-      m_real_path.push_back( m_Adyn * x0 + m_Bdyn * m_solver.get_u0() );
-      m_iter++;
     }
 
     void clear_impl()
@@ -141,8 +150,7 @@ class OptControlProblem :
     OptControlProblem(Solver solver) : 
       m_solver(std::move(solver)),
       m_trajectory_len(0),
-      m_iter(0),
-      m_written_states(0)
+      m_iter(0)
     {
       m_Adyn = solver.get_Adyn();
       m_Bdyn = solver.get_Bdyn();
