@@ -43,22 +43,9 @@ constexpr size_t num_paths = 10;
 
 using namespace EntoFeature2D;
 
-//   // Image pyramids
-  // ImagePyramid<NumLevels, Rows, Cols, PixelType> pyramid_prev_;
-  // ImagePyramid<NumLevels, Rows, Cols, PixelType> pyramid_next_;
-
-  // // Images
-  // Image<Rows, Cols, PixelType> image_prev_;
-  // Image<Rows, Cols, PixelType> image_next_;
-
-  // // Algorithm inputs
-  // bool status[NumFeats];
-  // int num_good_points;
-  // int MAX_COUNT;
-  // int DET_EPSILON;
-  // float CRITERIA;
 struct NullKernel
 {
+  using CoordT_ = int16_t; // hardcoded coordt
   template <typename Img, typename KeypointT, size_t NumFeats>
   void operator()([[maybe_unused]] const Img& img1,
                   [[maybe_unused]] const Img& img2,
@@ -82,7 +69,6 @@ template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM
 class LKOpticalFlowAdapter
 {
 private:
-  // Additional parameters needed by Mahoney functions
   ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
   ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
   bool status_[NumFeats];
@@ -92,40 +78,43 @@ private:
   float CRITERIA_;
 
 public:
-    LKOpticalFlowAdapter(int num_good_points, 
-                         int MAX_COUNT,
-                         int DET_EPSILON,
-                         float CRITERIA)
-        : num_good_points_(num_good_points), MAX_COUNT_(MAX_COUNT), 
-          DET_EPSILON_(DET_EPSILON), CRITERIA_(CRITERIA) {}
-    
-    // Implement the interface required by AttitudeProblem
-    
-    void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
-                    const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
-                   FeatureArray<Keypoint<CoordT>, 2> feats,
-                   FeatureArray<Keypoint<CoordT>, 2>* feats_next)
-    {
-      prevPyramid_.set_top_image(img1);
-      prevPyramid_.initialize_pyramid();
+  using CoordT_ = CoordT;
+  using PixelT_ = PixelT;
+  static constexpr size_t NumLevels_ = NUM_LEVELS;
+  static constexpr size_t Width_ = IMG_WIDTH;
+  static constexpr size_t Height_ = IMG_HEIGHT;
+  LKOpticalFlowAdapter(int num_good_points, 
+                       int MAX_COUNT,
+                       int DET_EPSILON,
+                       float CRITERIA)
+      : num_good_points_(num_good_points), MAX_COUNT_(MAX_COUNT), 
+        DET_EPSILON_(DET_EPSILON), CRITERIA_(CRITERIA) {}
+  
+  void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
+                  const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
+                 FeatureArray<Keypoint<CoordT>, 2> feats,
+                 FeatureArray<Keypoint<CoordT>, 2>* feats_next)
+  {
+    prevPyramid_.set_top_image(img1);
+    prevPyramid_.initialize_pyramid();
 
-      nextPyramid_.set_top_image(img2);
-      nextPyramid_.initialize_pyramid();
+    nextPyramid_.set_top_image(img2);
+    nextPyramid_.initialize_pyramid();
 
-      // TODO: have function take in Feature Array 
-      feats_next->num_features = num_good_points_;
+    // TODO: have function take in Feature Array 
+    feats_next->num_features = num_good_points_;
 
-      calcOpticalFlowPyrLK<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT>(prevPyramid_, nextPyramid_, 
-                                                            (Keypoint<CoordT> *)feats.keypoints.data(), (Keypoint<CoordT> *)feats_next->keypoints.data(), status_, 
-                                                            num_good_points_, MAX_COUNT_, DET_EPSILON_, CRITERIA_);
+    calcOpticalFlowPyrLK<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT>(prevPyramid_, nextPyramid_, 
+                                                          (Keypoint<CoordT> *)feats.keypoints.data(), (Keypoint<CoordT> *)feats_next->keypoints.data(), status_, 
+                                                          num_good_points_, MAX_COUNT_, DET_EPSILON_, CRITERIA_);
 
-    }
-    
-    // Name method for identification
-    static constexpr const char* name()
-    {
-      return "Lukas Kanade Sparse Optical Flow";
-    }
+  }
+  
+  // Name method for identification
+  static constexpr const char* name()
+  {
+    return "Lukas Kanade Sparse Optical Flow";
+  }
 };
 
 void test_lk_optical_flow_validate()

@@ -2,6 +2,8 @@
 #define IMAGE_PYRAMID_H
 
 #include <assert.h>
+#include <utility>
+#include <tuple>
 #include <stdio.h>
 #include <image_io/Image.h>
 
@@ -52,6 +54,8 @@ public:
             call_create_pyramids_n_times(std::make_index_sequence<NUM_LEVELS>{});
         }
     }
+
+
 
 private:
     const int left_shift_kernel_[9] = {0, 1, 0, 1, 2, 1, 0, 1, 0};
