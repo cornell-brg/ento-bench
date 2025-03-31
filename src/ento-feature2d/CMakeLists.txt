@@ -30,11 +30,8 @@ set(TEST_FILES
   test_lk_optical_flow_iter.cc
   test_image_pyramid.cc
   test_sparse_optical_flow_problem.cc
-<<<<<<< HEAD
   test_ii_optical_flow.cc
-=======
   test_feature_recognition_problem.cc
->>>>>>> ddo26-orb-impl
 )
 
 set(LIBRARIES_test_fast

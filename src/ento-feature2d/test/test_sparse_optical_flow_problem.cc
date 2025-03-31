@@ -11,6 +11,7 @@
 #include <ento-feature2d/image_pyramid.h>
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-feature2d/lk_optical_flow.h>
+#include <ento-feature2d/ii_optical_flow.h>
 
 //#include <string>
 
@@ -165,7 +166,44 @@ void test_lk_optical_flow_validate()
 
   ENTO_TEST_CHECK_TRUE(problem.validate());
 
+}
 
+void test_ii_optical_flow_validate()
+{
+  const size_t IMG_WIDTH = 320;
+  const size_t IMG_HEIGHT = 320;
+  const size_t WIN_DIM = 25;  
+  const size_t NumFeats = 2;
+  using PixelT = uint8_t;
+
+  // New adapter type for Image Interpolation Optical Flow
+  using K = ImageInterpolationOFKernel<IMG_WIDTH, IMG_HEIGHT, WIN_DIM, float, PixelT, NumFeats>;
+
+  using P = SparseOpticalFlowProblem<K, IMG_HEIGHT, IMG_WIDTH, NumFeats, Keypoint<float>, PixelT>;
+
+  int num_good_points = 2;
+  int DET_RADIUS = 7;
+  int DET_EPSILON = 0;  // or 1 << 20 depending on your expectations
+
+  K adapter(DET_RADIUS, DET_EPSILON);
+
+  P problem(adapter);
+
+  std::ostringstream oss;
+  oss << image_2_path << "," << image_3_path << ","
+      << image_2_feats_path << ","
+      << image_2_feats_next_gt_path;
+
+  std::string line = oss.str();
+
+  ENTO_DEBUG("Deserialize test (std::string): %s", line.c_str());
+
+  bool success = problem.deserialize(line.c_str());
+  ENTO_TEST_CHECK_TRUE(success);
+
+  problem.solve();
+
+  ENTO_TEST_CHECK_TRUE(problem.validate());
 }
 
 void test_sparse_of_prob_deserialize_char()
@@ -453,6 +491,7 @@ int main ( int argc, char ** argv )
     ENTO_DEBUG("  %s\n", full_paths[i]);
   }
 
+  ENTO_DEBUG("Running test: %i", __n);
   // Run Tests
   if (__ento_test_num(__n, 1)) test_sparse_of_prob_deserialize_char();
   if (__ento_test_num(__n, 2)) test_sparse_of_prob_deserialize_string();
@@ -463,5 +502,7 @@ int main ( int argc, char ** argv )
   if (__ento_test_num(__n, 7)) test_sparse_of_prob_clear();
   if (__ento_test_num(__n, 8)) test_sparse_of_prob_harness_native();
   if (__ento_test_num(__n, 9)) test_lk_optical_flow_validate();
+  if (__ento_test_num(__n, 10)) test_ii_optical_flow_validate();
+
 
 }
