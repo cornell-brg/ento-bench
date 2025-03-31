@@ -5,6 +5,7 @@
 
 #include <numbers>
 #include <ento-feature2d/feat2d_util.h>
+#include <ento-feature2d/brief.h>
 #include <ento-util/debug.h>
 
 namespace EntoFeature2D
@@ -34,8 +35,10 @@ template <typename PixelType, int PatternSize, int RowStride, int ContiguityRequ
 constexpr std::array<PixelType, PatternSize + ContiguityRequirement>
 generate_bresenham_circle();
 
-template <typename PixelType, int PatternSize>
-int corner_score(const PixelType* ptr, const std::array<int, PatternSize>& circle, int threshold);
+template <typename PixelType, typename CircleType, int PatternSize, int ContiguityRequirement>
+int corner_score(const PixelType* ptr,
+                 const std::array<CircleType, PatternSize + ContiguityRequirement>& circle,
+                 int threshold);
 
 template <typename KeypointType, size_t MaxFeatures>
 void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats);
@@ -47,7 +50,7 @@ template <typename Image,
           int PatternSize,
           int Threshold,
           int ContiguityRequirement = 9,
-          size_t MaxFeatures = 100,
+          size_t MaxFeatures,
           bool PerformNMS = false,
           bool Orb = false>
 void fast(const Image& img,
@@ -132,9 +135,9 @@ void fast(const ImageType& img,
   constexpr int middle_value = (1 << (bit_depth + 1)) / 2;
 
   // Calculate fast attention region
-  constexpr int BORDER = Orb ? 22 : 3;
+  constexpr int BORDER = Orb ? 15 : 3;
   constexpr int START_X = BORDER;
-  constexpr int END_X = BORDER;
+  constexpr int END_X = img_width - BORDER;
   constexpr int START_Y = BORDER;
   constexpr int END_Y = img_height - BORDER;
 
@@ -170,11 +173,11 @@ void fast(const ImageType& img,
   
   for (i = START_Y; i < END_Y; ++i)
   {
-    ptr = &img.data[i*img_width] + 3;
+    ptr = &img.data[i*img_width] + START_Y;
 
-    if (i < img_height - 3)
+    if (i < img_height - BORDER)
     {
-      j = 3;
+      j = START_X;
       for (; j < END_X; j++, ptr++)
       {
         int v = ptr[0];
@@ -208,8 +211,11 @@ void fast(const ImageType& img,
             {
               if( ++count > ContiguityRequirement )
               {
-                int score = corner_score<PatternSize>(ptr, circle, Threshold);
+                int score = corner_score<
+                  PixelType, CircleType, PatternSize, ContiguityRequirement
+                                        >(ptr, circle, Threshold);
                 feats.add_keypoint(KeypointType(j, i, score));
+                ENTO_DEBUG("Found feature: %i, %i", j, i);
                 break;
               }
             }
@@ -232,9 +238,11 @@ void fast(const ImageType& img,
             {
               if( ++count > ContiguityRequirement )
               {
-                int score = corner_score<PatternSize>(ptr, circle, Threshold);
+                int score = corner_score<
+                  PixelType, CircleType, PatternSize, ContiguityRequirement
+                                        >(ptr, circle, Threshold);
                 feats.add_keypoint(KeypointType(j, i, score));
-                DPRINTF("Found feature: %i, %i\n", j, i-1);
+                ENTO_DEBUG("Found feature: %i, %i", j, i);
                 break;
               }
             }
@@ -248,28 +256,31 @@ void fast(const ImageType& img,
       }
     }
 
-    if constexpr (PerformNMS)
-    {
-      apply_nms(feats);
-    }
+  }
+  if constexpr (PerformNMS)
+  {
+    apply_nms(feats);
   }
 }
 
-template <typename PixelType, int PatternSize>
-int corner_score(const PixelType* kp, const std::array<int, PatternSize>& circle, int threshold)
+template <typename PixelType, typename CircleType, int PatternSize, int ContiguityRequirement>
+int corner_score(const PixelType* kp,
+                 const std::array<CircleType, PatternSize+ContiguityRequirement>& circle,
+                 int threshold)
 {
   // Code inspired by fast_score.cpp found in OpenCV repo.
+  constexpr int ExtendedCircleSize = PatternSize + ContiguityRequirement;
   int v = static_cast<int>(kp[0]);  // Keypoint intensity
   int min_diff = std::numeric_limits<PixelType>::max();
   int max_diff = std::numeric_limits<PixelType>::min();
 
   // 1. Compute intensity differences
-  for (int i = 0; i < PatternSize; i++)
-  {
-    int diff = v - static_cast<int>(kp[circle[i]]);  // Compute difference
-    min_diff = std::min(min_diff, diff);
-    max_diff = std::max(max_diff, diff);
-  }
+  //for (int i = 0; i < PatternSize; i++)
+  //{
+  //  int diff = v - static_cast<int>(kp[circle[i]]);  // Compute difference
+  //  min_diff = std::min(min_diff, diff);
+  //  max_diff = std::max(max_diff, diff);
+  //}
 
   // 2. Best thresholded arc
   int best_dark = threshold;
@@ -292,16 +303,15 @@ int corner_score(const PixelType* kp, const std::array<int, PatternSize>& circle
 template <typename KeypointType, size_t MaxFeatures>
 void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats)
 {
-  if (feats.size() == 0) return;
-  std::array<bool, MaxFeatures> keep = {};
-  std::fill(keep.begin(), keep.begin() + feats.size(), true);
+  if (feats.size() == 0)
+    return;
 
+  FeatureArray<KeypointType, MaxFeatures> kept;
+  
   for (size_t i = 0; i < feats.size(); i++)
   {
-    if (!(keep[i / 8] & (1 << (i % 8))))
-      continue;     
-
     const auto& kp = feats[i];
+    bool suppressed = false;
 
     for (size_t j = 0; j < feats.size(); j++)
     {
@@ -312,51 +322,97 @@ void apply_nms(FeatureArray<KeypointType, MaxFeatures>& feats)
 
       if (std::abs(neighbor.x - kp.x) <= 1 &&
           std::abs(neighbor.y - kp.y) <= 1 &&
-          neighbor.score > kp.score)
+          neighbor.score >= kp.score)
       {
-        keep[i / 8] &= ~(1 << (i % 8));  // Clear bit to suppress the weaker keypoint
+        suppressed = true;
         break;
       }
     }
+
+    if (!suppressed)
+      kept.add_keypoint(kp);
   }
 
-  // **In-place compaction**: Shift non-suppressed keypoints forward
-  size_t new_size = 0;
-  for (size_t i = 0; i < feats.size(); i++)
-  {
-    if (keep[i / 8] & (1 << (i % 8)))
-    {
-      feats[new_size++] = feats[i];
-    }
-  }
-  feats.num_features = new_size;
+  // Copy back
+  for (size_t i = 0; i < kept.size(); i++)
+    feats[i] = kept[i];
+  feats.num_features = kept.size();
 }
 
+template <int MaxFeatures,
+          int PatternSize = 16,
+          int Threshold = 10,
+          bool PerformNMS = false >
 struct FastKernel
 {
-  using KeypointType   = Keypoint<uint16_t>;
+  using KeypointType   = FastKeypoint<uint16_t>;
   using DescriptorType = std::monostate; // FAST has no descriptor
 
-  static constexpr int PatternSize = 16;
-  static constexpr int Threshold = 10;  // Customize as needed
-  static constexpr size_t MaxFeatures = 100;
-  static constexpr bool PerformNMS = false;
-  static constexpr bool Orb = false;
+  static constexpr int PatternSize_ = PatternSize;
+  static constexpr int Threshold_ = Threshold;  // Customize as needed
+  static constexpr size_t MaxFeatures_ = MaxFeatures;
+  static constexpr bool PerformNMS_ = PerformNMS;
+  static constexpr bool Orb_ = false;
+  static constexpr bool ContiguityRequirement_ = 9;
 
-  template <typename ImageT, typename KeypointT, size_t MaxFeats>
-  void operator()(const ImageT& img, FeatureArray<KeypointT, MaxFeats>& feats)
+  template <typename ImageT, typename KeypointT>
+  void operator()(const ImageT& img, FeatureArray<KeypointT, MaxFeatures_>& feats)
   {
     EntoFeature2D::fast<ImageT,
                         KeypointT,
-                        PatternSize,
-                        Threshold,
-                        9,
-                        MaxFeatures,
-                        PerformNMS,
-                        Orb>(img, feats);
+                        PatternSize_,
+                        Threshold_,
+                        ContiguityRequirement_,
+                        MaxFeatures_,
+                        PerformNMS_,
+                        Orb_>(img, feats);
   }
 
   static constexpr const char* name() { return "FAST Kernel"; }
+};
+
+template <int MaxFeatures,
+          int PatchSize = 31,
+          int DescriptorSize = 256>
+struct FastBriefKernel
+{
+  using KeypointType   = FastKeypoint<uint16_t>;
+  using DescriptorType = BRIEFDescriptor;
+
+  static constexpr int PatchSize_ = PatchSize;
+  static constexpr int DescriptorSize_ = DescriptorSize;
+  static constexpr size_t MaxFeatures_ = MaxFeatures;
+
+  template <typename ImageT,
+            typename KeypointT,
+            typename DescriptorArray>
+  void operator()(      ImageT& img,
+                  FeatureArray<KeypointT, MaxFeatures_>& feats,
+                  DescriptorArray& descs) const
+  {
+    using KernelScalarT = float;
+    constexpr int KernelSize = 7;
+
+    //gaussian_blur_in_place<ImageT, KernelSize, KernelScalarT>(img);
+
+    // Run FAST
+    fast<ImageT,
+         KeypointT,
+         16,
+         10,
+         9,
+         MaxFeatures_,
+         true,
+         true>(img, feats);
+
+    // Then BRIEF
+    compute_brief_descriptors<ImageT,
+                              KeypointT,
+                              PatchSize_,
+                              MaxFeatures_>(img, feats, descs);
+  }
+
+  static constexpr const char* name() { return "FAST + BRIEF Kernel"; }
 };
 
 } // namespace EntoFeature2D

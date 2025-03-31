@@ -46,6 +46,10 @@ public:
   static constexpr size_t ImageCols_ = Cols;
   static constexpr auto header_buffer = PGMHeader<Rows, Cols, PixelType>::generate();
 
+  static constexpr bool RequiresDataset_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
+
   
   using DescriptorT_ = std::conditional_t<!DoDescription, 
                          std::monostate, 
@@ -61,7 +65,7 @@ public:
 
   std::conditional_t<DoDescription_,
                      std::array<DescriptorT_, NumFeats>,
-                     std::monostate> desc_gt_;
+                     std::monostate> descs_gt_;
   
 
   // Input and Output containers for the Kernel Under Test
@@ -94,7 +98,16 @@ public:
   bool deserialize_impl(const char* line);
   bool validate_impl() const;
   void solve_impl();
-  void clear_impl();
+  void clear_impl()
+  {
+    //descs_.clear();
+    //if constexpr (DoDetection_)
+    //  feats_gt_.clear();
+    //if constexpr (DoDescription_)
+    //  descs_gt_.clear();
+  }
+
+  static constexpr const char* header_impl() { return "Feature Recognition Problem"; }
 
   //===================================
 
@@ -244,7 +257,7 @@ load_features(const std::string& gt_path)
     iss >> num_gt_feats;
   }
 
-  if (num_gt_feats <= 0 || num_gt_feats != NumFeats)
+  if (num_gt_feats <= 0 || num_gt_feats > NumFeats)
   {
     ENTO_ERROR("Invalid feature count in file: %d (file) vs %d (NumFeats template param)", num_gt_feats, NumFeats);
     return false;
@@ -310,7 +323,7 @@ load_descriptors(const std::string& filename)
     iss >> num_descs_in_file;
   }
 
-  if (num_descs_in_file != NumFeats)
+  if (num_descs_in_file > NumFeats)
   {
     ENTO_ERROR("Descriptor count mismatch: file has %zu descriptors, expected %zu",
                num_descs_in_file, NumFeats);
@@ -342,7 +355,7 @@ load_descriptors(const std::string& filename)
         }
 
         int byte_val = std::stoi(byte_str);
-        descs_[i].data[byte_idx] = static_cast<uint8_t>(byte_val);
+        descs_gt_[i].data[byte_idx] = static_cast<uint8_t>(byte_val);
       }
     }
     ENTO_DEBUG("Successfully loaded %zu BRIEF descriptors", NumFeats);
@@ -421,7 +434,7 @@ load_features(const char* gt_path)
 
   int num_gt_feats = atoi(line);
 
-  if (num_gt_feats <= 0 || num_gt_feats != NumFeats)
+  if (num_gt_feats <= 0 || num_gt_feats > NumFeats)
   {
     ENTO_ERROR("Invalid feature count in file: %d (file) vs %zu (NumFeats template param)",
                num_gt_feats, NumFeats);
@@ -504,7 +517,7 @@ load_descriptors(const char* filename)
 
   size_t num_descs_in_file = (size_t)atoi(line);
 
-  if (num_descs_in_file != NumFeats)
+  if (num_descs_in_file > NumFeats)
   {
     ENTO_ERROR("Descriptor count mismatch: file has %zu descriptors, expected %zu",
                num_descs_in_file, NumFeats);
@@ -539,7 +552,7 @@ load_descriptors(const char* filename)
         }
 
         int byte_val = atoi(token);
-        descs_[i].data[byte_idx] = (uint8_t)byte_val;
+        descs_gt_[i].data[byte_idx] = (uint8_t)byte_val;
 
         token = strtok(nullptr, ",");
       }
@@ -663,7 +676,7 @@ void FeatureRecognitionProblem<Kernel, NumFeats,
                                DoDetection, DoDescription>::
 solve_impl()
 {
-   if constexpr (DoDetection && DoDescription)
+  if constexpr (DoDetection && DoDescription)
   {
     // Both detection and description are performed
     kernel_(img_, feats_, descs_);

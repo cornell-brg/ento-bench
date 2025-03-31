@@ -30,6 +30,8 @@ struct FastKeypoint : public Keypoint<CoordT>
 {
   int score;
   FastKeypoint() : Keypoint<CoordT>(0, 0), score(0) {}
+   FastKeypoint(CoordT _x, CoordT _y) 
+    : Keypoint<CoordT>(_x, _y), score(0) {}
   FastKeypoint(CoordT _x, CoordT _y, int _score)
     : Keypoint<CoordT>(_x, _y), score(_score) {}
   FastKeypoint(const FastKeypoint<CoordT>&) = default;
@@ -45,8 +47,18 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
   Scalar orientation;
   size_t octave;
   ORBKeypoint() : FastKeypoint<CoordT>(), orientation(0) {}
+  ORBKeypoint(CoordT x, CoordT y)
+    : FastKeypoint<CoordT>(x, y),
+      orientation(0),
+      octave(0) {}
+  ORBKeypoint(CoordT x, CoordT y, int score)
+    : FastKeypoint<CoordT>(x, y, score),
+      orientation(0),
+      octave(0) {}
   ORBKeypoint(int16_t _x, int16_t _y, int _score, Scalar _ori)
-    : FastKeypoint<CoordT>(_x, _y, _score), orientation(_ori) {} 
+    : FastKeypoint<CoordT>(_x, _y, _score),
+      orientation(_ori),
+      octave(0) {} 
   ORBKeypoint(const ORBKeypoint&) = default;
   ORBKeypoint(ORBKeypoint&&) = default;
   ORBKeypoint& operator=(const ORBKeypoint&) = default;
