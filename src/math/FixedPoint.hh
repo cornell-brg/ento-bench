@@ -132,8 +132,8 @@ public:
   }
 
   // Casting to int
-  explicit operator long() const {
-    return static_cast<long>(value) / (1 << FractionalBits);
+  explicit operator int64_t() const {
+    return static_cast<int64_t>(value) / (1 << FractionalBits);
   }
 
   UnderlyingType raw() const {

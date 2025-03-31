@@ -179,6 +179,37 @@ add_benchmark(bench-orb-large
 )
 list(APPEND BENCH_TARGETS bench-orb-large)
 
+# =============================================================================
+# Lucas Kanade OF Small Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-lkof-small
+  SOURCES bench_lkof_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lkof-small)
+
+
+# =============================================================================
+# Lucas Kanade OF Medium Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-lkof-medium
+  SOURCES bench_lkof_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lkof-medium)
+
+
+# =============================================================================
+# Lucas Kanade OF Large Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-lkof-large
+  SOURCES bench_lkof_large.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lkof-large)
 
 # =============================================================================
 # Add stm32 targets

@@ -16,25 +16,6 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-template <int MaxFeats = 50>
-struct FastBriefKernelSmall
-{
-  using KeypointType   = FastKeypoint<uint16_t>;
-  using DescriptorType = BRIEFDescriptor;
-
-  template <typename ImageT,
-            typename KeypointT,
-            typename DescriptorArray>
-  void operator()(ImageT& img,
-                  FeatureArray<KeypointT, MaxFeats>& feats,
-                  DescriptorArray& descs) const
-  {
-    FastKernel<MaxFeats>{}(img, feats);
-    BriefKernel<MaxFeats>{}(img, feats, descs);
-  }
-
-  static constexpr const char* name() { return "FAST+BRIEF Small Kernel"; }
-};
 
 int main()
 {
@@ -47,14 +28,15 @@ int main()
   enable_instruction_cache_prefetch();
   icache_enable();
 
-  using Kernel  = FastBriefKernelSmall<50>;
+  constexpr int MaxFeats = 50;
+  using Kernel  = FastBriefKernel<MaxFeats>;
   using PixT    = uint8_t;
   constexpr int Rows = 80;
   constexpr int Cols = 80;
-  using Problem = FeatureRecognitionProblem<Kernel, 50, Rows, Cols, PixT, true, true>;
+  using Problem = FeatureRecognitionProblem<Kernel, MaxFeats, Rows, Cols, PixT, true, true>;
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feature2d/test_fast_brief_small.txt";
+  const char* rel_path  = "feat2d/fastbrief_small_books_data.txt";
 
   char dataset_path[512];
   char output_path[256];
@@ -68,7 +50,7 @@ int main()
   ENTO_DEBUG("FAST+BRIEF Small: %s", dataset_path);
 
   static Problem problem(Kernel{});
-  EntoBench::Harness<Problem, false, 1> harness(problem, "FAST+BRIEF Small", dataset_path, output_path);
+  EntoBench::Harness<Problem, false, 10> harness(problem, "FAST+BRIEF Small", dataset_path, output_path);
   harness.run();
 
   exit(1);

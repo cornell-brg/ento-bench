@@ -16,26 +16,6 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-template <int MaxFeats = 100>
-struct FastBriefKernelSmall
-{
-  using KeypointType   = FastKeypoint<uint16_t>;
-  using DescriptorType = BRIEFDescriptor;
-
-  template <typename ImageT,
-            typename KeypointT,
-            typename DescriptorArray>
-  void operator()(ImageT& img,
-                  FeatureArray<KeypointT, MaxFeats>& feats,
-                  DescriptorArray& descs) const
-  {
-    FastKernel<MaxFeats>{}(img, feats);
-    BriefKernel<MaxFeats>{}(img, feats, descs);
-  }
-
-  static constexpr const char* name() { return "FAST+BRIEF Large Kernel"; }
-};
-
 int main()
 {
   initialise_monitor_handles();
@@ -47,28 +27,29 @@ int main()
   enable_instruction_cache_prefetch();
   icache_enable();
 
-  using Kernel  = FastBriefKernelSmall<50>;
+  constexpr int MaxFeatures = 250;
+  using Kernel  = FastBriefKernel<MaxFeatures>;
   using PixT    = uint8_t;
   constexpr int Rows = 320;
   constexpr int Cols = 320;
-  using Problem = FeatureRecognitionProblem<Kernel, 50, Rows, Cols, PixT, true, true>;
+  using Problem = FeatureRecognitionProblem<Kernel, MaxFeatures, Rows, Cols, PixT, true, true>;
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feature2d/test_fast_brief_large.txt";
+  const char* rel_path  = "feat2d/fastbrief_large_books_data.txt";
 
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build dataset path for small image.");
+    ENTO_DEBUG("ERROR! Could not build dataset path for FAST+BRIEF large image.");
     exit(1);
   }
 
-  ENTO_DEBUG("FAST+BRIEF Small: %s", dataset_path);
+  ENTO_DEBUG("FAST+BRIEF Large: %s", dataset_path);
 
   static Problem problem(Kernel{});
-  EntoBench::Harness<Problem, false, 1> harness(problem, "FAST+BRIEF Large", dataset_path, output_path);
+  EntoBench::Harness<Problem, false, 10> harness(problem, "FAST+BRIEF [large]", dataset_path, output_path);
   harness.run();
 
   exit(1);
