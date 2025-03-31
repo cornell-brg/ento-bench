@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <variant>
 #include <ento-util/debug.h>
 #include <ento-feature2d/feat2d_util.h>
 #include <image_io/Image.h>
