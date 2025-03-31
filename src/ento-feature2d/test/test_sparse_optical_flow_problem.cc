@@ -45,6 +45,7 @@ using namespace EntoFeature2D;
 
 struct NullKernel
 {
+  using CoordT_ = int16_t; // hardcoded coordt
   template <typename Img, typename KeypointT, size_t NumFeats>
   void operator()([[maybe_unused]] const Img& img1,
                   [[maybe_unused]] const Img& img2,
