@@ -529,11 +529,11 @@ load_descriptors(const char* filename)
 
   if constexpr (std::is_same_v<DescriptorT_, BRIEFDescriptor>)
   {
-    for (size_t i = 0; i < NumFeats; ++i)
+    for (size_t i = 0; i < num_descs_in_file; ++i)
     {
       if (!fgets(line, sizeof(line), file))
       {
-        ENTO_ERROR("Failed to read descriptor line %zu", i);
+        ENTO_ERROR("Failed to read descriptor line %u", i);
         fclose(file);
         return false;
       }
@@ -546,7 +546,7 @@ load_descriptors(const char* filename)
       {
         if (!token)
         {
-          ENTO_ERROR("Failed to parse byte %zu of descriptor %zu", byte_idx, i);
+          ENTO_ERROR("Failed to parse byte %u of descriptor %u", byte_idx, i);
           fclose(file);
           return false;
         }

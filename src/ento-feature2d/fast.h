@@ -391,9 +391,9 @@ struct FastBriefKernel
                   DescriptorArray& descs) const
   {
     using KernelScalarT = float;
-    constexpr int KernelSize = 7;
+    constexpr int KernelSize = 5;
 
-    //gaussian_blur_in_place<ImageT, KernelSize, KernelScalarT>(img);
+    gaussian_blur_in_place<ImageT, KernelSize, KernelScalarT>(img);
 
     // Run FAST
     fast<ImageT,

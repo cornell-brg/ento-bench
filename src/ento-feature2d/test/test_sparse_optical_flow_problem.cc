@@ -68,7 +68,6 @@ template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM
 class LKOpticalFlowAdapter
 {
 private:
-  // Additional parameters needed by Mahoney functions
   ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
   ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
   bool status_[NumFeats];
@@ -84,8 +83,6 @@ public:
                          float CRITERIA)
         : num_good_points_(num_good_points), MAX_COUNT_(MAX_COUNT), 
           DET_EPSILON_(DET_EPSILON), CRITERIA_(CRITERIA) {}
-    
-    // Implement the interface required by AttitudeProblem
     
     void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
                     const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
