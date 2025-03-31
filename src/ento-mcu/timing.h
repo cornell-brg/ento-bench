@@ -7,6 +7,7 @@
 
 #include <ento-mcu/conf.h>
 #include <ento-mcu/gpio_util.h>
+#include <ento-mcu/systick_config.h>
 
 
 constexpr uint32_t SYSTICK_INTERVAL_US = 100;
@@ -37,20 +38,25 @@ static inline void disable_dwt()
 static inline void enable_all_counters()
 {
 #if !defined(STM32G0)
+  __asm__ volatile ("");
   enable_dwt();
+  __asm__ volatile ("");
   DWT->CTRL = (DWT_CTRL_CYCCNTENA_Msk  |
                DWT_CTRL_EXCEVTENA_Msk  |
                DWT_CTRL_CPIEVTENA_Msk  |
                DWT_CTRL_LSUEVTENA_Msk  |
                DWT_CTRL_FOLDEVTENA_Msk |
                DWT_CTRL_SLEEPEVTENA_Msk);
+  __asm__ volatile ("");
 #endif
 }
 
 static inline void disable_all_counters()
 {
+  __asm__ volatile ("");
 #if !defined(STM32G0)
   DWT->CTRL = 0;
+  __asm__ volatile ("");
 #endif
 }
 
@@ -74,38 +80,38 @@ inline void init_systick(void)
   NVIC_SetPriority(SysTick_IRQn, 0);
 }
 
-inline void SysTick_Handler()
-{
-#if !defined(STM32G0)
-  static uint8_t last_lsu_count = 0;
-  static uint8_t last_cpi_count = 0;
-  static uint8_t last_exc_count = 0;
-  static uint8_t last_fold_count = 0;
-  static uint8_t last_sleep_count = 0;
-
-  disable_all_counters();
-
-  uint8_t current_lsu_count   = DWT->LSUCNT;
-  uint8_t current_cpi_count   = DWT->CPICNT;
-  uint8_t current_exc_count   = DWT->EXCCNT;
-  uint8_t current_fold_count  = DWT->FOLDCNT;
-  uint8_t current_sleep_count = DWT->SLEEPCNT;
-
-  if (current_lsu_count < last_lsu_count) lsu_overflow_count++;
-  if (current_cpi_count < last_cpi_count) cpi_overflow_count++;
-  if (current_exc_count < last_exc_count) exc_overflow_count++;
-  if (current_fold_count < last_fold_count) fold_overflow_count++;
-  if (current_sleep_count < last_sleep_count) sleep_overflow_count++;
-
-  last_lsu_count   = DWT->LSUCNT;
-  last_cpi_count   = DWT->CPICNT;
-  last_exc_count   = DWT->EXCCNT;
-  last_fold_count  = DWT->FOLDCNT;
-  last_sleep_count = DWT->SLEEPCNT;
-
-  enable_all_counters();
-#endif
-}
+//inline void SysTick_Handler()
+//{
+//#if !defined(STM32G0)
+//  static uint8_t last_lsu_count = 0;
+//  static uint8_t last_cpi_count = 0;
+//  static uint8_t last_exc_count = 0;
+//  static uint8_t last_fold_count = 0;
+//  static uint8_t last_sleep_count = 0;
+//
+//  disable_all_counters();
+//
+//  uint8_t current_lsu_count   = DWT->LSUCNT;
+//  uint8_t current_cpi_count   = DWT->CPICNT;
+//  uint8_t current_exc_count   = DWT->EXCCNT;
+//  uint8_t current_fold_count  = DWT->FOLDCNT;
+//  uint8_t current_sleep_count = DWT->SLEEPCNT;
+//
+//  if (current_lsu_count < last_lsu_count) lsu_overflow_count++;
+//  if (current_cpi_count < last_cpi_count) cpi_overflow_count++;
+//  if (current_exc_count < last_exc_count) exc_overflow_count++;
+//  if (current_fold_count < last_fold_count) fold_overflow_count++;
+//  if (current_sleep_count < last_sleep_count) sleep_overflow_count++;
+//
+//  last_lsu_count   = DWT->LSUCNT;
+//  last_cpi_count   = DWT->CPICNT;
+//  last_exc_count   = DWT->EXCCNT;
+//  last_fold_count  = DWT->FOLDCNT;
+//  last_sleep_count = DWT->SLEEPCNT;
+//
+//  enable_all_counters();
+//#endif
+//}
 
 // Check if each counter is enabled
 static inline
@@ -415,4 +421,24 @@ inline void trigger_pin_low()
 {
   trigger_gpio_port->BSRR = trigger_gpio_pin << 16;
 }
+
+class Delay
+{
+public:
+  static void ms(uint32_t millis)
+  {
+#ifdef STM32_BUILD
+    __asm__ volatile("" ::: "memory");
+#ifndef DEBUG
+    uint32_t start = g_systick_ms_counter;
+    while ((g_systick_ms_counter - start) < millis)
+    {
+      __WFI();
+    }
+#endif // ifndef DEBUG
+    __asm__ volatile("" ::: "memory");
+#endif // ifdef STM32_BUILD
+  }
+};
+
 #endif // TIMING_H

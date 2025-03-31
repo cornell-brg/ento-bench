@@ -1,18 +1,19 @@
 #include <ento-mcu/systick_config.h>
+#include <ento-mcu/conf.h>
 
-void SysTick_Setup(SysTick_Callback callback, unsigned int update_freq)
+volatile unsigned int g_systick_ms_counter = 0;
+
+void SysTick_Setup()
 {
-  gSysTickHandle.callback = callback;
-  gSysTickHandle.update_freq = update_freq;
+  SysTick->LOAD = (uint32_t)(SystemCoreClock / 1000UL) - 1UL;
+  SysTick->VAL  = 0;
+  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk
+                | SysTick_CTRL_TICKINT_Msk
+                | SysTick_CTRL_ENABLE_Msk;
 }
 
 void SysTick_Handler(void)
 {
-  gSysTickCount++;
-  if (gSysTickHandle.callback && 
-      gSysTickCount % gSysTickHandle.update_freq == 0)
-  {
-    gSysTickHandle.callback();
-  }
+  g_systick_ms_counter++;
 }
 

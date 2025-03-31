@@ -77,7 +77,7 @@ if(STM32_BUILD)
       LIBRARIES ${TEST_LIBRARIES}
     )
     message(STATUS "Building flash and debug target for: ${TEST_BIN}")
-    add_stm32_flash_and_debug_targets(${TEST_BIN})
+    add_stm32_target(${TEST_BIN})
   endforeach()
 
 

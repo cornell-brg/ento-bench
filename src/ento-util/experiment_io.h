@@ -116,8 +116,8 @@ public:
   }
 #else
   // Constructor for `char*` (MCU builds only)
-  explicit ExperimentIO(const char *input_filepath = "",
-                        const char *output_filepath = "")
+  explicit ExperimentIO(const char *input_filepath,
+                        const char *output_filepath)
   {
     char resolved_input[MAX_PATH];
     char resolved_output[MAX_PATH];
@@ -178,6 +178,7 @@ public:
   template <EntoBench::ProblemConcept Problem>
   bool read_next(Problem &problem_instance)
   {
+    __asm__ volatile("" ::: "memory");
     if (!header_validated_)
     {
       if (!validate_input_header<Problem>())
@@ -199,12 +200,13 @@ public:
       return problem_instance.deserialize(line);
     }
 #else
-    char line[256];
+    char line[1024];
     if (ifile_ && fgets(line, sizeof(line), ifile_))
     {
       return problem_instance.deserialize(line);
     }
 #endif
+    __asm__ volatile("" ::: "memory");
     return false; // End of file or error
   }
 
