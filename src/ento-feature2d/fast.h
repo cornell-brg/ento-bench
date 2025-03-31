@@ -7,6 +7,7 @@
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-feature2d/brief.h>
 #include <ento-util/debug.h>
+#include <variant>
 
 namespace EntoFeature2D
 {
