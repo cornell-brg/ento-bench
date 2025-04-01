@@ -36,7 +36,7 @@ int main()
 
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/rel_linear8pt_float_10.csv";
+  const char* rel_path = "rel-pose/rel_linear8pt_float_100.csv";
   char dataset_path[512];
   char output_path[256];
 
@@ -56,7 +56,7 @@ int main()
   //                           dataset_path,
   //                           output_path);
   // Or run each experiment in the datasets for 10 reps
-  EntoBench::Harness<Problem, false, 10> harness(problem, "Bench Relative 8pt [float]",
+  EntoBench::Harness<Problem, false, 5> harness(problem, "Bench Relative 8pt [float]",
                                                  dataset_path,
                                                  output_path);
   harness.run();
