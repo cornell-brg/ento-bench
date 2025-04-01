@@ -60,30 +60,14 @@ def separate_and_combine(path: Path) -> Path:
 
 def combine_files(file1: Path, file2: Path) -> Path:
     print(f'Combining {file1.stem} and {file2.stem}.')
-    #print(file1.parent)
     df_pm = pd.read_csv(file1)
-    #df_pm['time']
     df_sal = pd.read_csv(file2)
 
     df_pm.sort_values(by="time", inplace=True)
-    print(df_pm.iloc[218*100:int(218.5*100) , :])
-    #merged_df = pd.merge_asof(df1, df2, on="time", direction="nearest", tolerance=0.01)
     merged_df = df_pm.merge(df_sal, how='outer', on='time')
-    print(np.sum(merged_df['latency'] == 1))
-    print(len(merged_df['latency']))
     merged_df.sort_values(by='time', inplace=True)
     num_spikes = np.sum(merged_df['latency'] == 1)
     print(f"Merged df num latency spikes: {num_spikes}")
-
-    #series_latency = pd.Series(df_sal['latency'].values, index=df_sal['time'].values)
-    #series_current = pd.Series(df_pm['current'].values, index=df_pm['time'].values)
-    #print(series_current)
-    #merged_df = pd.DataFrame({'latency': series_latency, 'current': series_current})
-    #merged_df['time'] = merged_df.index.values.copy()
-    # Sort the merged DataFrame by time
-    #merged_df = merged_df.sort_values(by="time")
-    #print(df1.head())
-    #print(df2.head())
 
     print(f'Finished merging {file1.stem} and {file2.stem}')
     print(merged_df.head())

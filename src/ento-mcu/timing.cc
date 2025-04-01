@@ -41,10 +41,12 @@ void trigger_pin_disable()
                trigger_gpio_pin);
 }
 
-void software_delay_cycles(uint32_t cycles)
+void __attribute__ ((noinline)) software_delay_cycles(uint32_t cycles)
 {
+  __asm__ volatile ("");
   while (cycles--)
   {
-    __asm__ volatile("nop");
+    __asm__ volatile("add r0, r0, r0");
   }
+  __asm__ volatile ("");
 }

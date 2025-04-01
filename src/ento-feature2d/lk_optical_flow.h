@@ -83,4 +83,64 @@ void calcOpticalFlowPyrLK(const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, 
     
 }
 
+template <size_t NUM_LEVELS,
+          size_t IMG_WIDTH,
+          size_t IMG_HEIGHT,
+          size_t WIN_DIM,
+          typename CoordT,
+          typename PixelT,
+          size_t NumFeats>
+class LucasKanadeOFKernel
+{
+private:
+  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
+  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
+  bool status_[NumFeats];
+  int num_good_points_;
+  int MAX_COUNT_;
+  int DET_EPSILON_;
+  float CRITERIA_;
+
+public:
+  using CoordT_ = CoordT;
+  using PixelT_ = PixelT;
+  static constexpr size_t NumLevels_ = NUM_LEVELS;
+  static constexpr size_t Width_ = IMG_WIDTH;
+  static constexpr size_t Height_ = IMG_HEIGHT;
+
+  LucasKanadeOFKernel(int num_good_points, 
+                      int MAX_COUNT,
+                      int DET_EPSILON,
+                      float CRITERIA)
+      : num_good_points_(num_good_points), MAX_COUNT_(MAX_COUNT), 
+        DET_EPSILON_(DET_EPSILON), CRITERIA_(CRITERIA) {}
+  
+  void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
+                  const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
+                        FeatureArray<Keypoint<CoordT>, NumFeats>& feats,
+                        FeatureArray<Keypoint<CoordT>, NumFeats>* feats_next)
+  {
+    prevPyramid_.set_top_image(img1);
+    prevPyramid_.initialize_pyramid();
+
+    nextPyramid_.set_top_image(img2);
+    nextPyramid_.initialize_pyramid();
+
+    // TODO: have function take in Feature Array 
+    feats_next->num_features = num_good_points_;
+
+    calcOpticalFlowPyrLK<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT>(prevPyramid_, nextPyramid_, 
+                                                          (Keypoint<CoordT> *)feats.keypoints.data(), (Keypoint<CoordT> *)feats_next->keypoints.data(), status_, 
+                                                          num_good_points_, MAX_COUNT_, DET_EPSILON_, CRITERIA_);
+
+  }
+  
+  // Name method for identification
+  static constexpr const char* name()
+  {
+    return "Lukas Kanade Sparse Optical Flow";
+  }
+};
+
+
 #endif // LK_OPTICAL_FLOW_H

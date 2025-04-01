@@ -133,7 +133,7 @@ function(add_benchmark TARGET_NAME)
   # Determine the build type (semihosting, gem5-SE, or native)
   if(STM32_BUILD)
     add_arm_semihosting_executable(${TARGET_NAME}
-      SOURCES ${SOURCE_FILE}
+      SOURCES ${ARG_SOURCES}
       LIBRARIES ${ARG_LIBRARIES}
     )
     add_arm_executable(${TARGET_NAME}-no-semihosting
@@ -142,18 +142,18 @@ function(add_benchmark TARGET_NAME)
 
   elseif(GEM5_BUILD)
     add_arm_baremetal_gem5_se_executable(${TARGET_NAME}
-      SOURCES ${SOURCE_FILE}
+      SOURCES ${ARG_SOURCES}
       LIBRARIES ${ARG_LIBRARIES}
     )
   else()
-    add_non_arm_executable(${TARGET_NAME}
-      SOURCES ${SOURCE_FILE}
-      LIBRARIES ${ARG_LIBRARIES}
-    )
+    #add_non_arm_executable(${TARGET_NAME}
+    #  SOURCES ${ARG_SOURCES}
+    #  LIBRARIES ${ARG_LIBRARIES}
+    #)
   endif()
 
   # Set output directory based on the target's category
-  get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)
+  # get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)
   #if(BENCHMARK_PATH MATCHES "kernels")
   #  set_target_properties(${TARGET_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/benchmarks/kernels/bin)
   #elseif(BENCHMARK_PATH MATCHES "ubmarks")
@@ -169,12 +169,12 @@ endfunction()
 
 
 # Helper function to create custom targets for flashing and debugging STM32 binaries using OpenOCD
-function(add_stm32_flash_and_debug_targets target_name)
+function(add_stm32_target target_name)
   # Flash target
   get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
   file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
 
-  add_custom_target(stm32-flash-${target_name}
+  add_custom_target(stm32-flash-${target_name}-semihosted
     COMMAND openocd
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
@@ -182,15 +182,14 @@ function(add_stm32_flash_and_debug_targets target_name)
       -c "reset halt"
       -c "arm semihosting enable"
       -c "program bin/${target_name}.elf verify"
-      -c "reset"
+      -c "reset run"
     DEPENDS ${target_name}
     COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
   )
 
   # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
-  add_custom_target(stm32-debug-${target_name}
+  add_custom_target(stm32-debug-${target_name}-semihosted
     COMMAND openocd
-      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -205,11 +204,10 @@ function(add_stm32_flash_and_debug_targets target_name)
 
 endfunction()
 
-function(add_stm32_no_semihosting_flash_targets target_name)
+function(add_stm32_no_semihosting_target target_name)
   # Flash target without semihosting
   add_custom_target(stm32-flash-${target_name}
     COMMAND openocd
-      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -224,7 +222,6 @@ function(add_stm32_no_semihosting_flash_targets target_name)
   # Debug target without semihosting
   add_custom_target(stm32-debug-${target_name}
     COMMAND openocd
-      -d
       -f ${OPENOCD_INTERFACE}
       -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
       -c "init"
@@ -250,6 +247,14 @@ function(add_ento_test TARGET_NAME)
   endif()
 endfunction()
 
+function(add_stm32_targets target_list)
+  message(STATUS "Inside add_stm32_targets: ${target_list}")
+  foreach(target_name IN LISTS target_list)
+    MESSAGE(INFO "Added stm32 target: ${target_name}")
+    add_stm32_target(${target_name})
+    #add_stm32_no_semihosting_target(${target_name})
+  endforeach()
+endfunction()
 
 ## Get all properties that cmake supports
 execute_process(COMMAND cmake --help-property-list OUTPUT_VARIABLE CMAKE_PROPERTY_LIST)

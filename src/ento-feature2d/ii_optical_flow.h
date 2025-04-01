@@ -27,85 +27,140 @@ void calcOpticalFlowII(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg,
                                int y_shamt,
                                int DET_EPSILON)
 {
-    int halfWin = (int) WIN_DIM / 2;
+  int halfWin = (int) WIN_DIM / 2;
 
-    // Compute (f2 - f1), (f4-f3), 
+  // Compute (f2 - f1), (f4-f3), 
 
-    // iterate over num points
-    for (int i = 0; i < num_good_points; i++ ) {
+  // iterate over num points
+  for (int i = 0; i < num_good_points; i++ )
+  {
 
-        Keypoint<CoordT> pt = prevPts[i];
+    Keypoint<CoordT> pt = prevPts[i];
 
-        // Indices for top left corner of window
-        int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
-        int32_t y_i = static_cast<int32_t>(pt.y)-halfWin;
+    // Indices for top left corner of window
+    int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
+    int32_t y_i = static_cast<int32_t>(pt.y)-halfWin;
 
-        // Ix = f2 - f1; Iy = f4-f3; It = f-f0
-        float IxIx = 0;
-        float IyIy = 0;
-        float IxIy = 0;
-        float ItIx = 0;
-        float ItIy = 0;
+    // Ix = f2 - f1; Iy = f4-f3; It = f-f0
+    float IxIx = 0;
+    float IyIy = 0;
+    float IxIy = 0;
+    float ItIx = 0;
+    float ItIy = 0;
 
-        // y coord
-        for (int j = 0; j < WIN_DIM; j++) {
-            // x coord
-            for (int k = 0; k < WIN_DIM; k++) {
+    // y coord
+    for (int j = 0; j < WIN_DIM; j++)
+    {
+      // x coord
+      for (int k = 0; k < WIN_DIM; k++)
+      {
+        int x_index = std::min(std::max(x_i + j, 0), prevImg.cols - 1);
+        int x_l_index = std::min(std::max(x_index + j - x_shamt, 0), prevImg.cols - 1);
+        int x_r_index = std::min(std::max(x_index + j + x_shamt, 0), prevImg.cols - 1);
 
-                int x_index = std::min(std::max(x_i + j, 0), prevImg.cols - 1);
-                int x_l_index = std::min(std::max(x_index + j - x_shamt, 0), prevImg.cols - 1);
-                int x_r_index = std::min(std::max(x_index + j + x_shamt, 0), prevImg.cols - 1);
-
-                int y_index = std::min(std::max(y_i + k, 0), prevImg.rows - 1);
-                int y_b_index = std::min(std::max(y_index + k - y_shamt, 0), prevImg.rows - 1);
-                int y_t_index = std::min(std::max(y_index + k + y_shamt, 0), prevImg.rows - 1);
-
-
-                int Ix = prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index);
-                int Iy = prevImg.get_pixel(y_t_index, x_index) - prevImg.get_pixel(y_b_index, x_index);
-                int It = nextImg.get_pixel(y_index, x_index) - prevImg.get_pixel(y_index, x_index);
-                
-                IxIx += Ix * Ix;
-                IyIy += Iy * Iy;
-                IxIy += Ix * Iy;
-                ItIx += It * Ix;
-                ItIy += It * Iy;
-            }
-        }
-
-        IxIx = IxIx / (WIN_DIM * WIN_DIM);
-        IyIy = IyIy / (WIN_DIM * WIN_DIM);
-        IxIy = IxIy / (WIN_DIM * WIN_DIM);
-        ItIx = ItIx / (WIN_DIM * WIN_DIM);
-        ItIy = ItIy / (WIN_DIM * WIN_DIM);
-
-        // We get the system of equations:
-        // | Ix^2   IxIy | | u/x_shamt |   | 2ItIx |
-        // |             | |           | = |       |
-        // | IxIy   Iy^2 | | v/y_shamt | = | 2ItIy |
-
-        // The determinant of the left matrix is (IxIx * IyIy - IxIy * IxIy)
-        // The inverse is 
-        // | Iy^2   -IxIy |
-        // |              | * 1/det
-        // | -IxIy   Ix^2 |
+        int y_index = std::min(std::max(y_i + k, 0), prevImg.rows - 1);
+        int y_b_index = std::min(std::max(y_index + k - y_shamt, 0), prevImg.rows - 1);
+        int y_t_index = std::min(std::max(y_index + k + y_shamt, 0), prevImg.rows - 1);
 
 
-        float det = IxIx * IyIy - IxIy * IxIy;
-        if (static_cast<int32_t>(det) < DET_EPSILON && static_cast<int32_t>(det) > (-DET_EPSILON)) {
-            status[i] = 0;
-            nextPts[i] = pt;
-            continue;
-        }
-
-        CoordT u = (((CoordT) IyIy * (CoordT) (2*ItIx)) - ((CoordT) IxIy * (CoordT) (2*ItIy))) / (CoordT) det;
-        CoordT v = (((CoordT) IxIx * (CoordT) (2*ItIy)) - ((CoordT) IxIy * (CoordT) (2*ItIx)))  / (CoordT) det;
+        int Ix = prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index);
+        int Iy = prevImg.get_pixel(y_t_index, x_index) - prevImg.get_pixel(y_b_index, x_index);
+        int It = nextImg.get_pixel(y_index, x_index) - prevImg.get_pixel(y_index, x_index);
         
-        Keypoint<CoordT> nextPt(pt.x + u * (CoordT)x_shamt, pt.y + v * (CoordT)y_shamt);
-        nextPts[i] = nextPt;
-        status[i] = 1;
-
+        IxIx += Ix * Ix;
+        IyIy += Iy * Iy;
+        IxIy += Ix * Iy;
+        ItIx += It * Ix;
+        ItIy += It * Iy;
+      }
     }
+
+    IxIx = IxIx / (WIN_DIM * WIN_DIM);
+    IyIy = IyIy / (WIN_DIM * WIN_DIM);
+    IxIy = IxIy / (WIN_DIM * WIN_DIM);
+    ItIx = ItIx / (WIN_DIM * WIN_DIM);
+    ItIy = ItIy / (WIN_DIM * WIN_DIM);
+
+    // We get the system of equations:
+    // | Ix^2   IxIy | | u/x_shamt |   | 2ItIx |
+    // |             | |           | = |       |
+    // | IxIy   Iy^2 | | v/y_shamt | = | 2ItIy |
+
+    // The determinant of the left matrix is (IxIx * IyIy - IxIy * IxIy)
+    // The inverse is 
+    // | Iy^2   -IxIy |
+    // |              | * 1/det
+    // | -IxIy   Ix^2 |
+
+
+    float det = IxIx * IyIy - IxIy * IxIy;
+    if (static_cast<int32_t>(det) < DET_EPSILON && static_cast<int32_t>(det) > (-DET_EPSILON))
+    {
+      status[i] = 0;
+      nextPts[i] = pt;
+      continue;
+    }
+
+    CoordT u = (((CoordT) IyIy * (CoordT) (2*ItIx)) - ((CoordT) IxIy * (CoordT) (2*ItIy))) / (CoordT) det;
+    CoordT v = (((CoordT) IxIx * (CoordT) (2*ItIy)) - ((CoordT) IxIy * (CoordT) (2*ItIx)))  / (CoordT) det;
+    
+    Keypoint<CoordT> nextPt(pt.x + u * (CoordT)x_shamt, pt.y + v * (CoordT)y_shamt);
+    nextPts[i] = nextPt;
+    status[i] = 1;
+
+  }
 }
+
+template <size_t IMG_WIDTH,
+          size_t IMG_HEIGHT,
+          size_t WIN_DIM,
+          typename CoordT,
+          typename PixelT,
+          size_t NumFeats>
+class ImageInterpolationOFKernel
+{
+private:
+  bool status_[NumFeats];
+
+  int search_radius_;
+  int det_epsilon_;
+
+public:
+  using CoordT_ = CoordT;
+  using PixelT_ = PixelT;
+  static constexpr size_t Width_ = IMG_WIDTH;
+  static constexpr size_t Height_ = IMG_HEIGHT;
+
+  ImageInterpolationOFKernel(int search_radius,
+                             int det_epsilon)
+    : search_radius_(search_radius),
+      det_epsilon_(det_epsilon)
+  {}
+
+  void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
+                  const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
+                        FeatureArray<Keypoint<CoordT>, NumFeats>& feats,
+                        FeatureArray<Keypoint<CoordT>, NumFeats>* feats_next)
+  {
+    feats_next->num_features = feats.num_features;
+
+    calcOpticalFlowII<IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT>(
+      img1,
+      img2,
+      feats.keypoints.data(),
+      feats_next->keypoints.data(),
+      status_,
+      feats.num_features,
+      search_radius_,
+      search_radius_,
+      det_epsilon_
+    );
+  }
+
+  static constexpr const char* name()
+  {
+    return "Image Interpolation Sparse Optical Flow";
+  }
+};
 
 #endif
