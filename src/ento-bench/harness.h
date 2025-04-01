@@ -394,7 +394,7 @@ public:
           end_roi();
           // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-          Delay::ms(10);
+          Delay::ms(50);
 #endif
           rep_metrics_ = get_roi_stats();
 

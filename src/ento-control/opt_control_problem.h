@@ -16,7 +16,7 @@ class OptControlProblem :
 
     // Required by Problem Interface for Experiment I/O
     static constexpr bool RequiresDataset_ = true;
-    static constexpr bool SaveResults_     = true;
+    static constexpr bool SaveResults_     = false;
     static constexpr bool RequiresSetup_   = true;
     static constexpr int  SetupLines_      = HorizonSize;
 

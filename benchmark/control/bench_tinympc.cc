@@ -19,7 +19,7 @@ constexpr int num_states = 12;
 constexpr int num_inputs = 4;
 constexpr int len_horizon = 10;
 
-using namespace EntoControl;
+//using namespace EntoControl;
 
 int main()
 {
@@ -99,7 +99,7 @@ int main()
                           tiny_settings.en_input_bound );
   Problem problem( solver );
 
-  EntoBench::Harness harness( problem, "Bench TinyMPC [float]", dataset_path, output_path );
+  EntoBench::Harness<Problem, false, 5> harness( problem, "Bench TinyMPC [float]", dataset_path, output_path );
   harness.run();
 
   exit(1);
