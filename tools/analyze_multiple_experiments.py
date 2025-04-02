@@ -101,7 +101,7 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
 
         # Define search window
         duration = data['time'].iloc[idx2] - data['time'].iloc[idx1]
-        search_start_time = (data['time'].iloc[idx2] - window_size * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
+        search_start_time = (data['time'].iloc[idx2] - window_size * 0.5 * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
         search_start_time = max(search_start_time, data['time'].iloc[0])
         search_start = np.where(data['time'] >= search_start_time)[0][0]
 
