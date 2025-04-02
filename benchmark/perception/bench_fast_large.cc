@@ -27,7 +27,7 @@ int main()
   icache_enable();
 
   // -------- Kernel and Problem Setup --------
-  constexpr int MaxFeats = 250;
+  constexpr int MaxFeats = 100; // for g474 benchmark use 100, otherwise 250
   using Kernel  = FastKernel<MaxFeats>;
   using PixT    = uint8_t;
   constexpr int Rows = 320;
@@ -36,7 +36,7 @@ int main()
 
   // -------- Dataset Path (TXT file with one line of CSV input) --------
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/test_fast_large_dataset.txt";  // This file contains the 3-path line
+  const char* rel_path  = "feat2d/fast_large_books_data.txt";  // This file contains the 3-path line
 
   char dataset_path[512];
   char output_path[256];
@@ -48,6 +48,7 @@ int main()
   }
 
   ENTO_DEBUG("Dataset file path: %s", dataset_path);
+  printf("Hello world!");
 
   // -------- Run Harness --------
   static Problem problem(Kernel{});

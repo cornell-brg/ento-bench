@@ -97,15 +97,6 @@ BRIEFDescriptor compute_rotated_brief_descriptor(const Image& img,
     descriptor.set_bit(i, rot_bit);
   }
 
-  for (int y = 0; y < 31; ++y)
-  {
-    for (int x = 0; x < 31; ++x)
-    {
-      printf("%3d ", static_cast<int>(img(y, x)));
-    }
-    printf("\n");
-  }
-
   return descriptor;
 }
 

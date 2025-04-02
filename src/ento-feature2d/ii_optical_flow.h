@@ -38,8 +38,8 @@ void calcOpticalFlowII(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg,
     Keypoint<CoordT> pt = prevPts[i];
 
     // Indices for top left corner of window
-    int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
-    int32_t y_i = static_cast<int32_t>(pt.y)-halfWin;
+    int x_i = static_cast<int32_t>(pt.x)-halfWin;
+    int y_i = static_cast<int32_t>(pt.y)-halfWin;
 
     // Ix = f2 - f1; Iy = f4-f3; It = f-f0
     float IxIx = 0;

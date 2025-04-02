@@ -98,8 +98,11 @@ public:
       return 0;
     }
     // Read pixel data
+
+    ENTO_DEBUG("Reading image data...");
     for (int row = 0; row < Rows; ++row)
     {
+      ENTO_DEBUG("Reading image data, row %i/%i", row, Rows);
       for (int col = 0; col < Cols; ++col)
       {
         int pixel_value;

@@ -37,14 +37,14 @@ int main()
 
   // -------- Dataset Path (TXT file with one line of CSV input) --------
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/test_orb_tiny_dataset.txt";  // This file contains the 3-path line
+  const char* rel_path  = "feat2d/orb_small_books_data.txt";  // This file contains the 3-path line
 
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build ORB [tiny] dataset path.");
+    ENTO_DEBUG("ERROR! Could not build ORB [small] dataset path.");
     exit(1);
   }
 
@@ -52,7 +52,7 @@ int main()
 
   // -------- Run Harness --------
   static Problem problem(Kernel{});
-  EntoBench::Harness<Problem, false, 10> harness(problem, "Test ORB [tiny]",
+  EntoBench::Harness<Problem, false, 10> harness(problem, "Test ORB [small]",
                                                  dataset_path, output_path);
   harness.run();
 

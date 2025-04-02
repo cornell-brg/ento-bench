@@ -7,13 +7,3 @@ feat2d/books/small/image4.pgm,feat2d/books/small/image4_feats.txt
 feat2d/books/small/image5.pgm,feat2d/books/small/image5_feats.txt
 feat2d/books/small/image6.pgm,feat2d/books/small/image6_feats.txt
 feat2d/books/small/image7.pgm,feat2d/books/small/image7_feats.txt
-feat2d/books/small/image8.pgm,feat2d/books/small/image8_feats.txt
-feat2d/books/small/image9.pgm,feat2d/books/small/image9_feats.txt
-feat2d/books/small/image10.pgm,feat2d/books/small/image10_feats.txt
-feat2d/books/small/image11.pgm,feat2d/books/small/image11_feats.txt
-feat2d/books/small/image12.pgm,feat2d/books/small/image12_feats.txt
-feat2d/books/small/image13.pgm,feat2d/books/small/image13_feats.txt
-feat2d/books/small/image14.pgm,feat2d/books/small/image14_feats.txt
-feat2d/books/small/image15.pgm,feat2d/books/small/image15_feats.txt
-feat2d/books/small/image16.pgm,feat2d/books/small/image16_feats.txt
-feat2d/books/small/image17.pgm,feat2d/books/small/image17_feats.txt

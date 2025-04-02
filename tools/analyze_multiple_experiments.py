@@ -104,7 +104,12 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         search_start_time = (data['time'].iloc[idx2] - window_size * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
         search_start_time = max(search_start_time, data['time'].iloc[0])
         search_start = np.where(data['time'] >= search_start_time)[0][0]
-        search_end = idx2
+
+        # Comment out if breaks
+        search_end_time_bw = min(data['time'].iloc[idx1] + window_size * duration, data['time'].iloc[-1])
+        search_end = np.where(data['time'] >= search_end_time_bw)[0][0]
+
+        #search_end = idx2 
 
         if plot_data:
             plt.axvline(x=data['time'].iloc[search_start], color='c', linestyle='--', linewidth=vertical_width)
@@ -259,6 +264,7 @@ def analyze_multiple_experiments(parent_dir, window_size, rising_threshold, fall
     for dataset_name in subdirs:
         print(f"Found dataset: {dataset_name}")
         
+        #if dataset_name != "orb-large": continue
         # Skip directories ending with 'meas' or 'plots'
         if dataset_name.endswith('meas') or dataset_name == 'plots':
             print(f"Skipping non-matching experiment: {dataset_name}.\n")

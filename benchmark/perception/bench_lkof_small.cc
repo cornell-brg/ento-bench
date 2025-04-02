@@ -19,11 +19,11 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-const int decimal_bits = 20;
-using fp_t = FixedPoint<64 - decimal_bits, decimal_bits, int64_t>;
+const int decimal_bits = 10;
+using fp_t = FixedPoint<32 - decimal_bits, decimal_bits, int32_t>;
 
 // Configuration for SMALL
-constexpr size_t NUM_LEVELS = 2;
+constexpr size_t NUM_LEVELS = 1;
 constexpr size_t IMG_WIDTH  = 80;
 constexpr size_t IMG_HEIGHT = 80;
 constexpr size_t WIN_DIM    = 15;
@@ -54,7 +54,7 @@ int main()
   const char* base_path = DATASET_PATH;
   const char* rel_path  = "feat2d/sparse_of_small.txt";
   char dataset_path[512];
-  char output_path[256];
+  char output_path[32];
 
   if (!build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
     ENTO_DEBUG("ERROR! Failed to construct dataset path.");
@@ -66,10 +66,10 @@ int main()
   int num_good_pts  = NumFeats;
 
   // Problem construction
-  LK adapter(num_good_pts, max_count, det_epsilon, criteria);
-  Prob problem(adapter);
+  static LK adapter(num_good_pts, max_count, det_epsilon, criteria);
+  static Prob problem(adapter);
 
-  EntoBench::Harness<Prob, false, 10> harness(problem,
+  static EntoBench::Harness<Prob, false, 10> harness(problem,
     "Bench LK Optical Flow [small]",
     dataset_path,
     output_path);

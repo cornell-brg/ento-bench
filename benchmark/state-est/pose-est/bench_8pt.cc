@@ -36,14 +36,14 @@ int main()
 
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/rel_linear8pt_float_10.csv";
+  const char* rel_path = "rel-pose/rel_linear8pt_float_100.csv";
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for rel_linear8pt_float_1000.csv!");
+    ENTO_DEBUG("ERROR! Could not build file path for rel_linear8pt_float_100.csv!");
   }
 
   ENTO_DEBUG("File path: %s", dataset_path);

@@ -212,6 +212,38 @@ add_benchmark(bench-lkof-large
 list(APPEND BENCH_TARGETS bench-lkof-large)
 
 # =============================================================================
+# Image Interpolation OF Small Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-iiof-small
+  SOURCES bench_iiof_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-iiof-small)
+
+
+# =============================================================================
+# Image Interpolation OF Medium Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-iiof-medium
+  SOURCES bench_iiof_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-iiof-medium)
+
+
+# =============================================================================
+# Image Interpolation OF Large Image Benchmark
+# =============================================================================
+
+add_benchmark(bench-iiof-large
+  SOURCES bench_iiof_large.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-iiof-large)
+
+# =============================================================================
 # Add stm32 targets
 # =============================================================================
 message(STATUS "Bench targets: ${BENCH_TARGETS}")
