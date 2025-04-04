@@ -22,7 +22,7 @@ using namespace EntoFeature2D;
 // Configuration for SMALL
 constexpr size_t IMG_WIDTH  = 80;
 constexpr size_t IMG_HEIGHT = 80;
-constexpr size_t WIN_DIM = 25;  
+constexpr size_t WIN_DIM = 15;  
 constexpr size_t NumFeats = 10;
 using PixelT = uint8_t;
 using CoordT = float;

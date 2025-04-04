@@ -164,7 +164,7 @@ list(APPEND BENCH_TARGETS bench-orb-small)
 # =============================================================================
 
 add_benchmark(bench-orb-medium
-  SOURCES bench_fastbrief_medium.cc
+  SOURCES bench_orb_medium.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-orb-medium)
