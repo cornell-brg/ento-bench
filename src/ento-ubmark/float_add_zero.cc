@@ -12,20 +12,13 @@ extern "C" void initialise_monitor_handles(void);
 
 void __attribute__((noinline)) fp_add_benchmark() {
   constexpr int reps = 20000;
-  float s0_, s1_, s2_, s3_, s4_, s5_;
 
-  asm volatile (
-    "vmov.f32 %0, s0     \n"
-    "vmov.f32 %1, s1     \n"
-    "vmov.f32 %2, s2     \n"
-    "vmov.f32 %3, s3     \n"
-    "vmov.f32 %4, s4     \n"
-    "vmov.f32 %5, s5     \n"
-
-    : "=t"(s0_), "=t"(s1_), "=t"(s2_), "=t"(s3_), "=t"(s4_), "=t"(s5_) // outputs
-    : // no inputs
-    : "s0", "s1", "s2", "s3", "s4", "s5" // clobbered
-  );
+  float s0_ = 0.0;
+  float s1_ = 0.0;
+  float s2_ = 0.0;
+  float s3_ = 0.0;
+  float s4_ = 0.0;
+  float s5_ = 0.0;
   
   start_roi();
   for (int i = 0; i < reps; i++) {

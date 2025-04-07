@@ -33,10 +33,8 @@ void __attribute__((noinline)) mla6400x8()
     :  // no inputs
     :  
   );
-
   constexpr int reps = 20000;
   start_roi(); 
-
   for (int i = 0; i < reps; i++) {
     asm volatile (
       ".rept 8                        \n"
@@ -58,7 +56,6 @@ void __attribute__((noinline)) mla6400x8()
       : "r8"
     );
   }
-
   end_roi(); 
 }
 

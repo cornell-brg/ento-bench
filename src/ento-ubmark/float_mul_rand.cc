@@ -19,58 +19,38 @@ static inline float rand_float_01() {
 
 void __attribute__((noinline)) fp_mul_benchmark() {
     constexpr int reps = 20000;
-    float s0_, s1_, s2_, s3_, s4_, s5_;
 
-    asm volatile (
-        "vmov.f32 %0, s0     \n"
-        "vmov.f32 %1, s1     \n"
-        "vmov.f32 %2, s2     \n"
-        "vmov.f32 %3, s3     \n"
-        "vmov.f32 %4, s4     \n"
-        "vmov.f32 %5, s5     \n"
+    register float r0 asm("s0") = rand_float_01();
+    register float r1 asm("s1") = rand_float_01();
+    register float r2 asm("s2") = rand_float_01();
+    register float r3 asm("s3") = rand_float_01();
+    register float r4 asm("s4") = rand_float_01();
+    register float r5 asm("s5") = rand_float_01();
 
-        : "=t"(s0_), "=t"(s1_), "=t"(s2_), "=t"(s3_), "=t"(s4_), "=t"(s5_)
-        : // no inputs
-        : "s0", "s1", "s2", "s3", "s4", "s5"
-    );
+    register float r6 asm("s6") = 1.0f;
+    register float r7 asm("s7") = 1.0f;
+    register float r8 asm("s8") = 1.0f;
+    register float r9 asm("s9") = 1.0f;
+    register float r10 asm("s10") = 1.0f;
+    register float r11 asm("s11") = 1.0f;
 
-    
+    start_roi();
     for (int i = 0; i < reps; i++) {
-        s0_ = rand_float_01();
-        s1_ = rand_float_01();
-        s2_ = rand_float_01();
-        s3_ = rand_float_01();
-        s4_ = rand_float_01();
-        s5_ = rand_float_01();
-
         asm volatile (
-            "vmov.f32 s0, %0     \n"
-            "vmov.f32 s1, %1     \n"
-            "vmov.f32 s2, %2     \n"
-            "vmov.f32 s3, %3     \n"
-            "vmov.f32 s4, %4     \n"
-            "vmov.f32 s5, %5     \n"
+            ".rept 8                \n"
+            "  vmul.f32 s6, s0, s6  \n"
+            "  vmul.f32 s7, s1, s7  \n"
+            "  vmul.f32 s8, s2, s8  \n"
+            "  vmul.f32 s9, s3, s9  \n"
+            "  vmul.f32 s10, s4, s10\n"
+            "  vmul.f32 s11, s5, s11\n"
+            ".endr                  \n"
             :
-            : "t"(s0_), "t"(s1_), "t"(s2_), "t"(s3_), "t"(s4_), "t"(s5_)
-            : "s0", "s1", "s2", "s3", "s4", "s5"
+            :
+            : 
         );
-        start_roi();
-        asm volatile (
-            ".rept 8              \n"
-            "  vmul.f32 s6, s0, s1 \n"
-            "  vmul.f32 s7, s2, s3 \n"
-            "  vmul.f32 s8, s4, s5 \n"
-            "  vmul.f32 s6, s0, s1 \n"
-            "  vmul.f32 s7, s2, s3 \n"
-            "  vmul.f32 s8, s4, s5 \n"
-            ".endr                 \n"
-            :
-            :
-            : "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"
-        );
-        end_roi();
     }
-    
+    end_roi();
 }
 
 int main()
@@ -79,9 +59,6 @@ int main()
 #if defined(SEMIHOSTING)
     initialise_monitor_handles();
 #endif
-
-    // Seed the run
-    srand(5555);
 
     bool is_systick_enabled = (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0;
     printf("Is systick enabled: %i\n", is_systick_enabled);
