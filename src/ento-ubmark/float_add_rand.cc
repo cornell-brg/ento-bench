@@ -13,6 +13,8 @@ extern "C" void initialise_monitor_handles(void);
 static inline float rand_float_01() {
     return ((float)rand() / (float)RAND_MAX) * 160.0f;
 }
+
+
 void __attribute__((noinline)) fp_add_benchmark() {
     constexpr int reps = 20000;
 
@@ -41,8 +43,9 @@ void __attribute__((noinline)) fp_add_benchmark() {
             "  vadd.f32 s10, s4, s10 \n"
             "  vadd.f32 s11, s5, s11 \n"
             ".endr                   \n"
-            :
-            :
+            : "+t"(r6), "+t"(r7), "+t"(r8), "+t"(r9), "+t"(r10), "+t"(r11) // output
+            : "t"(r0), "t"(r1), "t"(r2), "t"(r3), "t"(r4), "t"(r5),        // input
+              "t"(r6), "t"(r7), "t"(r8), "t"(r9), "t"(r10), "t"(r11)       // input
             : 
         );
     }

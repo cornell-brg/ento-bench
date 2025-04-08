@@ -45,8 +45,9 @@ void __attribute__((noinline)) fp_mul_benchmark() {
             "  vmul.f32 s10, s4, s10\n"
             "  vmul.f32 s11, s5, s11\n"
             ".endr                  \n"
-            :
-            :
+            : "+t"(r6), "+t"(r7), "+t"(r8), "+t"(r9), "+t"(r10), "+t"(r11) // output
+            : "t"(r0), "t"(r1), "t"(r2), "t"(r3), "t"(r4), "t"(r5),        // input
+              "t"(r6), "t"(r7), "t"(r8), "t"(r9), "t"(r10), "t"(r11)       // input
             : 
         );
     }
