@@ -227,6 +227,7 @@ def main():
 
     if args.traverse_subdirs:
         subdirs = [f for f in args.directory.iterdir() if f.is_dir()]
+        print(f'Subdirs: {subdirs}')
         for subdir in subdirs:
             if 'original-meas' in subdir.name: continue
             if 'orig-meas' in subdir.name: continue
@@ -234,6 +235,7 @@ def main():
                 continue
             print(f'Subdir: {subdir}')
             sal_files = list(subdir.glob(f'{subdir.name}.csv'))
+            print(f'Sal files: {sal_files}')
             if len(sal_files) > 1:
                 print("Found multiple logical analyzer traces. " + \
                       f"Taking the first one: {sal_files[0]}.")

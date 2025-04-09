@@ -220,7 +220,7 @@ inline bool is_absolute_path(const std::string& path)
   return is_absolute_path(path.c_str());
 }
 
-// Function to resolve paths (const char* overload)
+// Function to resolve paths that relative to dataset (const char* overload)
 inline std::string resolve_path(const char* path)
 {
   if (!path || *path == '\0')
