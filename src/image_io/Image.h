@@ -7,6 +7,7 @@
 //#include <Eigen/Dense>
 #include <image_io/Pixel.h>
 #include <ento-util/debug.h>
+#include <ento-util/mem.h>
 #include <type_traits>
 
 
@@ -21,7 +22,7 @@ public:
 
   PixelT data[Rows * Cols];
 
-  Image(): data{} {}
+  Image() {}
 
   void set_pixel(int row, int col, PixelT pixel)
   {

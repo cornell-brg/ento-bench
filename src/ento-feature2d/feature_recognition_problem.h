@@ -14,7 +14,10 @@
 #include <image_io/Image.h>
 #include <ento-bench/problem.h>
 #include <ento-feature2d/orb.h>
-// #include other needed headers
+
+#ifndef ENTOMEM
+#define ENTOMEM __attribute__((section(".dtcm_data")))
+#endif
 
 namespace EntoFeature2D 
 {
@@ -73,8 +76,8 @@ public:
   Image<Rows, Cols, PixelType> img_;
 
   std::conditional_t<DoDetection_,
-                     FeatureArray<KeypointT_, NumFeats>,
-                     std::monostate> feats_;
+                             FeatureArray<KeypointT_, NumFeats>,
+                             std::monostate> feats_;
 
   std::conditional_t<DoDescription_,
                      std::array<DescriptorT_, NumFeats>,
