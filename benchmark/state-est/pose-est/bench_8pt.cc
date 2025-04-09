@@ -56,7 +56,7 @@ int main()
   //                           dataset_path,
   //                           output_path);
   // Or run each experiment in the datasets for 10 reps
-  EntoBench::Harness<Problem, false, 10> harness(problem, "Bench Relative 8pt [float]",
+  EntoBench::Harness<Problem, false, 5> harness(problem, "Bench Relative 8pt [float]",
                                                  dataset_path,
                                                  output_path);
   harness.run();

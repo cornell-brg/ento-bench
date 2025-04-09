@@ -53,7 +53,7 @@ int main()
   // -------- Run Harness --------
   static Problem problem(Kernel{});
   EntoBench::Harness<Problem, false, 10> harness(problem, "Test ORB [large] Tiny Image",
-                                                dataset_path, output_path);
+                                                 dataset_path, output_path);
   harness.run();
 
   exit(1);
