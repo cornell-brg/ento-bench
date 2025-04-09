@@ -24,6 +24,25 @@ namespace EntoUtil
 #define __RESET  "\033[0m"
 
 constexpr float __rel_tol_pct = 0.01;
+template <typename PixelT>
+constexpr PixelT __ento_image_default_tol();
+
+template <>
+constexpr uint8_t __ento_image_default_tol<uint8_t>() { return 0; }
+
+template <>
+constexpr int16_t __ento_image_default_tol<int16_t>() { return 0; }
+
+template <>
+constexpr float __ento_image_default_tol<float>() { return 1e-2f; }
+
+template <>
+constexpr double __ento_image_default_tol<double>() { return 1e-6; }
+
+//template <>
+//constexpr FixedPoint<8, 8, int16_t> __ento_image_default_tol<FixedPoint<8, 8, int16_t>>() {
+//  return FixedPoint<8, 8, int16_t>(1);  // = 1/256
+//}
 
 typedef unsigned int uint_t;
 
@@ -254,6 +273,82 @@ inline void __ento_test_check_quat_eq(const char* file, int lineno,
     ENTO_TEST_CHECK_INT_EQ( expr0_[i], expr1_[i] );                     \
   }
 
+template <typename Image1, typename Image2>
+inline void __ento_test_check_image_eq(const char* file, int lineno, 
+                                       const char* expr1, const char* expr2,
+                                       typename Image1::pixel_type tol,
+                                       const Image1& A, const Image2& B)
+{
+  static_assert(Image1::rows == Image2::rows, "Image height mismatch");
+  static_assert(Image1::cols == Image2::cols, "Image width mismatch");
+  static_assert(std::is_same<typename Image1::pixel_type, typename Image2::pixel_type>::value,
+                "Pixel types must match");
+
+  file = __ento_debug_get_file_name(file);
+  using PixelT = typename Image1::pixel_type;
+
+  bool has_mismatch = false;
+  for (int y = 0; y < Image1::rows; ++y)
+  {
+    for (int x = 0; x < Image1::cols; ++x)
+    {
+      PixelT a = A(y, x);
+      PixelT b = B(y, x);
+      PixelT diff = (a > b) ? (a - b) : (b - a);
+      if (diff > tol)
+      {
+        if constexpr (std::is_floating_point_v<typename Image1::pixel_type>)
+        {
+          std::printf(__RED "Mismatch at (%d, %d): %s = %f, %s = %f\n" __RESET,
+                      y, x, expr1, static_cast<float>(a), expr2, static_cast<float>(b));
+        }
+        else
+        {
+          std::printf(__RED "Mismatch at (%d, %d): %s = %d, %s = %d\n" __RESET,
+                      y, x, expr1, static_cast<int>(a), expr2, static_cast<int>(b));
+        }
+        has_mismatch = true;
+      }
+    }
+  }
+
+  if (has_mismatch)
+  {
+    std::printf(__RED "Image mismatch at %s:%d: %s ≠ %s\n" __RESET, file, lineno, expr1, expr2);
+    __failed = 1;
+    if (__n < 0 ) std::printf(__RED "." __RESET);
+    return;
+  }
+
+  if (__n > 0)
+    std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s\n", file, lineno, expr1, expr2);
+  if (__n < 0)
+    std::printf(__GREEN "." __RESET);
+}
+
+//------------------------------------------------------------------------
+// ENTO_TEST_CHECK_IMAGE_EQ( img0_, img1_ )
+//------------------------------------------------------------------------
+// Checks to see if the two images are equal by comparing each pixel.
+// Uses a default tolerance value based on the image pixel type.
+// Supports uint8_t, int16_t, float, double, and FixedPoint pixels.
+// Reports mismatches with full pixel coordinates.
+
+#define ENTO_TEST_CHECK_IMAGE_EQ(img0_, img1_) \
+  EntoUtil::__ento_test_check_image_eq( \
+    __FILE__, __LINE__, #img0_, #img1_, \
+    EntoUtil::__ento_image_default_tol< \
+      typename std::remove_reference<decltype(img0_)>::type::pixel_type>(), \
+    img0_, img1_)
+
+//------------------------------------------------------------------------
+// ENTO_TEST_CHECK_IMAGE_EQ_TOL( img0_, img1_, tol_ )
+//------------------------------------------------------------------------
+// Checks to see if the two images are equal by comparing each pixel,
+// allowing for a user-specified tolerance. Pixel types must match.
+// Reports mismatches with full pixel coordinates.
+#define ENTO_TEST_CHECK_IMAGE_EQ_TOL(img0_, img1_, tol_) \
+  EntoUtil::__ento_test_check_image_eq(__FILE__, __LINE__, #img0_, #img1_, tol_, img0_, img1_)
 
 
 }

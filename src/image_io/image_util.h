@@ -129,15 +129,17 @@ constexpr std::array<KernelT, KernelSize> get_fixed_gaussian_kernel()
 {
   if constexpr (KernelSize == 3)
   {
-    return {0.25, 0.5, 0.25};
+    return { 0.25, 0.5, 0.25 };
   }
   else if constexpr (KernelSize == 5)
   {
-    return {0.15246914, 0.22184130, 0.25137912, 0.22184130, 0.15246914};
+    //return {0.15246914, 0.22184130, 0.25137912, 0.22184130, 0.15246914};
+    return { 0.0625, 0.25  , 0.375 , 0.25  , 0.0625 };
   }
   else if constexpr (KernelSize == 7)
   {
-    return {0.07015933, 0.13107488, 0.19071282, 0.21610594, 0.19071282, 0.13107488, 0.07015933};
+    // return {0.07015933, 0.13107488, 0.19071282, 0.21610594, 0.19071282, 0.13107488, 0.07015933};
+    return { 0.03125 , 0.109375, 0.21875 , 0.28125 , 0.21875 , 0.109375, 0.03125 };
   }
   else
   {
@@ -147,7 +149,14 @@ constexpr std::array<KernelT, KernelSize> get_fixed_gaussian_kernel()
   }
 }
 
-template <typename ImageT, int KernelSize, typename KernelT = float>
+enum class GaussianCastMode
+{
+  Truncate,
+  Round
+};
+
+template <typename ImageT, int KernelSize, typename KernelT = float,
+          GaussianCastMode CastMode = GaussianCastMode::Round>
 void gaussian_blur_in_place(ImageT& image)
 {
   static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
@@ -195,7 +204,15 @@ void gaussian_blur_in_place(ImageT& image)
           int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
           sum += ring[ring_row][col] * kernel[k];
         }
-        image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+        if constexpr (CastMode == GaussianCastMode::Round &&
+                      std::is_integral_v<typename ImageT::pixel_type>)
+        {
+          image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum + 0.5f);
+        }
+        else
+        {
+          image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+        }
       }
     }
   }
@@ -215,10 +232,92 @@ void gaussian_blur_in_place(ImageT& image)
         int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
         sum += ring[ring_row][col] * kernel[k];
       }
-      image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+      if constexpr (CastMode == GaussianCastMode::Round &&
+                    std::is_integral_v<typename ImageT::pixel_type>)
+      {
+        image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum + 0.5f);
+      }
+      else
+      {
+        image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+      }
+    }
+  }
+}
+
+template <typename SrcImageT, typename DstImageT, int KernelSize, typename KernelT = float>
+void gaussian_blur(const SrcImageT& src, DstImageT& dst)
+{
+  static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
+  static constexpr int rows = SrcImageT::rows;
+  static constexpr int cols = SrcImageT::cols;
+  static constexpr int half = KernelSize / 2;
+  static constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
+
+  auto reflect = [](int x, int max) -> int {
+    if (x < 0)
+      return -x;
+    else if (x >= max)
+      return 2 * max - x - 2;
+    else
+      return x;
+  };
+
+  // Ring buffer to hold horizontal pass results
+  KernelT ring[KernelSize][cols];
+
+  for (int row = 0; row < rows; ++row)
+  {
+    // Horizontal blur for this row into ring buffer
+    for (int col = 0; col < cols; ++col)
+    {
+      KernelT sum = 0.0f;
+      for (int k = 0; k < KernelSize; ++k)
+      {
+        int offset = k - half;
+        int idx = reflect(col + offset, cols);
+        sum += static_cast<KernelT>(src(row, idx)) * kernel[k];
+      }
+      ring[row % KernelSize][col] = sum;
+    }
+
+    // If we have enough rows filled, do vertical blur for center row
+    if (row >= half)
+    {
+      int dst_row = row - half;
+      for (int col = 0; col < cols; ++col)
+      {
+        KernelT sum = 0.0f;
+        for (int k = 0; k < KernelSize; ++k)
+        {
+          int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
+          sum += ring[ring_row][col] * kernel[k];
+        }
+
+        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+      }
+    }
+  }
+
+  // Handle remaining bottom rows (tail)
+  for (int tail = 0; tail < half; ++tail)
+  {
+    int dst_row = rows - half + tail;
+    if (dst_row >= rows)
+      break;
+
+    for (int col = 0; col < cols; ++col)
+    {
+      KernelT sum = 0.0f;
+      for (int k = 0; k < KernelSize; ++k)
+      {
+        int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
+        sum += ring[ring_row][col] * kernel[k];
+      }
+
+      dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
     }
   }
 }
 
 #endif // IMAGE_UTIL_H
-       //

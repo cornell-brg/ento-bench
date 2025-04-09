@@ -66,6 +66,13 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
 
 };
 
+template <typename CoordT = int16_t, typename Scalar = float>
+struct SIFTKeypoint : public Keypoint<CoordT>
+{
+  using Scalar_ = Scalar;
+  SIFTKeypoint() : Keypoint<CoordT>(0, 0) {}
+};
+
 template <typename KeypointType, size_t MaxFeatures = 100>
 struct FeatureArray
 {
