@@ -78,7 +78,7 @@ int main() {
   icache_enable();
   
   const char* base_path = DATASET_PATH;
-  const char* rel_path = UseMag ? "attitude/marg_float_100.csv" : "attitude/imu_float_100.csv";
+  const char* rel_path = UseMag ? "state-est/attitude/madgwick_marg_robobee.txt" : "state-est/attitude/madgwick_marg_imu.txt";
   char dataset_path[512];
   char output_path[256];
   

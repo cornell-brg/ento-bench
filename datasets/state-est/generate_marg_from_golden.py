@@ -25,6 +25,22 @@ def compute_errors(gt_quats, estimated_quats):
 def generate_grid(param_ranges, step_sizes):
     return {key: np.arange(val[0], val[1] + step_sizes[key], step_sizes[key]).tolist() for key, val in param_ranges.items()}
 
+def save_best_run_formatted(filename, accels, gyros, mags, quats, dt, use_mag=True):
+    with open(filename, 'w') as f:
+        f.write("Attitude Estimation Problem\n")
+        for i in range(len(quats)):
+            ax, ay, az = accels[i]
+            gx, gy, gz = gyros[i]
+            qw, qx, qy, qz = quats[i]
+            if use_mag:
+                mx, my, mz = mags[i]
+                line = f"{ax:.8f} {ay:.8f} {az:.8f} {gx:.8f} {gy:.8f} {gz:.8f} "
+                line += f"{mx:.8f} {my:.8f} {mz:.8f} {qw:.8f} {qx:.8f} {qy:.8f} {qz:.8f} {dt:.8f}\n"
+            else:
+                line = f"{ax:.8f} {ay:.8f} {az:.8f} {gx:.8f} {gy:.8f} {gz:.8f} "
+                line += f"{qw:.8f} {qx:.8f} {qy:.8f} {qz:.8f} {dt:.8f}\n"
+            f.write(line)
+
 def run_filter_test(gt_quats, gyros, accels, mags, filter_class, param_grid, dt, use_marg=True):
     best_params = None
     best_error = float('inf')
@@ -54,6 +70,10 @@ def run_filter_test(gt_quats, gyros, accels, mags, filter_class, param_grid, dt,
             best_params = param_dict
             best_Q = Q
             print(f'\rNew best {filter_class.__name__} ({"MARG" if use_marg else "IMU"}) params: {best_params}, Error: {best_error}', end='', flush=True)
+            save_best_run_formatted(
+                f"best_run_{filter_class.__name__.lower()}_{'marg' if use_marg else 'imu'}.txt",
+                accels, gyros, mags, Q, dt, use_mag=use_marg
+    )
     
     print(f'\nBest params for {filter_class.__name__} ({"MARG" if use_marg else "IMU"}): {best_params}, Error: {best_error}')
     return best_Q, best_params
@@ -132,6 +152,7 @@ def main():
         madgwick_ranges = {'gain': (0.001, 0.001)}
         mahony_ranges = {'k_P': (0.1, 0.1), 'k_I': (0.01, 0.01)}
         fourati_ranges = {'gain': (0.05, 0.05)}
+
     # Generate grids based on explicit step size
     step_sizes = {'gain': args.step_gain, 'k_P': args.step_kp, 'k_I': args.step_ki}
     madgwick_grid = generate_grid(madgwick_ranges, step_sizes)
