@@ -529,7 +529,4 @@ int main ( int argc, char ** argv )
   if (__ento_test_num(__n, 13)) test_feature_recognition_prob_brief_kernel_31x31(); 
   if (__ento_test_num(__n, 14)) test_feature_recognition_prob_orb_kernel_31x31();
   if (__ento_test_num(__n, 15)) test_feature_recognition_prob_fast_brief_kernel_31x31();
-
-
-
 }

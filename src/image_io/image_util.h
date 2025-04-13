@@ -245,7 +245,8 @@ void gaussian_blur_in_place(ImageT& image)
   }
 }
 
-template <typename SrcImageT, typename DstImageT, int KernelSize, typename KernelT = float>
+template <typename SrcImageT, typename DstImageT, int KernelSize, typename KernelT = float,
+          GaussianCastMode CastMode = GaussianCastMode::Round>
 void gaussian_blur(const SrcImageT& src, DstImageT& dst)
 {
   static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
@@ -263,12 +264,11 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
       return x;
   };
 
-  // Ring buffer to hold horizontal pass results
   KernelT ring[KernelSize][cols];
 
   for (int row = 0; row < rows; ++row)
   {
-    // Horizontal blur for this row into ring buffer
+    // Horizontal blur pass into ring buffer
     for (int col = 0; col < cols; ++col)
     {
       KernelT sum = 0.0f;
@@ -281,7 +281,7 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
       ring[row % KernelSize][col] = sum;
     }
 
-    // If we have enough rows filled, do vertical blur for center row
+    // Vertical pass when ring buffer is sufficiently filled
     if (row >= half)
     {
       int dst_row = row - half;
@@ -293,13 +293,20 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
           int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
           sum += ring[ring_row][col] * kernel[k];
         }
-
-        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+        if constexpr (CastMode == GaussianCastMode::Round &&
+                      std::is_integral_v<typename DstImageT::pixel_type>)
+        {
+          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum + 0.5f);
+        }
+        else
+        {
+          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+        }
       }
     }
   }
 
-  // Handle remaining bottom rows (tail)
+  // Final vertical pass for bottom rows
   for (int tail = 0; tail < half; ++tail)
   {
     int dst_row = rows - half + tail;
@@ -314,8 +321,15 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
         int ring_row = reflect(dst_row + k - half, rows) % KernelSize;
         sum += ring[ring_row][col] * kernel[k];
       }
-
-      dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+      if constexpr (CastMode == GaussianCastMode::Round &&
+                    std::is_integral_v<typename DstImageT::pixel_type>)
+      {
+        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum + 0.5f);
+      }
+      else
+      {
+        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+      }
     }
   }
 }
