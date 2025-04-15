@@ -109,7 +109,7 @@ int main()
   icache_enable();
   
   const char* base_path = DATASET_PATH;
-  const char* rel_path = UseMag ? "datasets/state-est/attitude/mahoney_marg_robobee.txt" : "datasets/state-est/attitude/mahoney_imu_robobee.txt";
+  const char* rel_path = UseMag ? "state-est/attitude/mahoney_marg_robobee.txt" : "datasets/state-est/attitude/mahoney_imu_robobee.txt";
   char dataset_path[512];
   char output_path[256];
   

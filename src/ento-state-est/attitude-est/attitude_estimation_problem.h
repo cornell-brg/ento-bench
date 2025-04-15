@@ -71,7 +71,7 @@ public:
 
   static constexpr const char* header_impl()
   {
-    return ""; //@TODO: Add string for header (input)
+    return "Attitude Estimation Problem"; //@TODO: Add string for header (input)
   }
 
   // Constructor with kernel and angle threshold parameter
