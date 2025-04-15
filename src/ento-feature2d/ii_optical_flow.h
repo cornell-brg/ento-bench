@@ -63,10 +63,15 @@ void calcOpticalFlowII(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg,
         int y_t_index = std::min(std::max(y_index + k + y_shamt, 0), prevImg.rows - 1);
 
 
-        int Ix = prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index);
-        int Iy = prevImg.get_pixel(y_t_index, x_index) - prevImg.get_pixel(y_b_index, x_index);
-        int It = nextImg.get_pixel(y_index, x_index) - prevImg.get_pixel(y_index, x_index);
+        // float Ix = ((float) prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index));
+        // float Iy = ((float) prevImg.get_pixel(y_t_index, x_index) - prevImg.get_pixel(y_b_index, x_index));
+        // float It = ((float) nextImg.get_pixel(y_index, x_index) - prevImg.get_pixel(y_index, x_index)    );
         
+        float Ix = ((float) prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index)) / (WIN_DIM*WIN_DIM);
+        float Iy = ((float) prevImg.get_pixel(y_t_index, x_index) - prevImg.get_pixel(y_b_index, x_index)) / (WIN_DIM*WIN_DIM);
+        float It = ((float) nextImg.get_pixel(y_index, x_index) - prevImg.get_pixel(y_index, x_index)    ) / (WIN_DIM*WIN_DIM);
+        
+
         IxIx += Ix * Ix;
         IyIy += Iy * Iy;
         IxIy += Ix * Iy;
@@ -75,11 +80,11 @@ void calcOpticalFlowII(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg,
       }
     }
 
-    IxIx = IxIx / (WIN_DIM * WIN_DIM);
-    IyIy = IyIy / (WIN_DIM * WIN_DIM);
-    IxIy = IxIy / (WIN_DIM * WIN_DIM);
-    ItIx = ItIx / (WIN_DIM * WIN_DIM);
-    ItIy = ItIy / (WIN_DIM * WIN_DIM);
+    // IxIx = IxIx / (WIN_DIM * WIN_DIM);
+    // IyIy = IyIy / (WIN_DIM * WIN_DIM);
+    // IxIy = IxIy / (WIN_DIM * WIN_DIM);
+    // ItIx = ItIx / (WIN_DIM * WIN_DIM);
+    // ItIy = ItIy / (WIN_DIM * WIN_DIM);
 
     // We get the system of equations:
     // | Ix^2   IxIy | | u/x_shamt |   | 2ItIx |
