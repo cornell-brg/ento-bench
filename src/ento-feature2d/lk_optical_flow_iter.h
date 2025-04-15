@@ -21,7 +21,9 @@ const int scharr_y_arr[] = {-3, -10, -3, 0, 0, 0, 3, 10, 3};
 // window dimension used for the gradient calculation
 // not the same as the window dimension used for the optical flow
 template<size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT>
-void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & src, int* Ix_arr, int* Iy_arr, const int halfWin) {
+void calc_gradient(const Keypoint<CoordT> & pt,
+                   const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & src,
+                   int* Ix_arr, int* Iy_arr, const int halfWin) {
     
     // Indices for top left corner of window in src
     int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
@@ -53,7 +55,11 @@ void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDT
 
 // WIN_DIM is dimension of output window
 template <typename SrcT, size_t WIN_DIM, typename CoordT>
-void interpolate(const Keypoint<CoordT> & pt, const SrcT * src, Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & dst, int src_width, int src_height) {
+void interpolate(const Keypoint<CoordT> & pt,
+                 const SrcT * src,
+                 Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & dst,
+                 int src_width,
+                 int src_height) {
     int32_t x_i = static_cast<int32_t>(pt.x);
     int32_t y_i = static_cast<int32_t>(pt.y);
     CoordT a = pt.x - CoordT(x_i);

@@ -97,7 +97,6 @@ BRIEFDescriptor compute_rotated_brief_descriptor(const Image& img,
     descriptor.set_bit(i, rot_bit);
   }
 
-
   return descriptor;
 }
 

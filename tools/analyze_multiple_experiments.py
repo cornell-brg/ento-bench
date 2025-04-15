@@ -101,10 +101,17 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
 
         # Define search window
         duration = data['time'].iloc[idx2] - data['time'].iloc[idx1]
+        # change 0.5 to nothing for non mpc of u575
         search_start_time = (data['time'].iloc[idx2] - window_size * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
         search_start_time = max(search_start_time, data['time'].iloc[0])
         search_start = np.where(data['time'] >= search_start_time)[0][0]
-        search_end = idx2
+
+        # Comment out if breaks
+        # u575 medium * 0.1
+        search_end_time_bw = min(data['time'].iloc[idx1] + window_size * duration, data['time'].iloc[-1])
+        search_end = np.where(data['time'] >= search_end_time_bw)[0][0]
+
+        #search_end = idx2 
 
         if plot_data:
             plt.axvline(x=data['time'].iloc[search_start], color='c', linestyle='--', linewidth=vertical_width)
@@ -229,14 +236,18 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         plt.close()
 
     average_energy = np.mean(energy_segments)
+    min_energy = np.min(energy_segments)
     average_current = np.mean(currents)
     average_tdiff = np.mean(tdiffs) * 1e3  # Convert to µs
     average_latency = np.mean(latencies) * 1e3  # Convert to µs
+    max_power = np.max(currents) * 3.3
     
     # Print Analysis Results
     print(f'Total energy consumed: {total_energy:.8f} mJ')
     print(f'Average current consumed: {average_current:.8f} mA')
     print(f'Average energy per segment: {average_energy:.8f} mJ')
+    print(f'Minimum energy per segment: {min_energy:.8f} mJ')
+    print(f'Peak power draw per segment: {max_power:.8f} mV')
     print(f'Latency stats (avg, max, min): {np.mean(latencies)*1e3:.6f} µs, {np.max(latencies)*1e3:.6f} µs, {np.min(latencies)*1e3:.6f} µs')
     print(f'Average cycles: {(average_latency/1e6)/(1/170e6):.6f}')
     print(f'Average time difference error (t_meas - t_adj): {average_tdiff:.6f} µs')
@@ -259,6 +270,7 @@ def analyze_multiple_experiments(parent_dir, window_size, rising_threshold, fall
     for dataset_name in subdirs:
         print(f"Found dataset: {dataset_name}")
         
+        #if dataset_name != "orb-large": continue
         # Skip directories ending with 'meas' or 'plots'
         if dataset_name.endswith('meas') or dataset_name == 'plots':
             print(f"Skipping non-matching experiment: {dataset_name}.\n")

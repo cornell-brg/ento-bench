@@ -7,6 +7,7 @@
 #include <ento-feature2d/feat2d_util.h>
 #include <ento-feature2d/brief.h>
 #include <ento-util/debug.h>
+#include <ento-util/mem.h>
 #include <variant>
 
 namespace EntoFeature2D
@@ -158,7 +159,7 @@ void fast(const ImageType& img,
   //static PixelType circle[circle_buff_sz];
   //bressenham_circle<PixelType, CircleDiameter, img_width>(circle);
   
-  static constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
+  constexpr auto circle = generate_bresenham_circle<CircleType, PatternSize, img_width, ContiguityRequirement>();
   // const PixelType* ptemp = &img.data[3*img_width] + 3;
 
   CoordType i, j, k;

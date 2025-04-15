@@ -43,7 +43,7 @@ int main()
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for rel_linear8pt_float_1000.csv!");
+    ENTO_DEBUG("ERROR! Could not build file path for rel_linear8pt_float_100.csv!");
   }
 
   ENTO_DEBUG("File path: %s", dataset_path);

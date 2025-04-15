@@ -117,7 +117,9 @@ public:
 #else
   // Constructor for `char*` (MCU builds only)
   explicit ExperimentIO(const char *input_filepath,
-                        const char *output_filepath)
+                        const char *output_filepath) : 
+    header_written_(false),
+    header_validated_(false)
   {
     char resolved_input[MAX_PATH];
     char resolved_output[MAX_PATH];
@@ -200,7 +202,7 @@ public:
       return problem_instance.deserialize(line);
     }
 #else
-    char line[1024];
+    static char line[512]; // change back to 1024
     if (ifile_ && fgets(line, sizeof(line), ifile_))
     {
       return problem_instance.deserialize(line);

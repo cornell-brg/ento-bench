@@ -198,10 +198,10 @@ deserialize_impl(const char* line)
   ENTO_DEBUG("Line: %s", line);
 
   // Buffers to store extracted file paths
-  char img1_path[256], img2_path[256], feat_path[256], gt_path[256];
+  char img1_path[128], img2_path[128], feat_path[128], gt_path[128];
 
   // Parse the line using sscanf
-  int num_parsed = sscanf(line, "%255[^,],%255[^,],%255[^,],%255s",
+  int num_parsed = sscanf(line, "%127[^,],%127[^,],%127[^,],%127s",
                           img1_path, img2_path, feat_path, gt_path);
 
   if (num_parsed != 4)
@@ -215,17 +215,21 @@ deserialize_impl(const char* line)
   ENTO_DEBUG("Feat Path: %s", feat_path);
   ENTO_DEBUG("Flow GT Path: %s", gt_path);
 
-  char resolved_img1[256], resolved_img2[256], resolved_feat[256], resolved_gt[256];
+  char resolved_path1[256], resolved_path2[256]; //, resolved_feat[256], resolved_gt[256];
 
-  EntoUtil::resolve_path(img1_path, resolved_img1, sizeof(resolved_img1));
-  EntoUtil::resolve_path(img2_path, resolved_img2, sizeof(resolved_img2));
-  EntoUtil::resolve_path(feat_path, resolved_feat, sizeof(resolved_feat));
-  EntoUtil::resolve_path(gt_path, resolved_gt, sizeof(resolved_gt));
+  EntoUtil::resolve_path(img1_path, resolved_path1, sizeof(resolved_path1));
+  EntoUtil::resolve_path(img2_path, resolved_path2, sizeof(resolved_path1));
+  //EntoUtil::resolve_path(feat_path, resolved_feat, sizeof(resolved_feat));
+  //EntoUtil::resolve_path(gt_path, resolved_gt, sizeof(resolved_gt));
 
 
   // Call the corresponding functions to handle the parsed paths
-  bool success = deserialize_imgs(resolved_img1, resolved_img2);
-  success &= deserialize_features(resolved_feat, resolved_gt);
+  bool success = deserialize_imgs(resolved_path1, resolved_path2);
+
+
+  EntoUtil::resolve_path(feat_path, resolved_path1, sizeof(resolved_path1));
+  EntoUtil::resolve_path(gt_path, resolved_path2, sizeof(resolved_path2));
+  success &= deserialize_features(resolved_path1, resolved_path2);
   return success;
 }
 

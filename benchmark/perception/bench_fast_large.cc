@@ -27,7 +27,7 @@ int main()
   icache_enable();
 
   // -------- Kernel and Problem Setup --------
-  constexpr int MaxFeats = 250;
+  constexpr int MaxFeats = 100; // for g474 benchmark use 100, otherwise 250
   using Kernel  = FastKernel<MaxFeats>;
   using PixT    = uint8_t;
   constexpr int Rows = 320;
@@ -48,6 +48,7 @@ int main()
   }
 
   ENTO_DEBUG("Dataset file path: %s", dataset_path);
+  printf("Hello world!");
 
   // -------- Run Harness --------
   static Problem problem(Kernel{});

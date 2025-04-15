@@ -19,8 +19,8 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-const int decimal_bits = 20;
-using fp_t = FixedPoint<64 - decimal_bits, decimal_bits, int64_t>;
+const int decimal_bits = 10;
+using fp_t = FixedPoint<32 - decimal_bits, decimal_bits, int32_t>;
 
 // Configuration for SMALL
 constexpr size_t NUM_LEVELS = 2;
@@ -66,7 +66,7 @@ int main()
   int num_good_pts  = NumFeats;
 
   // Problem construction
-  LK adapter(num_good_pts, max_count, det_epsilon, criteria);
+  static LK adapter(num_good_pts, max_count, det_epsilon, criteria);
   Prob problem(adapter);
 
   EntoBench::Harness<Prob, false, 10> harness(problem,

@@ -36,7 +36,7 @@ int main()
 
   // -------- Dataset Path (TXT file with one line of CSV input) --------
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/test_fast_small_dataset.txt";  // This file contains the 3-path line
+  const char* rel_path  = "feat2d/fast_small_books_data.txt";  // This file contains the 3-path line
 
   char dataset_path[512];
   char output_path[256];
