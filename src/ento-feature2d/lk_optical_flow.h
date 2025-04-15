@@ -47,8 +47,8 @@ void calcOpticalFlowPyrLKHelper(const ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HE
                                int DET_EPSILON, float CRITERIA,
                                std::index_sequence<Is...>) {
     (calcOpticalFlowPyrLKSingleIter<(IMG_WIDTH >> (NUM_LEVELS-Is)), (IMG_HEIGHT >> (NUM_LEVELS-Is)), WIN_DIM, CoordT, PixelT, Is>(
-                                        std::get<(NUM_LEVELS-Is)>(prevPyramid.pyramid), 
-                                        std::get<(NUM_LEVELS-Is)>(nextPyramid.pyramid), 
+                                        prevPyramid.template get_level<NUM_LEVELS-Is>(), 
+                                        nextPyramid.template get_level<NUM_LEVELS-Is>(), 
                                         prevPyrPoints, 
                                         nextPts, status, num_good_points, MAX_COUNT,
                                         DET_EPSILON, CRITERIA ), ...

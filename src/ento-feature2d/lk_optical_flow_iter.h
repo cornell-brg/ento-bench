@@ -113,7 +113,7 @@ CoordT a_transpose_a(const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & Ix_win_squa
     int IxIy_int = static_cast<int32_t>(IxIy);
     CoordT det = IxIx * IyIy - IxIy * IxIy;
     long det_int = ((long)IxIx_int) * ((long)IyIy_int) - ((long)IxIy_int) * ((long)IxIy_int);
-    float full_det = ((float) det_int) + (static_cast<float>(det) - static_cast<long>(det)); // restore the integer bits
+    float full_det = ((float) det_int) + (static_cast<float>(det) - static_cast<int64_t>(det)); // restore the integer bits
     det = CoordT(full_det); 
 
     // If matrix is nonsingular, mark status as failed
