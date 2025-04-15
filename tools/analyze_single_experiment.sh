@@ -3,7 +3,7 @@
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 6 ]; then
     echo "Usage: $0 <parent_dir> <dataset_name> <window_size> <rising_threshold> <falling_threshold> <plot_data>"
-    echo "Example: $0 /path/to/data xor_full_6500x1 10 0.7 0.3 true"
+    echo "Example: $0 /path/to/data dlt-osj-optim-2Nx3 10 0.7 0.3 true"
     exit 1
 fi
 
