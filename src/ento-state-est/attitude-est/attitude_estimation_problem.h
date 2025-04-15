@@ -4,6 +4,10 @@
 #include "attitude_measurement.h"
 #include <ento-bench/problem.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace EntoAttitude
 {
 
@@ -18,7 +22,8 @@ public:
  
   // Required by Problem Interface for Experiment I/O
   static constexpr bool RequiresDataset_ = true;
-  static constexpr bool SavesResults_ = true;
+  // static constexpr bool SavesResults_ = true;
+  static constexpr bool SaveResults_ = false;
 
   // @TODO: Add other member fields for input data, ground truth data
   //   and output data.
@@ -62,7 +67,7 @@ public:
   void solve_impl();
 
   // @TODO: Complete clear implementation.
-  bool clear_impl();
+  void clear_impl();
 
   static constexpr const char* header_impl()
   {
@@ -110,13 +115,13 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::deserialize_impl(const c
   return true;
 }
 
-template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
-std::string AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::serialize_impl() const
-{
-    std::ostringstream oss;
-    oss << q_.w() << "," << q_.x() << "," << q_.y() << "," << q_.z();
-    return oss.str();
-}
+// template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
+// std::string AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::serialize_impl() const
+// {
+//     std::ostringstream oss;
+//     oss << q_.w() << "," << q_.x() << "," << q_.y() << "," << q_.z();
+//     return oss.str();
+// }
 
 #ifndef NATIVE
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
@@ -184,7 +189,7 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::validate(Scalar angle_th
 }
 
 template <typename Scalar, typename Kernel, bool UseMag, bool IsFilter>
-bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::clear_impl()
+void AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::clear_impl()
 {
     // Reset quaternions to identity (or zero)
     q_ = Eigen::Quaternion<Scalar>::Identity();
@@ -199,7 +204,7 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::clear_impl()
     // Reset time step
     dt_ = static_cast<Scalar>(0.0);
     
-    return true;
+    return;
 }
 
 } // namespace EntoAttitude

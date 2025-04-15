@@ -8,7 +8,7 @@ set(MODULES
   mcu-util
   Eigen
   ento-state-est
-  ento-math
+  ento_math
   ento_util
   CMSIS::STM32::${STM_PRODUCT}
 )
@@ -29,6 +29,15 @@ add_benchmark(bench-mahoney
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-mahoney)
+
+# =============================================================================
+# Fourati Filter
+# =============================================================================
+add_benchmark(bench-fourati
+  SOURCES bench_fourati.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati)
 # =============================================================================
 # =============================================================================
 # Add stm32 targets
