@@ -19,11 +19,11 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-const int decimal_bits = 20;
-using fp_t = FixedPoint<64 - decimal_bits, decimal_bits, int64_t>;
+constexpr int decimal_bits = 10;
+using fp_t = FixedPoint<32 - decimal_bits, decimal_bits, int32_t>;
 
 // Configuration for SMALL
-constexpr size_t NUM_LEVELS = 2;
+constexpr size_t NUM_LEVELS = 3;
 constexpr size_t IMG_WIDTH  = 320;
 constexpr size_t IMG_HEIGHT = 320;
 constexpr size_t WIN_DIM    = 15;
@@ -56,6 +56,7 @@ int main()
   char dataset_path[512];
   char output_path[256];
 
+  printf("Hello world");
   if (!build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
     ENTO_DEBUG("ERROR! Failed to construct dataset path.");
 

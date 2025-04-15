@@ -36,7 +36,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/rel_5pt_float_10.csv";
+  const char* rel_path = "rel-pose/rel_5pt_float_100.csv";
   char dataset_path[512];
   char output_path[256];
 
@@ -53,7 +53,7 @@ int main()
   //                           dataset_path,
   //                           output_path);
   
-  EntoBench::Harness<Problem, false, 10> harness(problem, "Bench Relative Pose 5pt [float]",
+  EntoBench::Harness<Problem, false, 5> harness(problem, "Bench Relative Pose 5pt [float]",
                                                  dataset_path,
                                                  output_path);
 
