@@ -100,19 +100,25 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         # Prealign based on previous segment if its not the first segment
         if i > 0 and previous_shift != 0:
             # For prealignment, calculate a time offset based on the previous shift
-            time_shift = previous_shift * (data['time'].iloc[idx2] - data['time'].iloc[idx1])
+            # time_shift = (data['time'].iloc[idx2] - data['time'].iloc[idx1]) - previous_shift
             # time_shift = previous_time_diff
-            if direction == 0:
-                search_start_time = (data['time'].iloc[idx2] - window_size * duration) - time_shift
-            else:
-                search_start_time = (data['time'].iloc[idx1] + window_size * duration) + time_shift
+            search_start_time = (data['time'].iloc[idx2] - window_size * duration) + previous_shift
+            search_end_time = (data['time'].iloc[idx1] + window_size * duration) + previous_shift
+            print(f'Previous shift: {previous_shift}')
+            print(f'New search/end: {search_start_time}:{search_end_time}')
+            print(f'Old search/end: {search_start_time-previous_shift}:{search_end_time-previous_shift}')
         # If first segment, use previous method
         else:
-            search_start_time = (data['time'].iloc[idx2] - window_size * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
+            search_start_time = data['time'].iloc[idx2] - window_size * duration
+            search_end_time = data['time'].iloc[idx1] + window_size * duration
         
         search_start_time = max(search_start_time, data['time'].iloc[0])
         search_start = np.where(data['time'] >= search_start_time)[0][0]
-        search_end = idx2
+
+        # Adjust search end using window
+        # search_end_time = min(data['time'].iloc[idx1] + window_size * duration, data['time'].iloc[-1])
+        search_end_time = min(search_end_time, data['time'].iloc[-1])
+        search_end = (data['time'] >= search_end_time).idxmax()
 
         # Original search window plot
         if plot_data:
@@ -136,8 +142,10 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         original_start_time = data['time'].iloc[idx1]
         adjusted_start_time = data['time'].iloc[idx1_adj]
         time_diff = adjusted_start_time - original_start_time
-        previous_shift = time_diff / duration if duration > 0 else 0
-        # previous_time_diff = time_diff
+        print(f'Original start time: {original_start_time}')
+        print(f'Adjusted start time: {adjusted_start_time}')
+        #previous_shift = time_diff / duration if duration > 0 else 0
+        previous_shift = time_diff
 
         tstart_adj = data['time'].iloc[idx1_adj]
         tend_adj_est = tstart_adj + duration
@@ -187,7 +195,7 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
 
         rel_lat_error = 100 * (tdiff / (tend - tstart))
         current = current_segment.mean()
-        energy_segment = np.trapezoid(current_segment, time_segment) * voltage * 1e-6  # mJ
+        energy_segment = np.trapz(current_segment, time_segment) * voltage * 1e-6  # mJ
 
         if abs(rel_lat_error) > 10:
             energy_adjustment = current * voltage * tdiff * 1e-3
