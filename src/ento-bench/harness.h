@@ -92,7 +92,11 @@ MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
 // a single experiment, then the Harness will use Problem::deserialize in
 // conjunction with ExperimentIO object that Harness holds. 
 
-template<typename Problem, bool DoWarmup = false, size_t Reps=1, int Verbosity = 1>
+template<typename Problem,
+         bool DoWarmup = false,
+         size_t Reps=1,
+         int Verbosity = 1,
+         size_t InnerReps=1>
 class Harness {
 public:
   // Public Members
@@ -296,7 +300,13 @@ public:
         Delay::ms(10);
 #endif
         start_roi();
-        problem_.solve();
+
+        // @TODO: Ensure loop unroll 
+        for (size_t j = 0; j < InnerReps; ++j)
+        {
+          problem_.solve();
+        }
+
         end_roi();
         // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -368,7 +378,6 @@ public:
     }
     else
     {
-      size_t i = 0;
       while (experiment_io_.read_next(problem_))
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -387,10 +396,17 @@ public:
           update_aggregate(cold_metrics_);
         }
         // Benchmark kernel (algorithm implementation, callable) that Problem Specification holds.
-        for (size_t i = 0; i < Reps; i++)
+        size_t i = 0;
+        for (i = 0; i < Reps; i++)
         {
           start_roi();
-          problem_.solve();
+
+          // @TODO: Ensure unroll?
+          for (size_t j = 0; j < InnerReps; ++j)
+          {
+            problem_.solve();
+          }
+
           end_roi();
           // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
