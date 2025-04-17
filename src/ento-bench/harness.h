@@ -378,6 +378,7 @@ public:
     }
     else
     {
+      size_t i = 0;
       while (experiment_io_.read_next(problem_))
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
