@@ -398,11 +398,10 @@ public:
         }
         // Benchmark kernel (algorithm implementation, callable) that Problem Specification holds.
         size_t k;
-        for (k = 0; i < Reps; i++)
+        for (k = 0; k < Reps; k++)
         {
           start_roi();
 
-          // @TODO: Ensure unroll?
           for (size_t j = 0; j < InnerReps; ++j)
           {
             problem_.solve();
