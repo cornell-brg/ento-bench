@@ -18,10 +18,6 @@ Ento-Bench is a comprehensive benchmarking framework designed for evaluating com
   - STM32 microcontrollers (with semihosting support)
   - gem5 simulation
 - Comprehensive benchmarking harness with configurable metrics
-- Support for various computer vision algorithms:
-  - Feature detection and matching (BRIEF, ORB)
-  - Optical flow (Lucas-Kanade)
-  - Pose estimation (P3P, 5-point, 8-point algorithms)
 - Dataset-driven benchmarking with configurable input/output paths
 - Performance measurement tools for embedded systems
 
