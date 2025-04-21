@@ -199,10 +199,4 @@ make -j$(nproc)
 gem5/build/ARM/gem5.opt configs/example/se.py --cpu-type=MinorCPU --caches --cmd=./bin/<benchmark-name>
 ```
 
-## Contributing
 
-Please refer to the project's contribution guidelines for details on our code of conduct and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
