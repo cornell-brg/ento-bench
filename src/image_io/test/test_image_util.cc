@@ -22,8 +22,8 @@ constexpr size_t num_paths = 2;
 template <typename ImageT>
 void make_basic_image(ImageT& img)
 {
-  static constexpr int H = ImageT::rows;
-  static constexpr int W = ImageT::cols;
+  static constexpr int H = ImageT::rows_;
+  static constexpr int W = ImageT::cols_;
   for (int y = 0; y < H; ++y)
   {
     for (int x = 0; x < W; ++x)
@@ -36,16 +36,16 @@ void make_basic_image(ImageT& img)
 
 template <typename ImageT>
 void copy_into_img(ImageT& img,
-                   typename ImageT::pixel_type buff[ImageT::rows][ImageT::cols])
+                   typename ImageT::pixel_type_ buff[ImageT::rows_][ImageT::cols_])
 {
-  for (int y = 0; y < ImageT::rows; ++y)
-    for (int x = 0; x < ImageT::cols; ++x)
+  for (int y = 0; y < ImageT::rows_; ++y)
+    for (int x = 0; x < ImageT::cols_; ++x)
       img(y, x) = buff[y][x];
 }
 
 template <typename ImgT, int KernelSize, typename KernelT = float>
-void run_blur_in_place_test(typename ImgT::pixel_type b[ImgT::rows][ImgT::cols],
-                            typename ImgT::pixel_type g[ImgT::rows][ImgT::cols])
+void run_blur_in_place_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols],
+                            typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols])
 {
   ImgT input;
   copy_into_img(input, b);
@@ -58,8 +58,8 @@ void run_blur_in_place_test(typename ImgT::pixel_type b[ImgT::rows][ImgT::cols],
 }
 
 template <typename ImgT, int KernelSize, typename KernelT = float>
-void run_blur_test(typename ImgT::pixel_type b[ImgT::rows][ImgT::cols],
-                   typename ImgT::pixel_type g[ImgT::rows][ImgT::cols])
+void run_blur_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols],
+                   typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols])
 {
   ImgT input;
   ImgT output;

@@ -64,10 +64,10 @@ uint8_t impulse_raw_7x7[7][7] = {
 
 template <typename ImageT>
 void copy_into_img(ImageT& img,
-                   const typename ImageT::pixel_type buff[ImageT::rows][ImageT::cols])
+                   const typename ImageT::pixel_type_ buff[ImageT::rows_][ImageT::cols_])
 {
-  for (int y = 0; y < ImageT::rows; ++y)
-    for (int x = 0; x < ImageT::cols; ++x)
+  for (int y = 0; y < ImageT::rows_; ++y)
+    for (int x = 0; x < ImageT::cols_; ++x)
       img(y, x) = buff[y][x];
 }
 
@@ -121,6 +121,7 @@ void test_extrema_on_blob()
   using DoGPixelT = float;
   using ImgT = Image<H, W, PixelT>;
   using DoGImageT = Image<H, W, DoGPixelT>;
+  using DoGTripletT = DoGTriplet<DoGImageT>;
   using KeypointT = SIFTKeypoint<float>;
   
 
@@ -130,8 +131,15 @@ void test_extrema_on_blob()
   SIFTDoGOctave<Image<H, W, uint8_t>, DoGPixelT, 5> octave(input_img);
   octave.initialize();
 
+  DoGTripletT dog3 = octave.get_current_DoG_triplet();
+
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.prev_image(), 8, 8, 15, 15));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.curr_image(), 8, 8, 15, 15));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.next_image(), 8, 8, 15, 15));
+
   FeatureArray<KeypointT, 1> feats{};
   auto driver = SIFTDriver<ImgT, 1, KeypointT>(input_img, feats);
+
 
   driver.detect_extrema_in_triplet(octave.get_current_DoG_triplet(), 1, 0);
 

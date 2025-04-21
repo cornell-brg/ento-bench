@@ -279,7 +279,7 @@ inline void __ento_test_check_image_eq(const char* file, int lineno,
                                        typename Image1::pixel_type tol,
                                        const Image1& A, const Image2& B)
 {
-  static_assert(Image1::rows == Image2::rows, "Image height mismatch");
+  static_assert(Image1::rows == Image2::rows_, "Image height mismatch");
   static_assert(Image1::cols == Image2::cols, "Image width mismatch");
   static_assert(std::is_same<typename Image1::pixel_type, typename Image2::pixel_type>::value,
                 "Pixel types must match");
@@ -288,7 +288,7 @@ inline void __ento_test_check_image_eq(const char* file, int lineno,
   using PixelT = typename Image1::pixel_type;
 
   bool has_mismatch = false;
-  for (int y = 0; y < Image1::rows; ++y)
+  for (int y = 0; y < Image1::rows_; ++y)
   {
     for (int x = 0; x < Image1::cols; ++x)
     {

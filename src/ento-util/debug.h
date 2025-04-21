@@ -283,9 +283,9 @@ template <typename ImageT>
 inline void __ento_debug_print_image(const char* file, int line, const char* func,
                                      const char* name, const ImageT& img)
 {
-  using PixelT = typename ImageT::pixel_type;
-  constexpr int W = ImageT::cols;
-  constexpr int H = ImageT::rows;
+  using PixelT = typename ImageT::pixel_type_;
+  constexpr int W = ImageT::cols_;
+  constexpr int H = ImageT::rows_;
   constexpr int width = 7;
   constexpr int precision = 2;
   constexpr const char* indent = "\t";

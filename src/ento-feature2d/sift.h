@@ -32,10 +32,10 @@ template <typename ImageT,
 class SIFTDoGOctave
 {
   using ImageT_ = ImageT;
-  using PixelT_ = ImageT::pixel_type;
+  using PixelT_ = ImageT::pixel_type_;
   using DoGPixelT_   = DoGPixelT;
-  static constexpr int Height_ = ImageT::rows;
-  static constexpr int Width_  = ImageT::cols;
+  static constexpr int Height_ = ImageT::rows_;
+  static constexpr int Width_  = ImageT::cols_;
   static constexpr int RowChunk_ = (RowChunk == 0) ? Height_ : RowChunk;
   static constexpr int NumDoGLayers_ = NumDoGLayers;
   static constexpr int NumBlurLevels_ = NumDoGLayers + 1;
@@ -84,6 +84,13 @@ public:
 
     gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr());
     compute_DoG(dog_ring_[2], gaussian_curr(), gaussian_prev());
+
+    ENTO_DEBUG_IMAGE(gaussian_prev());
+    ENTO_DEBUG_IMAGE(gaussian_curr());
+
+    ENTO_DEBUG_IMAGE(dog_ring_[0]);
+    ENTO_DEBUG_IMAGE(dog_ring_[1]);
+    ENTO_DEBUG_IMAGE(dog_ring_[2]);
 
     dog_head_ = 2;
     current_scale_ = 3;
@@ -165,15 +172,15 @@ class SIFTDriver
 {
 public:
   using ImageT_         = ImageT;
-  using PixelT_         = ImageT::pixel_type;
+  using PixelT_         = ImageT::pixel_type_;
   using DoGPixelT_      = DoGPixelT;
   using KeypointT_      = KeypointT;
   using KeypointCoordT_ = KeypointT::CoordT_;
   using DescriptorT_    = KeypointT::DescriptorT_;
   using ScaleT_         = KeypointT::ScaleT_;
   using OrientationT_   = KeypointT::OrientationT_;
-  static constexpr int   Height_ = ImageT::rows;
-  static constexpr int   Width_  = ImageT::cols;
+  static constexpr int   Height_ = ImageT::rows_;
+  static constexpr int   Width_  = ImageT::cols_;
   static constexpr int   RowChunk_ = (RowChunk == 0) ? Height_ : RowChunk;
   static constexpr int   NumDoGLayers_ = NumDoGLayers;
   static constexpr int   NumBlurLevels_ = NumDoGLayers + 1;
@@ -198,7 +205,7 @@ public:
   void detect_extrema_in_triplet(const DoGTriplet<DoGImageT_>& triplet,
                                  int scale_idx, int octave)
   {
-    constexpr int H = DoGImageT_::rows;
+    constexpr int H = DoGImageT_::rows_;
     constexpr int W = DoGImageT_::cols;
 
     for (int y = 1; y < H - 1; ++y)
@@ -206,6 +213,7 @@ public:
       for (int x = 1; x < W - 1; ++x)
       {
         float center_val = triplet.curr_image()(y,x);
+        ENTO_DEBUG("Center val: %f", center_val);
         bool is_max = true;
         bool is_min = true;
 
@@ -223,7 +231,9 @@ public:
               if (dz == 0 && dy == 0 && dx == 0)
                 continue; // skip center
 
+
               float val = (*img)(y + dy, x + dx);
+              ENTO_DEBUG("DoGTriplet(%d, %d) = %f", y+dy, x+dx, val);
               if (center_val <= val)
                 is_max = false;
               if (center_val >= val)
@@ -231,7 +241,6 @@ public:
             }
           }
         }
-        ENTO_DEBUG("Hello");
 
         if ((is_max || is_min) && !feats_.full())
         {

@@ -90,7 +90,7 @@ constexpr const char* get_array_format() {
 // The matrix must have compile-time known dimensions.
 template <typename Derived>
 constexpr const char* get_format(const Eigen::MatrixBase<Derived>&) {
-    constexpr int Rows = Derived::RowsAtCompileTime;
+    constexpr int rows_ = Derived::RowsAtCompileTime;
     constexpr int Cols = Derived::ColsAtCompileTime;
     static_assert(Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,
                   "Matrix must have fixed compile-time dimensions");

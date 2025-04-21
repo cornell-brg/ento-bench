@@ -160,8 +160,8 @@ template <typename ImageT, int KernelSize, typename KernelT = float,
 void gaussian_blur_in_place(ImageT& image)
 {
   static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
-  constexpr int rows = ImageT::rows;
-  constexpr int cols = ImageT::cols;
+  constexpr int rows = ImageT::rows_;
+  constexpr int cols = ImageT::cols_;
   constexpr int half = KernelSize / 2;
   constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
 
@@ -205,13 +205,13 @@ void gaussian_blur_in_place(ImageT& image)
           sum += ring[ring_row][col] * kernel[k];
         }
         if constexpr (CastMode == GaussianCastMode::Round &&
-                      std::is_integral_v<typename ImageT::pixel_type>)
+                      std::is_integral_v<typename ImageT::pixel_type_>)
         {
-          image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum + 0.5f);
+          image(dst_row, col) = static_cast<typename ImageT::pixel_type_>(sum + 0.5f);
         }
         else
         {
-          image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+          image(dst_row, col) = static_cast<typename ImageT::pixel_type_>(sum);
         }
       }
     }
@@ -233,13 +233,13 @@ void gaussian_blur_in_place(ImageT& image)
         sum += ring[ring_row][col] * kernel[k];
       }
       if constexpr (CastMode == GaussianCastMode::Round &&
-                    std::is_integral_v<typename ImageT::pixel_type>)
+                    std::is_integral_v<typename ImageT::pixel_type_>)
       {
-        image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum + 0.5f);
+        image(dst_row, col) = static_cast<typename ImageT::pixel_type_>(sum + 0.5f);
       }
       else
       {
-        image(dst_row, col) = static_cast<typename ImageT::pixel_type>(sum);
+        image(dst_row, col) = static_cast<typename ImageT::pixel_type_>(sum);
       }
     }
   }
@@ -250,8 +250,8 @@ template <typename SrcImageT, typename DstImageT, int KernelSize, typename Kerne
 void gaussian_blur(const SrcImageT& src, DstImageT& dst)
 {
   static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
-  static constexpr int rows = SrcImageT::rows;
-  static constexpr int cols = SrcImageT::cols;
+  static constexpr int rows = SrcImageT::rows_;
+  static constexpr int cols = SrcImageT::cols_;
   static constexpr int half = KernelSize / 2;
   static constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
 
@@ -294,13 +294,13 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
           sum += ring[ring_row][col] * kernel[k];
         }
         if constexpr (CastMode == GaussianCastMode::Round &&
-                      std::is_integral_v<typename DstImageT::pixel_type>)
+                      std::is_integral_v<typename DstImageT::pixel_type_>)
         {
-          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum + 0.5f);
+          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type_>(sum + 0.5f);
         }
         else
         {
-          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+          dst(dst_row, col) = static_cast<typename DstImageT::pixel_type_>(sum);
         }
       }
     }
@@ -322,13 +322,13 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
         sum += ring[ring_row][col] * kernel[k];
       }
       if constexpr (CastMode == GaussianCastMode::Round &&
-                    std::is_integral_v<typename DstImageT::pixel_type>)
+                    std::is_integral_v<typename DstImageT::pixel_type_>)
       {
-        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum + 0.5f);
+        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type_>(sum + 0.5f);
       }
       else
       {
-        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type>(sum);
+        dst(dst_row, col) = static_cast<typename DstImageT::pixel_type_>(sum);
       }
     }
   }

@@ -128,7 +128,7 @@ void compute_orb_descriptors(const Image& img,
 template <typename ImageT, typename KeypointT, int PatchSize = 31>
 float compute_keypoint_orientation(const ImageT& img, const KeypointT& kp)
 {
-  using PixelType = typename ImageT::pixel_type;
+  using PixelType = typename ImageT::pixel_type_;
   constexpr int PatchHalf = PatchSize / 2;
 
   if (kp.x < PatchHalf || kp.y < PatchHalf ||
@@ -184,7 +184,7 @@ void compute_keypoint_orientation(const ImageT& img,
 }
 
 template <typename ImageT, typename KeypointT, int MaxFeatures, int Threshold, size_t... Is>
-void run_fast_on_pyramid_levels(const ImagePyramid<sizeof...(Is)-1, ImageT::cols, ImageT::rows, typename ImageT::pixel_type>& pyramid,
+void run_fast_on_pyramid_levels(const ImagePyramid<sizeof...(Is)-1, ImageT::cols_, ImageT::rows_, typename ImageT::pixel_type_>& pyramid,
                                 FeatureArray<KeypointT, /*MaxFeatures*/ 100>& feature_array,
                                 std::index_sequence<Is...>)
 {
@@ -205,7 +205,7 @@ void orb(ImageT& img,
   // 1. Construct Image Pyramid if necessary
   if constexpr (NumLevels > 1)
   {
-    ImagePyramid<NumLevels - 1, ImageT::rows, ImageT::cols, typename ImageT::pixel_type> pyramid(img);
+    ImagePyramid<NumLevels - 1, ImageT::rows_, ImageT::cols_, typename ImageT::pixel_type_> pyramid(img);
     pyramid.set_top_image(img);
     pyramid.initialize_pyramid();
 
