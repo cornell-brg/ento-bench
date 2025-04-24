@@ -140,6 +140,8 @@
 //   return 0;
 // }
 
+
+
 #include <ento-bench/harness.h>
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>
@@ -251,7 +253,7 @@ int main()
   icache_enable();
   
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "state-est/attitude/mahoney_marg_robobee.txt";
+  const char* rel_path = "state-est/attitude/test_mahoney_marg_robobee.txt";
   char dataset_path[512];
   char output_path[256];
   
