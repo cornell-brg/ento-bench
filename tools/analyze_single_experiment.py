@@ -172,6 +172,13 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
                 return [], [], [], [], False
 
         idx2_adj = drop_window_start + drop_idx if drop_idx is not None else tend_adj_est_idx
+        
+        # If window is larger than duration of latency indices
+        max_allowed_tend = tstart_adj + duration
+        actual_tend_time = data['time'].iloc[idx2_adj]
+
+        if actual_tend_time > max_allowed_tend:
+            idx2_adj = np.where(data['time'] >= max_allowed_tend)[0][0]
 
         # Calculate timing differences
         tstart = data['time'].iloc[idx1]
