@@ -5,7 +5,7 @@
 #include <ento-mcu/cache_util.h>
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
-#include <ento-state-est/attitude-est/madgwick.h>
+#include <ento-state-est/attitude-est/fourati_nonlinear.h>
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-math/core.h>
 
@@ -15,12 +15,22 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoAttitude;
 
-// Define a Madgwick solver for the attitude problem
+// Define a Fourati solver for the attitude problem
 template <typename Scalar, bool UseMag>
-class SolverMadgwick {
+class SolverFourati {
 public:
-  SolverMadgwick(Scalar beta = Scalar(0.1))
-    : beta_(beta) {}
+  SolverFourati(Scalar gain = Scalar(0.1))
+    : gain_(gain) {
+    // Define reference quaternions for gravity and magnetic field
+    g_q_ = Eigen::Quaternion<Scalar>(Scalar(0), Scalar(0), Scalar(0), Scalar(1)); 
+    
+    // This represents a pure quaternion [0, 1, 0, 0.5] 
+    // where the vector part points mainly along the x-axis (North) with a 
+    // component along the z-axis (Down)
+    // The Earth's magnetic field doesn't point exactly North but has a dip 
+    // angle that varies by location
+    m_q_ = Eigen::Quaternion<Scalar>(Scalar(0), Scalar(1), Scalar(0), Scalar(0.5)); // [0,1,0,0.5]
+  }
   
   // Solver operator that updates the quaternion state based on measurements
   void operator()(const Eigen::Quaternion<Scalar>& q_prev,
@@ -29,32 +39,44 @@ public:
                   Eigen::Quaternion<Scalar>* q_out) 
   {
     if constexpr (UseMag) {
-      *q_out = madgwick_update_marg(q_prev,
-                                   measurement.gyr,
-                                   measurement.acc,
-                                   measurement.mag,
-                                   dt,
-                                   beta_);
+      // Full MARG update with magnetometer
+      *q_out = fourati_update(
+          q_prev,
+          measurement.gyr,
+          measurement.acc,
+          measurement.mag,
+          dt,
+          gain_,
+          g_q_,
+          m_q_);
     } else {
-      *q_out = madgwick_update_imu(q_prev,
-                                  measurement.gyr,
-                                  measurement.acc,
-                                  dt,
-                                  beta_);
+      
+      EntoMath::Vec3<Scalar> zero_mag = EntoMath::Vec3<Scalar>::Zero();
+      *q_out = fourati_update(
+          q_prev,
+          measurement.gyr,
+          measurement.acc,
+          zero_mag,
+          dt,
+          gain_,
+          g_q_,
+          m_q_);
     }
   }
   
   // Get solver name (for reporting)
   static constexpr const char* name() {
     if constexpr (UseMag) {
-      return "Madgwick MARG Filter";
+      return "Fourati MARG Filter";
     } else {
-      return "Madgwick IMU Filter";
+      return "Fourati IMU Filter";
     }
   }
 
 private:
-  Scalar beta_; // Gradient descent gain (controls convergence rate)
+  Scalar gain_; // Filter gain
+  Eigen::Quaternion<Scalar> g_q_; // Reference gravity quaternion
+  Eigen::Quaternion<Scalar> m_q_; // Reference magnetic field quaternion
 };
 
 // Need to declare this so the Harness class can use it without error
@@ -69,7 +91,6 @@ namespace EntoAttitude {
   };
 }
 
-
 namespace EntoBench {
   template <typename T>
   constexpr bool has_save_results_v = false;
@@ -83,10 +104,10 @@ namespace EntoBench {
 int main()
 {
   using Scalar = float;
-  constexpr bool UseMag = false; // Set to true to use MARG, false for IMU only
+  constexpr bool UseMag = true; // Set to true to use MARG, false for IMU only
   
   // Define our solver and problem types
-  using Solver = SolverMadgwick<Scalar, UseMag>;
+  using Solver = SolverFourati<Scalar, UseMag>;
   using Problem = AttitudeProblem<Scalar, Solver, UseMag, true>;
   
   initialise_monitor_handles();
@@ -102,20 +123,23 @@ int main()
   icache_enable();
   
   const char* base_path = DATASET_PATH;
-  const char* rel_path = UseMag ? "state-est/attitude/madgwick_marg_robobee.txt" : "state-est/attitude/madgwick_imu_robobee.txt";
+  // Reuse existing dataset for now
+  const char* rel_path = "state-est/attitude/fourati_marg_robobee.txt";
   char dataset_path[512];
   char output_path[256];
   
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                 dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for bench_madgwick!");
+    ENTO_DEBUG("ERROR! Could not build file path for bench_fourati!");
+    printf("Failed to build path for dataset. Check that the file exists.\n");
+    return 1;
   }
   
   printf("File path: %s\n", dataset_path);
   
   // Create solver and problem instances
-  Solver solver(Scalar(0.1));  // Default Madgwick parameter
+  Solver solver(Scalar(0.1));  // Default Fourati gain parameter
   Problem problem(solver);
   
   // Create a benchmark harness with updated template parameters including InnerReps
@@ -124,7 +148,7 @@ int main()
   constexpr size_t InnerReps = 10;
   EntoBench::Harness<Problem, DoWarmup, Reps, InnerReps> harness(
     problem, 
-    UseMag ? "Bench Madgwick MARG Filter [float]" : "Bench Madgwick IMU Filter [float]",
+    UseMag ? "Bench Fourati MARG Filter [float]" : "Bench Fourati IMU Filter [float]",
     dataset_path,
     output_path);
   
