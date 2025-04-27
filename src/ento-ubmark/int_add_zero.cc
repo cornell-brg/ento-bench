@@ -69,6 +69,7 @@ int main() {
     uint32_t flash_latency = get_flash_latency();
     printf("Current flash latency: %i\n", flash_latency);
     printf("==========================\n\n");
+    software_delay_cycles(10000);
 
     const char int_add_name[] = "Integer Addition Microbenchmark";
     auto problem_int_add = EntoBench::make_basic_problem(int_add_benchmark);
