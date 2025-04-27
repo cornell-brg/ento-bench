@@ -6,6 +6,12 @@
 #include <ento-feature2d/optical_flow_problem.h>
 #include <image_io/Image.h>
 #include <ento-bench/harness.h>
+
+#include <math/FixedPoint.hh>
+#include <ento-feature2d/image_pyramid.h>
+#include <ento-feature2d/feat2d_util.h>
+#include <ento-feature2d/lk_optical_flow.h>
+
 //#include <string>
 
 
@@ -22,15 +28,24 @@ char test1_harness_dataset_path[FILEPATH_SIZE];
 char test1_output_path[FILEPATH_SIZE];
 
 
+// for test_lk_optical_flow_validate
+char image_2_path[FILEPATH_SIZE];
+char image_3_path[FILEPATH_SIZE];
+char image_2_feats_path[FILEPATH_SIZE];
+char image_2_feats_next_gt_path[FILEPATH_SIZE];
+
 char* full_paths[] = { img1_tiny_path, img1_tiny_features_path,
                        img2_tiny_path, test1_feats_next_gt_path,
-                       test1_output_path, test1_harness_dataset_path };
-constexpr size_t num_paths = 6;
+                       test1_output_path, test1_harness_dataset_path,
+                       image_2_path, image_3_path,
+                       image_2_feats_path, image_2_feats_next_gt_path };
+constexpr size_t num_paths = 10;
 
 using namespace EntoFeature2D;
 
 struct NullKernel
 {
+  using CoordT_ = int16_t; // hardcoded coordt
   template <typename Img, typename KeypointT, size_t NumFeats>
   void operator()([[maybe_unused]] const Img& img1,
                   [[maybe_unused]] const Img& img2,
@@ -47,6 +62,111 @@ struct NullKernel
   static constexpr const char* name() { return "Null Kernel"; }
 };
 
+const int decimal_bits = 20;
+using fp_t = FixedPoint<64-decimal_bits, decimal_bits, int64_t>;
+
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+class LKOpticalFlowAdapter
+{
+private:
+  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
+  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
+  bool status_[NumFeats];
+  int num_good_points_;
+  int MAX_COUNT_;
+  int DET_EPSILON_;
+  float CRITERIA_;
+
+public:
+  using CoordT_ = CoordT;
+  using PixelT_ = PixelT;
+  static constexpr size_t NumLevels_ = NUM_LEVELS;
+  static constexpr size_t Width_ = IMG_WIDTH;
+  static constexpr size_t Height_ = IMG_HEIGHT;
+  LKOpticalFlowAdapter(int num_good_points, 
+                       int MAX_COUNT,
+                       int DET_EPSILON,
+                       float CRITERIA)
+      : num_good_points_(num_good_points), MAX_COUNT_(MAX_COUNT), 
+        DET_EPSILON_(DET_EPSILON), CRITERIA_(CRITERIA) {}
+  
+  void operator()(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img1,
+                  const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& img2,
+                 FeatureArray<Keypoint<CoordT>, 2> feats,
+                 FeatureArray<Keypoint<CoordT>, 2>* feats_next)
+  {
+    prevPyramid_.set_top_image(img1);
+    prevPyramid_.initialize_pyramid();
+
+    nextPyramid_.set_top_image(img2);
+    nextPyramid_.initialize_pyramid();
+
+    // TODO: have function take in Feature Array 
+    feats_next->num_features = num_good_points_;
+
+    calcOpticalFlowPyrLK<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT>(prevPyramid_, nextPyramid_, 
+                                                          (Keypoint<CoordT> *)feats.keypoints.data(), (Keypoint<CoordT> *)feats_next->keypoints.data(), status_, 
+                                                          num_good_points_, MAX_COUNT_, DET_EPSILON_, CRITERIA_);
+
+  }
+  
+  // Name method for identification
+  static constexpr const char* name()
+  {
+    return "Lukas Kanade Sparse Optical Flow";
+  }
+};
+
+void test_lk_optical_flow_validate()
+{
+  const size_t NUM_LEVELS = 2;
+  const size_t IMG_WIDTH = 320;
+  const size_t IMG_HEIGHT = 320;
+  const size_t WIN_DIM = 3;  
+  const size_t NumFeats = 2;
+  using PixelT = uint8_t;
+// template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+
+  using K = LKOpticalFlowAdapter<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, float, PixelT, NumFeats>;
+
+  // template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename KeypointType = Keypoint<int16_t>, typename PixelType = int16_t>
+
+  using P = SparseOpticalFlowProblem<K, IMG_HEIGHT, IMG_WIDTH, NumFeats, Keypoint<float>, PixelT>;
+
+
+  int MAX_COUNT = 1;
+  int DET_EPSILON = (int)(1<<20);
+  float CRITERIA = 0.01;
+  int num_good_points = 2;
+
+  K adapter(num_good_points, MAX_COUNT, DET_EPSILON, CRITERIA);
+
+  P problem(adapter);
+
+  // Construct the dataset line manually using the paths
+  // TODO: make the problem able to take in points of different types
+  std::ostringstream oss;
+  oss << image_2_path << "," << image_3_path << ","
+      << image_2_feats_path << ","
+      << image_2_feats_next_gt_path;
+
+  std::string line = oss.str();
+
+  ENTO_DEBUG("Deserialize test (std::string): %s", line.c_str());
+
+  // Deserialize the constructed dataset line
+  bool success = problem.deserialize(line.c_str());
+  
+  // Assert deserialization worked
+  ENTO_TEST_CHECK_TRUE(success);
+
+
+  problem.solve();
+
+  ENTO_TEST_CHECK_TRUE(problem.validate());
+
+
+}
 
 void test_sparse_of_prob_deserialize_char()
 {
@@ -324,7 +444,8 @@ int main ( int argc, char ** argv )
   get_file_directory(file_path, sizeof(dir_path), dir_path);
   const char* file_names[] =
     { "test_img1_tiny.pgm" , "test_img1_tiny_feats.txt", "test_img2_tiny.pgm",
-      "test_feats_next_gt.txt", "test1_output_path.txt", "test_sparse_of_prob_harness_dataset.txt" };
+      "test_feats_next_gt.txt", "test1_output_path.txt", "test_sparse_of_prob_harness_dataset.txt",
+      "image_2.pgm", "image_3.pgm", "image_2_feats.txt", "image_2_feats_next_gt.txt" };
   build_file_paths(dir_path, file_names, full_paths, FILEPATH_SIZE, num_paths);
   
   ENTO_DEBUG("Generated Paths:\n");
@@ -341,5 +462,6 @@ int main ( int argc, char ** argv )
   if (__ento_test_num(__n, 6)) test_sparse_of_prob_validate();
   if (__ento_test_num(__n, 7)) test_sparse_of_prob_clear();
   if (__ento_test_num(__n, 8)) test_sparse_of_prob_harness_native();
+  if (__ento_test_num(__n, 9)) test_lk_optical_flow_validate();
 
 }

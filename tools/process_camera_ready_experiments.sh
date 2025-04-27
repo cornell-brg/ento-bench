@@ -1,13 +1,15 @@
 #!/bin/bash
 
 # Ensure a path argument is provided
-if [ $# -ne 1 ]; then
+if [ $# -ne 2 ]; then
   echo "Usage: $0 <base_path>"
+  echo "       $1 <dataset>"
   exit 1
 fi
 
 # Get the base path from the command line argument
 base_path="$1"
+datasets="$2"
 
 # List of datasets (previously called directories)
 # datasets=("dlt-osj-optim-2Nx3")

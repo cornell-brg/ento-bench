@@ -29,7 +29,7 @@ private:
   LucasKanadeValidator<KeypointType> validator_;
 public:
   static constexpr bool RequiresDataset_ = true;
-  static constexpr bool SaveResults_ = true;
+  static constexpr bool SaveResults_ = false;
 
   using KeypointT_ = KeypointType;
   using CoordT_ = typename KeypointType::CoordT_;
@@ -103,6 +103,7 @@ clear_impl()
 {
   this->img1_.clear();
   this->img2_.clear();
+  feats_.clear();
   feats_next_.clear();
   feats_next_gt_.clear();
 }
@@ -180,7 +181,7 @@ template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename K
 const char* SparseOpticalFlowProblem<Kernel, Rows, Cols, NumFeats, KeypointType, PixelType>::
 serialize_impl() const
 {
-
+  return "";
 }
 #endif
 
@@ -228,6 +229,7 @@ deserialize_impl(const char* line)
   return success;
 }
 
+#ifdef NATIVE
 template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename KeypointType, typename PixelType>
 bool SparseOpticalFlowProblem<Kernel, Rows, Cols, NumFeats, KeypointType, PixelType>::
 deserialize_imgs(const std::string& img1_path, const std::string& img2_path)
@@ -240,6 +242,7 @@ deserialize_imgs(const std::string& img1_path, const std::string& img2_path)
   success &= this->img2_.image_from_pgm(img2_path.c_str());
   return success;
 }
+#endif
 
 template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename KeypointType, typename PixelType>
 bool SparseOpticalFlowProblem<Kernel, Rows, Cols, NumFeats, KeypointType, PixelType>::
@@ -254,6 +257,7 @@ deserialize_imgs(const char* img1_path, const char* img2_path)
   return success;
 }
 
+#ifdef NATIVE
 template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename KeypointType, typename PixelType>
 bool SparseOpticalFlowProblem<Kernel, Rows, Cols, NumFeats, KeypointType, PixelType>::
 deserialize_features(const std::string& feats_path,
@@ -350,12 +354,27 @@ deserialize_features(const std::string& feats_path,
   ENTO_DEBUG("Successfully deserialized %d features", num_feats);
   return true;
 }
+#endif
 
 
 template <typename Kernel, size_t Rows, size_t Cols, size_t NumFeats, typename KeypointType, typename PixelType>
 bool SparseOpticalFlowProblem<Kernel, Rows, Cols, NumFeats, KeypointType, PixelType>::
 deserialize_features(const char* feats_path, const char* gt_path)
 {
+  const char* format_str =
+      std::is_same<typename Kernel::CoordT_, int>::value     ? "%d%c%d\n" :
+      std::is_same<typename Kernel::CoordT_, int16_t>::value ? "%hd%c%hd\n" :
+      std::is_same<typename Kernel::CoordT_, int32_t>::value ? "%d%c%d\n" :
+      std::is_same<typename Kernel::CoordT_, float>::value   ? "%f%c%f\n" :
+      nullptr;
+
+  if (format_str == nullptr)
+  {
+    ENTO_ERROR("Unsupported CoordT type for fscanf");
+    return false;
+  }
+
+
   if (!feats_path || *feats_path == '\0')
   {
     ENTO_ERROR("Invalid or empty feature file path.");
@@ -394,7 +413,7 @@ deserialize_features(const char* feats_path, const char* gt_path)
 
   if (fscanf(gt_file, "%d\n", &num_feats_gt) != 1)
   {
-    ENTO_ERROR("Failed to read feature count from gt file: %s", feats_path);
+    ENTO_ERROR("Failed to read feature count from gt file: %s", gt_path);
     fclose(gt_file);
     return false;
   }
@@ -412,14 +431,16 @@ deserialize_features(const char* feats_path, const char* gt_path)
     int x1, y1, x2_gt, y2_gt;
     char comma;
 
-    if (fscanf(feats_file, "%d%c%d\n", &x1, &comma, &y1) != 3 || comma != ',')
+    ENTO_DEBUG("Num feats in feats_: %i", feats_.size());
+    ENTO_DEBUG("Num feats in feats_gt_: %i", feats_next_gt_.size());
+    if (fscanf(feats_file, format_str, &x1, &comma, &y1) != 3 || comma != ',')
     {
       ENTO_ERROR("Error parsing feature at index %d", i);
       fclose(feats_file);
       return false;
     }
     
-    if (fscanf(gt_file, "%d%c%d\n", &x2_gt, &comma, &y2_gt) != 3 || comma != ',')
+    if (fscanf(gt_file, format_str, &x2_gt, &comma, &y2_gt) != 3 || comma != ',')
     {
       ENTO_ERROR("Error parsing gt feature (next) at index %d", i);
       fclose(gt_file);

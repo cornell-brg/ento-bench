@@ -22,7 +22,7 @@ if (STM32_BUILD)
                 SOURCES ${SOURCE_FILE}
                 LIBRARIES ${MODULES})
 
-  add_stm32_flash_and_debug_targets(ubmark)
+  add_stm32_target(ubmark)
 endif()
 
 

@@ -277,7 +277,7 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
 
   // Parse quaternion (q)
   for (int i = 0; i < 4; ++i) {
-      if (sscanf(pos, "%lf,", &pose_gt.q[i]) != 1) {
+      if (sscanf(pos, "%lf,", &pose_gt_.q[i]) != 1) {
           return false; // Parsing failed
       }
       pos = strchr(pos, ',') + 1;
@@ -285,34 +285,34 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
 
   // Parse translation (t)
   for (int i = 0; i < 3; ++i) {
-      if (sscanf(pos, "%lf,", &pose_gt.t[i]) != 1) {
+      if (sscanf(pos, "%lf,", &pose_gt_.t[i]) != 1) {
           return false; // Parsing failed
       }
       pos = strchr(pos, ',') + 1;
   }
 
   // Parse scale_gt and focal_gt
-  if (sscanf(pos, "%lf,%lf,", &scale_gt, &focal_gt) != 2) {
+  if (sscanf(pos, "%lf,%lf,", &scale_gt_, &focal_gt_) != 2) {
       return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
 
-  // Parse x_point correspondences
+  // Parse x1 correspondences
   Scalar x, y, z;
-  for (std::size_t i = 0; i < x_point_.capacity(); ++i) {
+  for (std::size_t i = 0; i < x1_.capacity(); ++i) {
       if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
           return false; // Parsing failed
       }
-      x_point_.push_back(Vec3<Scalar>(x, y, z));
+      x1_.push_back(Vec3<Scalar>(x, y, z));
       pos = strchr(pos, ',') + 1;
   }
 
-  // Parse X_point correspondences
-  for (std::size_t i = 0; i < X_point_.capacity(); ++i) {
+  // Parse x2 correspondences
+  for (std::size_t i = 0; i < x2_.capacity(); ++i) {
       if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
           return false; // Parsing failed
       }
-      X_point_.push_back(Vec3<Scalar>(x, y, z));
+      x2_.push_back(Vec3<Scalar>(x, y, z));
       pos = strchr(pos, ',') + 1;
   }
 

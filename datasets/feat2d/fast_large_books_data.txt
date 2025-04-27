@@ -1,0 +1,9 @@
+Feature Recognition Problem
+feat2d/books/large/image0.pgm,feat2d/books/large/image0_feats.txt
+feat2d/books/large/image1.pgm,feat2d/books/large/image1_feats.txt
+feat2d/books/large/image2.pgm,feat2d/books/large/image2_feats.txt
+feat2d/books/large/image3.pgm,feat2d/books/large/image3_feats.txt
+feat2d/books/large/image4.pgm,feat2d/books/large/image4_feats.txt
+feat2d/books/large/image5.pgm,feat2d/books/large/image5_feats.txt
+feat2d/books/large/image6.pgm,feat2d/books/large/image6_feats.txt
+feat2d/books/large/image7.pgm,feat2d/books/large/image7_feats.txt

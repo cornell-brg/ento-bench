@@ -199,7 +199,7 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
 
         rel_lat_error = 100 * (tdiff / (tend - tstart))
         current = current_segment.mean()
-        energy_segment = np.trapezoid(current_segment, time_segment) * voltage * 1e-6  # mJ
+        energy_segment = np.trapz(current_segment, time_segment) * voltage * 1e-6  # mJ
 
         if abs(rel_lat_error) > 10:
             energy_adjustment = current * voltage * tdiff * 1e-3
@@ -261,11 +261,18 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
             plt.title(f'Segment: {(i+1)//2 + 1}')
             plt.legend()
             plt.savefig(os.path.join(plot_dir, f'segment_{(i+1)//2 + 1}.png'))
+            #plt.show()
             plt.close()
 
+
     if plot_data:
+<<<<<<< HEAD:tools/analyze_single_experiment.py
         # Update legend to include the green prealigned search window
         plt.legend(['Data', 'Latency Indices', 'Search Window', 'Prealigned Window', 'Adjusted Indices'])
+=======
+        plt.legend(['Data', 'Latency Indices', 'Adjusted Indices', 'Search Window'])
+        #plt.show()
+>>>>>>> 5a1eb6555476b0a5c7b37fd82c249ea6c3efee4d:tools/analyze_multiple_experiments.py
         plt.savefig(os.path.join(plot_dir, 'full_plot.png'))
         plt.close()
 
@@ -293,13 +300,64 @@ def analyze_single_experiment(parent_dir, dataset_name, window_size, rising_thre
     tdiffs, energy_segments, latencies, adjusted_latencies, success = analyze_power_consumption(
         parent_dir, dataset_name, window_size, rising_threshold, falling_threshold, direction, plot_data)
     
+<<<<<<< HEAD:tools/analyze_single_experiment.py
     if not success:
         direction = 1
+=======
+    # Process each subdirectory
+    for dataset_name in subdirs:
+        print(f"Found dataset: {dataset_name}")
+        
+        # Skip directories ending with 'meas' or 'plots'
+        if dataset_name.endswith('meas') or dataset_name == 'plots':
+            print(f"Skipping non-matching experiment: {dataset_name}.\n")
+            continue
+        
+        # Skip directories ending with 'dcache'
+        if dataset_name.endswith('dcache'):
+            print(f"Skipping non-matching experiment: {dataset_name}.\n")
+            continue
+        
+        # Parse tokens for dimension extraction
+        tokens = dataset_name.split('-')
+        last_part = tokens[-1]
+        
+        # Dynamically adjust window size based on matrix dimensions (like MATLAB does)
+        m_value = 0
+        dlt_method = 0
+        
+        if last_part.endswith('x3'):
+            parts = last_part.split('x')
+            m_value = int(parts[0])
+            n_value = int(parts[1])
+            print(f"Detected 2Nx3 format with N = {m_value}")
+            dlt_method = 1
+        elif last_part.endswith('x9'):
+            parts = last_part.split('x')
+            m_value = int(parts[0])
+            n_value = int(parts[1])
+            dlt_method = 0
+            print(f"Detected 2Nx9 format with N = {m_value}")
+        else:
+            # Try to extract numeric values from the string
+            numeric_values = [int(s) for s in last_part if s.isdigit()]
+            if numeric_values:
+                m_value = int(''.join(map(str, numeric_values)))
+                print(f"Extracted dimension: {m_value}")
+            else:
+                m_value = 0
+        
+        print(f"Analyzing dataset: {dataset_name}")
+        
+        # First try with direction = 0
+        direction = 0
+>>>>>>> 5a1eb6555476b0a5c7b37fd82c249ea6c3efee4d:tools/analyze_multiple_experiments.py
         tdiffs, energy_segments, latencies, adjusted_latencies, success = analyze_power_consumption(
             parent_dir, dataset_name, window_size, rising_threshold, falling_threshold, direction, plot_data)
         if success:
             print(f"Succeeded analyzing with direction = {direction}")
     
+<<<<<<< HEAD:tools/analyze_single_experiment.py
     if not success:
         print("Failed to analyze the dataset.")
         return None
@@ -313,6 +371,9 @@ def analyze_single_experiment(parent_dir, dataset_name, window_size, rising_thre
     }
 
     return result
+=======
+    return results
+>>>>>>> 5a1eb6555476b0a5c7b37fd82c249ea6c3efee4d:tools/analyze_multiple_experiments.py
 
 
 def main():
