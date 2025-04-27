@@ -102,9 +102,9 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
             # For prealignment, calculate a time offset based on the previous shift
             search_start_time = (data['time'].iloc[idx2] - window_size * duration) + previous_shift
             search_end_time = (data['time'].iloc[idx1] + window_size * duration) + previous_shift
-            print(f'Previous shift: {previous_shift}')
-            print(f'New search/end: {search_start_time}:{search_end_time}')
-            print(f'Old search/end: {search_start_time-previous_shift}:{search_end_time-previous_shift}')
+            # print(f'Previous shift: {previous_shift}')
+            # print(f'New search/end: {search_start_time}:{search_end_time}')
+            # print(f'Old search/end: {search_start_time-previous_shift}:{search_end_time-previous_shift}')
         # If first segment, use previous method
         else:
             search_start_time = data['time'].iloc[idx2] - window_size * duration
@@ -139,9 +139,9 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         original_start_time = data['time'].iloc[idx1]
         adjusted_start_time = data['time'].iloc[idx1_adj]
         time_diff = adjusted_start_time - original_start_time
-        print("------------------------------------------------------------")
-        print(f'Original start time: {original_start_time}')
-        print(f'Adjusted start time: {adjusted_start_time}')
+        # print("------------------------------------------------------------")
+        # print(f'Original start time: {original_start_time}')
+        # print(f'Adjusted start time: {adjusted_start_time}')
         previous_shift = time_diff
 
         tstart_adj = data['time'].iloc[idx1_adj]
@@ -211,9 +211,9 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         total_energy += energy_segment + energy_adjustment
         peak_current = current_segment.max()
 
-        print(f'Energy consumed for segment {(i+1)//2 + 1}: {energy_segment + energy_adjustment:.8f} mJ')
-        print(f'Average current consumed for segment {(i+1)//2 + 1}: {current:.8f} mA')
-        print(f'Peak current consumed for segment {(i+1)//2 + 1}: {peak_current:.8f} mA')
+        # print(f'Energy consumed for segment {(i+1)//2 + 1}: {energy_segment + energy_adjustment:.8f} mJ')
+        # print(f'Average current consumed for segment {(i+1)//2 + 1}: {current:.8f} mA')
+        # print(f'Peak current consumed for segment {(i+1)//2 + 1}: {peak_current:.8f} mA')
 
         if plot_data:
             plt.plot(data['time'].iloc[idx1_adj:idx2_adj],

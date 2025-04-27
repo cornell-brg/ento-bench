@@ -15,7 +15,7 @@ static inline float rand_float_01() {
 }
 
 void __attribute__((noinline)) fp_sqrt_benchmark() {
-    constexpr int reps = 20000;
+    constexpr int reps = 600000;
 
     register float r0 asm("s0") = rand_float_01();
     register float r1 asm("s1") = rand_float_01();

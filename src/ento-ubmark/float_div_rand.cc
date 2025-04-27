@@ -20,7 +20,7 @@ static inline float rand_float() {
 
 
 void __attribute__((noinline)) fp_div_benchmark() {
-    constexpr int reps = 20000;
+    constexpr int reps = 600000;
 
     register float r0 asm("s0") = rand_float();
     register float r1 asm("s1") = rand_float();

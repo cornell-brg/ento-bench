@@ -10,30 +10,23 @@
 extern "C" void initialise_monitor_handles(void);
 #endif
 
-static inline int rand_int_nonzero() {
-    return (rand() % 161) + 1;
-}
-
-static inline int rand_int() {
-    return (rand() % 161);
-}
 
 void __attribute__((noinline)) int_div_benchmark() {
-    constexpr int reps = 20000;
+    constexpr int reps = 600000;
 
-    register int r0 asm("r0") = rand_int_nonzero();
-    register int r1 asm("r1") = rand_int_nonzero();
-    register int r2 asm("r2") = rand_int_nonzero();
-    register int r3 asm("r3") = rand_int_nonzero();
-    register int r4 asm("r4") = rand_int_nonzero();
-    register int r5 asm("r5") = rand_int_nonzero();
+    register int r0 asm("r0") = 1;
+    register int r1 asm("r1") = 1;
+    register int r2 asm("r2") = 1;
+    register int r3 asm("r3") = 1;
+    register int r4 asm("r4") = 1;
+    register int r5 asm("r5") = 1;
 
-    register int r6 asm("r6")   = rand_int();
-    register int r7 asm("r7")   = rand_int();
-    register int r8 asm("r8")   = rand_int();
-    register int r9 asm("r9")   = rand_int();
-    register int r10 asm("r10") = rand_int();
-    register int r11 asm("r11") = rand_int();
+    register int r6 asm("r6")   = 0;
+    register int r7 asm("r7")   = 0;
+    register int r8 asm("r8")   = 0;
+    register int r9 asm("r9")   = 0;
+    register int r10 asm("r10") = 0;
+    register int r11 asm("r11") = 0;
 
     start_roi();
     for (int i = 0; i < reps; i++) {
