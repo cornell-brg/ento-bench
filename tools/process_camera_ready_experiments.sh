@@ -13,7 +13,7 @@ datasets="$2"
 
 # List of datasets (previously called directories)
 # datasets=("dlt-osj-optim-2Nx3")
-datasets=("curr_data")
+# datasets=("curr_data")
 
 # Base command
 # Field order 0 if trigger on top of latency curve
