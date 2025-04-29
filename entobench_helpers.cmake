@@ -174,32 +174,44 @@ function(add_stm32_target target_name)
   get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
   file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
 
+  set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
+  set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+
   add_custom_target(stm32-flash-${target_name}-semihosted
-    COMMAND openocd
-      -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
-      -c "init"
-      -c "reset halt"
-      -c "arm semihosting enable"
-      -c "program bin/${target_name}.elf verify"
-      -c "reset run"
+    COMMAND bash -c "
+      openocd \
+        -f \"${OPENOCD_INTERFACE}\" \
+        -f \"${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}\" \
+        -c 'init' \
+        -c 'reset halt' \
+        -c 'arm semihosting enable' \
+        -c 'program bin/${target_name}.elf verify' \
+        -c 'reset run' \
+        2>&1 | tee \"${FLASH_LOG}\"
+      "
     DEPENDS ${target_name}
-    COMMENT "Flashing ${target_name} to target (${OPENOCD_CFG})"
+    USES_TERMINAL
+    VERBATIM
+    COMMENT "Flashing ${target_name} and logging to ${FLASH_LOG}"
   )
 
   # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}-semihosted
-    COMMAND openocd
-      -f ${OPENOCD_INTERFACE}
-      -f ${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}
-      -c "init"
-      -c "reset halt"
-      -c "arm semihosting_cmdline '12'" # 12 to see how strings are passed by semihosting
-      -c "arm semihosting enable"
-      -c "program bin/${target_name}.elf verify"
-      -c "reset halt"
+    COMMAND bash -c "
+      openocd \
+        -f \"${OPENOCD_INTERFACE}\" \
+        -f \"${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}\" \
+        -c 'init' \
+        -c 'reset halt' \
+        -c 'arm semihosting enable' \
+        -c 'program bin/${target_name}.elf verify' \
+        -c 'reset halt' \
+      2>&1 | tee \"${DEBUG_LOG}\"
+    "
     DEPENDS ${target_name}
-    COMMENT "Starting debug session for ${target_name} on ${OPENOCD_CFG}"
+    USES_TERMINAL
+    VERBATIM
+    COMMENT "Starting debug session for ${target_name} and logging to ${DEBUG_LOG}"
   )
 
 endfunction()
