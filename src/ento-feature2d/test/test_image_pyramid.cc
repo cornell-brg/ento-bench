@@ -13,9 +13,10 @@ using namespace EntoUtil;
 
 // DEBUG MESSAGES
 template <size_t IMG_WIDTH, size_t IMG_HEIGHT, typename PixelT>
-void check_pyramid(Image<IMG_WIDTH, IMG_HEIGHT, PixelT>& img, size_t Is) {
+void check_pyramid(const Image<IMG_WIDTH, IMG_HEIGHT, PixelT>& img, size_t Is) {
   // initialize oneImg 
   string str = "/Users/acui21/Documents/brg/pgm_images/gem5_pyr_prev_" + to_string(Is) + ".pgm";
+  cout << str << endl;
   const char* image_path = str.c_str();
   Image<IMG_WIDTH, IMG_HEIGHT, uint8_t> golden_img;
   golden_img.image_from_pgm(image_path);
@@ -23,15 +24,13 @@ void check_pyramid(Image<IMG_WIDTH, IMG_HEIGHT, PixelT>& img, size_t Is) {
   ENTO_TEST_CHECK_ARRAY_INT_EQ(img.data, golden_img.data,  IMG_WIDTH * IMG_HEIGHT);
 }
 
-template <typename Tuple, size_t TOP_WIDTH, size_t TOP_HEIGHT, typename PixelT, std::size_t... Is>
-void test_pyramid_helper(Tuple& pyramid, std::index_sequence<Is...>)
+template <typename PyramidType, size_t TOP_WIDTH, size_t TOP_HEIGHT, typename PixelT, std::size_t... Is>
+void test_pyramid_helper(PyramidType& pyramid, std::index_sequence<Is...>)
 {
     // Use a fold expression to print each level’s type in one go.
-    ((check_pyramid<(TOP_WIDTH >> Is), (TOP_HEIGHT >> Is), PixelT>(get<Is>(pyramid), Is)),
+    ((check_pyramid<(TOP_WIDTH >> Is), (TOP_HEIGHT >> Is), PixelT>(pyramid.template get_level<Is>(), Is)),
      ...);
-
 }
-
 
 void test_pyramid_zero_level() {
   // initialize image 
@@ -42,13 +41,12 @@ void test_pyramid_zero_level() {
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
 
   constexpr size_t NUM_LEVELS = 0;
-  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid;
-  pyramid.set_top_image(topImg);
-  using MyTupleType = decltype(pyramid.pyramid);
+  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid(topImg);
+
+  using PyramidType = ImagePyramid<NUM_LEVELS, 320, 320, uint8_t>;
   // Print the types of each level in the pyramid:
-  pyramid.initialize_pyramid();
-  test_pyramid_helper<MyTupleType, DIM, DIM, uint8_t>(
-      pyramid.pyramid,
+  test_pyramid_helper<PyramidType, DIM, DIM, uint8_t>(
+      pyramid,
       std::make_index_sequence<NUM_LEVELS+1>{}
   );
 }
@@ -62,12 +60,11 @@ void test_pyramid_one_level() {
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
 
   constexpr size_t NUM_LEVELS = 1;
-  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid;
-  pyramid.set_top_image(topImg);
-  using MyTupleType = decltype(pyramid.pyramid);
-  pyramid.initialize_pyramid();
-  test_pyramid_helper<MyTupleType, DIM, DIM, uint8_t>(
-      pyramid.pyramid,
+  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid(topImg);
+
+  using PyramidType = ImagePyramid<NUM_LEVELS, 320, 320, uint8_t>;
+  test_pyramid_helper<PyramidType, DIM, DIM, uint8_t>(
+      pyramid,
       std::make_index_sequence<NUM_LEVELS+1>{}
   );
 }
@@ -79,14 +76,12 @@ void test_pyramid_three_level() {
   constexpr size_t DIM = (size_t) 320;
   Image<DIM, DIM, uint8_t> topImg;
 
-
-  ImagePyramid<2, 320, 320, uint8_t> pyramid;
+  constexpr size_t NUM_LEVELS = 2;
   ENTO_TEST_CHECK_INT_EQ(topImg.image_from_pgm(prev_image_path), 1);
-  pyramid.set_top_image(topImg);
-  pyramid.initialize_pyramid();
-  using MyTupleType = decltype(pyramid.pyramid);
-  test_pyramid_helper<MyTupleType, DIM, DIM, uint8_t>(
-      pyramid.pyramid,
+  ImagePyramid<NUM_LEVELS, 320, 320, uint8_t> pyramid(topImg);
+  using PyramidType = ImagePyramid<2, 320, 320, uint8_t>;
+  test_pyramid_helper<PyramidType, DIM, DIM, uint8_t>(
+      pyramid,
       std::make_index_sequence<3>{}
   );
 }
@@ -95,6 +90,7 @@ void test_pyramid_three_level() {
 int main ( int argc, char ** argv)
 {
   using namespace EntoUtil;
+  ENTO_TEST_START();
   int __n;
   if (argc > 1)
   {
@@ -111,5 +107,5 @@ int main ( int argc, char ** argv)
   if (__ento_test_num(__n, 1)) test_pyramid_zero_level();
   if (__ento_test_num(__n, 2)) test_pyramid_one_level();
   if (__ento_test_num(__n, 3)) test_pyramid_three_level();
-
+  ENTO_TEST_END();
 }

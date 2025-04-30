@@ -38,8 +38,10 @@ public:
 
     // Constructor that sets the 0th level to 'topLevelImage' and
     // default-constructs (or otherwise creates) the other levels.
-    constexpr ImagePyramid()
+    constexpr ImagePyramid(Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& topLevelImage)
     {
+        set_top_image(topLevelImage);
+        initialize_pyramid();
     }
 
     // Set top level
