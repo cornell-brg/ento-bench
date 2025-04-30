@@ -33,10 +33,10 @@ if(STM32_BUILD)
     ${HAL_UTILS_TARGET}
     ${HAL_GPIO_TARGET}
     ${CMSIS_TYPE_TARGET}
-    STM32::Nano::FloatPrint
-    STM32::Nano::FloatScan
-    STM32::NoSys
-    STM32::Nano
+    #STM32::Nano::FloatPrint
+    #STM32::Nano::FloatScan
+    #STM33::NoSys
+    #STM33::Nano
   )
 
 # =============================================

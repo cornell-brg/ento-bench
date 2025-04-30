@@ -14,7 +14,6 @@ bool icache_is_enabled()
 #if defined(STM32U5)
   return LL_ICACHE_IsEnabled();
 #elif defined(STM32F7) || defined(STM32H7)
-
   return (SCB->CCR & SCB_CCR_IC_Msk) != 0;
 #endif
   return 0;

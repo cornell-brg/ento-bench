@@ -178,7 +178,7 @@ function(add_stm32_target target_name)
   set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
 
   add_custom_target(stm32-flash-${target_name}-semihosted
-    COMMAND bash -c "
+    COMMAND bash -c "\
       openocd \
         -f \"${OPENOCD_INTERFACE}\" \
         -f \"${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}\" \
@@ -187,8 +187,7 @@ function(add_stm32_target target_name)
         -c 'arm semihosting enable' \
         -c 'program bin/${target_name}.elf verify' \
         -c 'reset run' \
-        2>&1 | tee \"${FLASH_LOG}\"
-      "
+        2>&1 | tee \"${FLASH_LOG}\""
     DEPENDS ${target_name}
     USES_TERMINAL
     VERBATIM
@@ -197,7 +196,7 @@ function(add_stm32_target target_name)
 
   # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}-semihosted
-    COMMAND bash -c "
+    COMMAND bash -c "\
       openocd \
         -f \"${OPENOCD_INTERFACE}\" \
         -f \"${CMAKE_SOURCE_DIR}/openocd/${OPENOCD_CFG}\" \
@@ -206,8 +205,7 @@ function(add_stm32_target target_name)
         -c 'arm semihosting enable' \
         -c 'program bin/${target_name}.elf verify' \
         -c 'reset halt' \
-      2>&1 | tee \"${DEBUG_LOG}\"
-    "
+        2>&1 | tee \"${DEBUG_LOG}\""
     DEPENDS ${target_name}
     USES_TERMINAL
     VERBATIM

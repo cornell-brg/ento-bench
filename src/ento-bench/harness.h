@@ -12,6 +12,7 @@
 
 #endif
 
+#include <inttypes.h>
 #include <tuple>
 #include <cstdio>
 #include <ento-bench/roi.h>
@@ -286,7 +287,7 @@ public:
         problem_.solve();
         end_roi();
         cold_metrics_ = get_roi_stats();
-        update_aggregate(cold_metrics_);
+        //update_aggregate(cold_metrics_);
       }
       // Benchmark kernel (algorithm implementation, callable) that Problem Specification holds.
       size_t i;
@@ -335,11 +336,11 @@ public:
 
       if constexpr (Reps == 1 && Verbosity == 1)
       {
-        print_metrics(metrics_, i);
+        print_metrics(rep_metrics_, i);
       }
       else if constexpr (Reps == 1 && Verbosity == 2)
       {
-        print_metrics_verbose(metrics_, i);
+        print_metrics_verbose(rep_metrics_, i);
       }
       else if constexpr (Reps > 1 && Verbosity > 0)
       {
@@ -359,6 +360,11 @@ public:
       }
       else
       {
+        metrics_.delta_cpi      = rep_metrics_.delta_cpi;
+        metrics_.delta_lsu      = rep_metrics_.delta_lsu;
+        metrics_.delta_exc      = rep_metrics_.delta_exc;
+        metrics_.delta_fold     = rep_metrics_.delta_fold;
+        metrics_.elapsed_cycles = rep_metrics_.elapsed_cycles;
         update_aggregate(metrics_);
       }
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -628,13 +634,13 @@ private:
 
     if constexpr (DoWarmup)
     {
-      printf("Cold cycles: %lu\n",      cold_metrics_.elapsed_cycles);
+      printf("Cold cycles: %llu \n", cold_metrics_.elapsed_cycles);
       if constexpr (Verbosity == 2)
       {
-        printf("Cold cpi events: %lu\n",  cold_metrics_.delta_cpi);
-        printf("Cold fold events: %lu\n", cold_metrics_.delta_fold);
-        printf("Cold lsu events: %lu\n",  cold_metrics_.delta_lsu);
-        printf("Cold exc events: %lu\n",  cold_metrics_.delta_exc);
+        printf("Cold cpi events: %u\n",  cold_metrics_.delta_cpi);
+        printf("Cold fold events: %u\n", cold_metrics_.delta_fold);
+        printf("Cold lsu events: %u\n",  cold_metrics_.delta_lsu);
+        printf("Cold exc events: %u\n",  cold_metrics_.delta_exc);
       }
       printf("Final ROI cycles: %u\n",     (uint32_t) metrics_.elapsed_cycles);
       if constexpr (Verbosity == 2)
@@ -647,7 +653,7 @@ private:
     }
     //uint32_t avg_cycles = (uint32_t) (total_metrics_.elapsed_cycles / )
     //printf("Average cycles: %lu\n", total_metrics_.elapsed_cycles / iters_);
-    printf("Average cycles: %.3f\n", (double)total_metrics_.elapsed_cycles / iters_);
+    printf("Average cycles: %.3lf\n", (double)total_metrics_.elapsed_cycles / iters_);
     printf("Max cycles: %u\n", (uint32_t) max_metrics_.elapsed_cycles);
     printf("Min cycles: %u\n", (uint32_t) min_metrics_.elapsed_cycles);
   }

@@ -31,6 +31,7 @@ int main()
     enable_instruction_cache();
     enable_instruction_cache_prefetch();
     icache_enable();
+    dcache_enable();
 
     printf("==========================\n");
     printf("Running floating-point addition microbenchmark (zero values).\n");
