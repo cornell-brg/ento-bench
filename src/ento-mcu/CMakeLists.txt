@@ -35,8 +35,8 @@ if(STM32_BUILD)
     ${CMSIS_TYPE_TARGET}
     #STM32::Nano::FloatPrint
     #STM32::Nano::FloatScan
-    #STM33::NoSys
-    #STM33::Nano
+    #STM32::NoSys
+    #STM32::Nano
   )
 
 # =============================================
