@@ -10,8 +10,86 @@
 #include <image_io/Image.h>
 #include <ento-feature2d/feat2d_util.h>
 
+#ifdef ENTO_DEBUG
+#include <ento-feature2d/bb_optical_flow_debug.h>
+#endif
+
 using namespace EntoFeature2D;
 
+// https://github.com/PX4/PX4-Flow/blob/master/src/modules/flow/flow.c
+// TODO: function, refactor, with software & vector implementation & unit tests
+#define ABSDIFF(frame1, frame2) \
+({ \
+ int result = 0; \
+ asm volatile( \
+  "mov %[result], #0\n"           /* accumulator */ \
+ \
+  "ldr r4, [%[src], #0]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #0]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #4]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #4]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 1)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 1)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 1 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 1 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 2)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 2)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 2 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 2 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 3)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 3)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 3 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 3 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 4)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 4 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 4 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 5)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 5)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 5 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 5 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 6)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 6)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 6 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 6 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  "ldr r4, [%[src], #(320 * 7)]\n"        /* read data from address + offset*/ \
+  "ldr r5, [%[dst], #(320 * 7)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+  "ldr r4, [%[src], #(320 * 7 + 4)]\n"        /* read data from address + offset */ \
+  "ldr r5, [%[dst], #(320 * 7 + 4)]\n" \
+  "usada8 %[result], r4, r5, %[result]\n"      /* difference */ \
+ \
+  : [result] "+r" (result) \
+  : [src] "r" (frame1), [dst] "r" (frame2) \
+  : "r4", "r5" \
+  ); \
+  \
+ result; \
+})
+// + indicates r/w
+// r indicates general-purpose register
+// Armv7-M: General-purpose registers R0-R12.
 
 template <int IMG_WIDTH, int IMG_HEIGHT, int WIN_DIM, typename CoordT, typename PixelT, int SEARCH_AREA, typename FlowT>
 Keypoint<FlowT> calcOpticalFlowBB(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg, 
@@ -53,21 +131,43 @@ Keypoint<FlowT> calcOpticalFlowBB(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& pr
                 // loop through window
                 // encapsulate this? 
                 // no clamp
+                #ifdef NATIVE
+                #ifdef ENTO_DEBUG
+                // row * Cols + col
+                const uint8_t* frame1 = &prevImg.data[y_i * 320 + x_i];
+                const uint8_t* frame2 = &nextImg.data[y_i_win * 320 + x_i_win];
+                // PixelT = uint8
+                // IMG_WIDTH = IMG_HEIGHT = 320
+                // WIN_DIM = 8
+                sad = absdiff(frame1, frame2);
+                #else
                 for (int wx = 0; wx < WIN_DIM; wx++) {
                     for (int wy = 0; wy < WIN_DIM; wy++) {
-                        int x1 = std::clamp(x_i + wx, 0, IMG_WIDTH - 1);
-                        int y1 = std::clamp(y_i + wy, 0, IMG_HEIGHT - 1);
 
-                        int x2 = std::clamp(x_i_win + wx, 0, IMG_WIDTH - 1);
-                        int y2 = std::clamp(y_i_win + wy, 0, IMG_HEIGHT - 1);
+                        
+                        int x1 = x_i + wx;
+                        int y1 = y_i + wy;
+
+                        int x2 = x_i_win + wx;
+                        int y2 = y_i_win + wy;
 
                         sad += std::abs(
-                            static_cast<int>(nextImg.get_pixel(y2, x2)) -
-                            static_cast<int>(prevImg.get_pixel(y1, x1))
+                            (nextImg.get_pixel(y2, x2)) -
+                            (prevImg.get_pixel(y1, x1))
                         );
-
                     }
                 }
+                #endif
+                #else
+                    // row * Cols + col
+                    uint8_t* frame1 = &prevImg.data[y_i * 320 + x_i]
+                    uint8_t* frame2 = &nextImg.data[y_i_win * 320 + x_i_win]
+                    // PixelT = uint8
+                    // IMG_WIDTH = IMG_HEIGHT = 320
+                    // WIN_DIM = 8
+                    sad = ABSDIFF(frame1, frame2);
+                #endif
+
 
                 if (sad < min_sad) {
                     min_sad = sad;
@@ -117,6 +217,7 @@ Keypoint<FlowT> calcOpticalFlowBB(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& pr
     float best_x_offset = float(global_dx);
     float best_y_offset = float(global_dy);
 
+
     for (float x_offset = -0.5; x_offset <= 0.5; x_offset += 0.5) {
         for (float y_offset = -0.5; y_offset <= 0.5; y_offset += 0.5) {
 
@@ -152,16 +253,17 @@ Keypoint<FlowT> calcOpticalFlowBB(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& pr
 
                 }
             }
-
             if (interp_sad <= best_interp_sad) {
                 best_interp_sad = interp_sad;
                 best_x_offset = x_offset + float(global_dx);
                 best_y_offset = y_offset + float(global_dy);
+
             }
+            
+
 
         }
     }
-
 
 
     Keypoint<FlowT> flow;

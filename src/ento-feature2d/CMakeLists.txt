@@ -33,6 +33,7 @@ set(TEST_FILES
   test_ii_optical_flow.cc
   test_feature_recognition_problem.cc
   test_bb_optical_flow.cc
+  test_sad.cc
 )
 
 set(LIBRARIES_test_fast
@@ -56,7 +57,10 @@ set(LIBRARIES_test_image_pyramid
 set(LIBRARIES_test_ii_optical_flow
   m ento_util image_io Eigen)
 
-  set(LIBRARIES_test_bb_optical_flow
+set(LIBRARIES_test_bb_optical_flow
+  m ento_util image_io Eigen)
+
+set(LIBRARIES_test_sad
   m ento_util image_io Eigen)
 
 set(LIBRARIES_test_feature_recognition_problem
