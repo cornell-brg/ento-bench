@@ -6,7 +6,7 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_example_v2.cc)
 if (STM32_BUILD)
   set(MODULES
     bench
-    mcu-util
+    ento-mcu-semihosted
     Eigen
     CMSIS::STM32::${STM_PRODUCT}
   )

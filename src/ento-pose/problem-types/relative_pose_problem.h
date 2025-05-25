@@ -26,6 +26,7 @@ public:
   static constexpr Scalar tol = 1e-6;
   static constexpr bool RequiresDataset_ = true;
   static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
   static constexpr size_t MaxSolns_ = Solver::MaxSolns;
   //////// Class Members /////////
   // Solver Callable

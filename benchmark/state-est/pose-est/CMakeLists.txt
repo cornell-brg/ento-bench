@@ -6,7 +6,7 @@ include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 if (STM32_BUILD)
 set(MODULES
   bench
-  mcu-util
+  ento-mcu-semihosted
   Eigen
   ento-pose
   ento_util

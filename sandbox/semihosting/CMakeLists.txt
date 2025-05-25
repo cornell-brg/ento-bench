@@ -24,7 +24,7 @@ target_link_libraries(
   ${HAL_RCC_TARGET}
   ${HAL_GPIO_TARGET}
   ${CMSIS_TARGET}
-  mcu-util
+  ento-mcu-semihosted
 )
 
 # Add compile options

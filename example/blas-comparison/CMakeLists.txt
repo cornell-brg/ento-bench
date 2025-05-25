@@ -6,7 +6,7 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/blas-comparison.cc)
 if (STM32_BUILD)
   set(MODULES
     bench
-    mcu-util
+    ento-mcu-semihosted
     ento_math
     Eigen
     CMSIS::STM32::${STM_PRODUCT}

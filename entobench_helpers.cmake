@@ -31,7 +31,7 @@ function(add_arm_semihosting_executable TARGET_NAME)
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
-    mcu-util
+    ento-mcu-semihosted
   )
 endfunction()
 
@@ -58,7 +58,6 @@ function(add_arm_executable TARGET_NAME)
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
-    #mcu-util
   )
 
 endfunction()

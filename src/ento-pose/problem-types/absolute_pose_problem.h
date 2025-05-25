@@ -29,6 +29,7 @@ public:
   static constexpr size_t NumPts_ = NumPts;
   static constexpr bool RequiresDataset_ = true;
   static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
   static constexpr size_t MaxSolns_ = Solver::MaxSolns;
 
   //////// Class Members /////////
