@@ -40,6 +40,7 @@ class SIFTDoGOctave
   static constexpr int NumDoGLayers_ = NumDoGLayers;
   static constexpr int NumBlurLevels_ = NumDoGLayers + 1;
   static constexpr int RingSize_ = RingSize;
+  static constexpr int KernelSize = 5;
 
   static_assert(RowChunk_ <= Height_, "Block size must fit in image.");
   static_assert(RowChunk_ >= 0, "Row chunk must be non-negative.");
@@ -52,6 +53,7 @@ class SIFTDoGOctave
   DoGImageT_* gaussian_prev_p_;
   DoGImageT_* gaussian_curr_p_;
   DoGImageT_ dog_ring_[RingSize];
+  std::array<std::array<float,KernelSize>, NumDoGLayers_> kernels_;
 
   int dog_head_      = 0;
   int current_scale_ = 0;
@@ -61,7 +63,27 @@ public:
     : input_img_(img),
       gaussian_prev_p_(&gaussian_buffers_[1]),
       gaussian_curr_p_(&gaussian_buffers_[0])
-  {}
+  {
+    precompute_kernels();
+  }
+
+  void precompute_kernels() {
+    constexpr float base_sigma        = 1.6f;
+    constexpr int   levels_per_octave = NumDoGLayers_;
+    const float     k                = std::pow(2.0f, 1.0f/levels_per_octave);
+
+    float sigma_prev = 0.0f;
+    for (int i = 0; i < NumDoGLayers_; ++i) {
+      // compute current target sigma
+      float sigma_curr = base_sigma * std::pow(k, i+1);
+      // delta σ for incremental blur
+      float delta      = std::sqrt(sigma_curr*sigma_curr
+                                 - sigma_prev*sigma_prev);
+      // build one 1-D kernel of length 5
+      kernels_[i] = make_gaussian_kernel<float, KernelSize>(delta);
+      sigma_prev  = sigma_curr;
+    }
+  }
 
   void initialize()
   {
@@ -74,23 +96,34 @@ public:
       }
     }
 
-    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr());
+    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr(), kernels_[0]);
     compute_DoG(dog_ring_[0], gaussian_curr(), gaussian_prev());
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
+    ENTO_DEBUG("\nSwapping gaussians.\n");
     swap_gaussians();
 
-    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr());
+    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr(), kernels_[1]);
     compute_DoG(dog_ring_[1], gaussian_curr(), gaussian_prev());
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
+    ENTO_DEBUG("\nSwapping gaussians.\n");
     swap_gaussians();
 
-    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr());
+    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr(), kernels_[2]);
     compute_DoG(dog_ring_[2], gaussian_curr(), gaussian_prev());
 
-    ENTO_DEBUG_IMAGE(gaussian_prev());
-    ENTO_DEBUG_IMAGE(gaussian_curr());
+    ENTO_DEBUG("\nComputed a DoG triplet.\n");
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
 
-    ENTO_DEBUG_IMAGE(dog_ring_[0]);
-    ENTO_DEBUG_IMAGE(dog_ring_[1]);
-    ENTO_DEBUG_IMAGE(dog_ring_[2]);
+    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[0], 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[1], 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[2], 16, 16, 5, 5));
+
+    //ENTO_DEBUG_IMAGE(dog_ring_[0]);
+    //ENTO_DEBUG_IMAGE(dog_ring_[1]);
+    //ENTO_DEBUG_IMAGE(dog_ring_[2]);
 
     dog_head_ = 2;
     current_scale_ = 3;
@@ -101,12 +134,19 @@ public:
     if (current_scale_ >= NumDoGLayers_ - 1)
       return false;
 
+    ENTO_DEBUG("\nSwapping gaussians.\n");
     swap_gaussians();
+    int kernel_idx = current_scale_ - 1;
 
-    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr());
+
+    gaussian_blur<DoGImageT_, DoGImageT_, 5>(gaussian_prev(), gaussian_curr(), kernels_[kernel_idx]);
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
 
     int next = (dog_head_ + 1) % 3; // next in dog_ring_
     compute_DoG(dog_ring_[next], gaussian_curr(), gaussian_prev());
+    ENTO_DEBUG("\nComputed a DoG triplet.\n");
+    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[next], 16, 16, 5, 5));
 
     dog_head_ = next;  // next is now current
     current_scale_ += 1;
@@ -206,14 +246,21 @@ public:
                                  int scale_idx, int octave)
   {
     constexpr int H = DoGImageT_::rows_;
-    constexpr int W = DoGImageT_::cols;
+    constexpr int W = DoGImageT_::cols_;
+
+    ENTO_DEBUG_IMAGE(make_centered_view(triplet.prev_image(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(triplet.curr_image(), 16, 16, 5, 5));
+    ENTO_DEBUG_IMAGE(make_centered_view(triplet.next_image(), 16, 16, 5, 5));
 
     for (int y = 1; y < H - 1; ++y)
     {
       for (int x = 1; x < W - 1; ++x)
       {
         float center_val = triplet.curr_image()(y,x);
-        ENTO_DEBUG("Center val: %f", center_val);
+        
+        //ENTO_DEBUG("Center val: %f", center_val);
+        //ENTO_DEBUG("Center val: %f", center_val);
+        //ENTO_DEBUG("Center val: %f", center_val);
         bool is_max = true;
         bool is_min = true;
 
@@ -228,27 +275,49 @@ public:
           {
             for (int dx = -1; dx <= 1; ++dx)
             {
+              //if (!is_max or !is_min) 
+              //  continue; // once we fail don't keep checking
               if (dz == 0 && dy == 0 && dx == 0)
                 continue; // skip center
 
-
               float val = (*img)(y + dy, x + dx);
-              ENTO_DEBUG("DoGTriplet(%d, %d) = %f", y+dy, x+dx, val);
-              if (center_val <= val)
+              if (x > 14 && x < 18 && y > 14 && y < 18)
+              {
+                //ENTO_DEBUG("(%d, %d, %d) vs (%d, %d, %d) -> %f ? %f",
+                //            y+dy, x+dx, scale_idx, y+dx, x+dx, dz, center_val, val);
+
+              }
+
+              if (center_val < val)
+              {
                 is_max = false;
-              if (center_val >= val)
+              }
+              else
+              {
+                //ENTO_DEBUG("(%d, %d, %d) vs (%d, %d, %d) -> %f > %f",
+                //            y+dy, x+dx, scale_idx, y+dx, x+dx, dz, center_val, val);
+              }
+              if (center_val > val)
+              {
                 is_min = false;
+              }
+              else
+              {
+                //ENTO_DEBUG("(%d, %d, %d) vs (%d, %d, %d) -> %f < %f",
+                //            y+dy, x+dx, scale_idx, y+dx, x+dx, dz, center_val, val);
+              }
             }
           }
         }
-
+        
         if ((is_max || is_min) && !feats_.full())
         {
-          ENTO_DEBUG("Interpolating candidate!");
+          //ENTO_DEBUG("Interpolating candidate @ (%d, %d, %d) = %f!", x, y, scale_idx, center_val);
           SIFTInterpolationResult interp_result;
           if (!interpolate_extremum(triplet, x, y, scale_idx, interp_result))
             continue;
 
+          ENTO_DEBUG("Interpolated candidate passed @ (%d, %d, %d) = %f!", x, y, scale_idx, center_val);
           feats_.add_keypoint(KeypointT{
             static_cast<KeypointCoordT_>(x),
             static_cast<KeypointCoordT_>(y),

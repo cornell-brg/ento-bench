@@ -276,28 +276,33 @@ inline void __ento_test_check_quat_eq(const char* file, int lineno,
 template <typename Image1, typename Image2>
 inline void __ento_test_check_image_eq(const char* file, int lineno, 
                                        const char* expr1, const char* expr2,
-                                       typename Image1::pixel_type tol,
+                                       typename Image1::pixel_type_ tol,
                                        const Image1& A, const Image2& B)
 {
-  static_assert(Image1::rows == Image2::rows_, "Image height mismatch");
-  static_assert(Image1::cols == Image2::cols, "Image width mismatch");
-  static_assert(std::is_same<typename Image1::pixel_type, typename Image2::pixel_type>::value,
+  static_assert(std::is_same<typename Image1::pixel_type_, typename Image2::pixel_type_>::value,
                 "Pixel types must match");
+  if (A.rows() != B.rows() || A.cols() != B.cols())
+  {
+    std::printf(__RED "Images are not same size. %s (%d, %d) vs %s (%d,%d)\n" __RESET,
+                expr1, A.rows(), A.cols(), expr2, B.rows(), B.cols());
+  }
 
   file = __ento_debug_get_file_name(file);
-  using PixelT = typename Image1::pixel_type;
+  using PixelT = typename Image1::pixel_type_;
 
   bool has_mismatch = false;
-  for (int y = 0; y < Image1::rows_; ++y)
+  int rows = A.rows();
+  int cols = A.cols();
+  for (int y = 0; y < rows; ++y)
   {
-    for (int x = 0; x < Image1::cols; ++x)
+    for (int x = 0; x < cols; ++x)
     {
       PixelT a = A(y, x);
       PixelT b = B(y, x);
       PixelT diff = (a > b) ? (a - b) : (b - a);
       if (diff > tol)
       {
-        if constexpr (std::is_floating_point_v<typename Image1::pixel_type>)
+        if constexpr (std::is_floating_point_v<typename Image1::pixel_type_>)
         {
           std::printf(__RED "Mismatch at (%d, %d): %s = %f, %s = %f\n" __RESET,
                       y, x, expr1, static_cast<float>(a), expr2, static_cast<float>(b));

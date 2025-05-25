@@ -284,12 +284,12 @@ inline void __ento_debug_print_image(const char* file, int line, const char* fun
                                      const char* name, const ImageT& img)
 {
   using PixelT = typename ImageT::pixel_type_;
-  constexpr int W = ImageT::cols_;
-  constexpr int H = ImageT::rows_;
   constexpr int width = 7;
   constexpr int precision = 2;
   constexpr const char* indent = "\t";
 
+  const int W = img.rows();
+  const int H = img.cols();
   if (EntoUtil::__n <= 0) return;
 
   std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n%s =\n",

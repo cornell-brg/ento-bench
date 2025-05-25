@@ -127,21 +127,38 @@ void test_extrema_on_blob()
 
   ImgT input_img;
   copy_into_img(input_img, blur_raw_32x32);
+  DoGImageT golden_dogs[4];
+  for (int i = 0; i < 4; i++)
+    copy_into_img(golden_dogs[i], golden_DoGs[i]);
 
   SIFTDoGOctave<Image<H, W, uint8_t>, DoGPixelT, 5> octave(input_img);
   octave.initialize();
 
   DoGTripletT dog3 = octave.get_current_DoG_triplet();
+  ENTO_TEST_CHECK_IMAGE_EQ_TOL(dog3.prev_image(), golden_dogs[0], 0.1f);
+  ENTO_TEST_CHECK_IMAGE_EQ_TOL(dog3.curr_image(), golden_dogs[1], 0.1f);
+  ENTO_TEST_CHECK_IMAGE_EQ_TOL(dog3.next_image(), golden_dogs[2], 0.1f);
 
-  ENTO_DEBUG_IMAGE(make_centered_view(dog3.prev_image(), 8, 8, 15, 15));
-  ENTO_DEBUG_IMAGE(make_centered_view(dog3.curr_image(), 8, 8, 15, 15));
-  ENTO_DEBUG_IMAGE(make_centered_view(dog3.next_image(), 8, 8, 15, 15));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.prev_image(), 16, 16, 5, 5));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.curr_image(), 16, 16, 5, 5));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.next_image(), 16, 16, 5, 5));
 
   FeatureArray<KeypointT, 1> feats{};
   auto driver = SIFTDriver<ImgT, 1, KeypointT>(input_img, feats);
 
 
   driver.detect_extrema_in_triplet(octave.get_current_DoG_triplet(), 1, 0);
+
+  ENTO_DEBUG("\nStepping octave! \n");
+  bool more = octave.step();
+  ENTO_DEBUG("More? %i", more);
+  dog3 = octave.get_current_DoG_triplet();
+
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.prev_image(), 16, 16, 5, 5));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.curr_image(), 16, 16, 5, 5));
+  ENTO_DEBUG_IMAGE(make_centered_view(dog3.next_image(), 16, 16, 5, 5));
+
+  driver.detect_extrema_in_triplet(octave.get_current_DoG_triplet(), 2, 0);
 
   // Check result vs gt_kp
   ENTO_TEST_CHECK_INT_EQ(feats.size(), 1);

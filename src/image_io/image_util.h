@@ -124,6 +124,41 @@ constexpr std::array<ScalarT, N> make_gaussian_kernel()
   return kernel;
 }
 
+template <typename ScalarT, int N>
+std::array<ScalarT, N> make_gaussian_kernel(ScalarT sigma)
+{
+  std::array<ScalarT, N> kernel{};
+  constexpr int half = N / 2;
+  ScalarT sum = 0;
+  for (int i = 0; i < N; ++i)
+  {
+    ScalarT x = static_cast<ScalarT>(i - half);
+    kernel[i] = std::exp(- (x * x) / (2 * sigma * sigma));
+    sum += kernel[i];
+  }
+  // Normalize the kernel so that the sum is 1.
+  for (auto& w : kernel)
+  {
+    w /= sum;
+  }
+  return kernel;
+}
+
+template <typename T>
+std::vector<T> make_gauss_kernel(int N, T sigma) {
+  int half = N/2;
+  std::vector<T> K(N);
+  T sum = 0;
+  for (int i = 0; i < N; ++i) {
+    T x = static_cast<T>(i - half);
+    K[i] = std::exp(- (x*x) / (2 * sigma * sigma));
+    sum += K[i];
+  }
+  for (auto &v : K) v /= sum;
+  return K;
+}
+
+
 template <typename KernelT, int KernelSize>
 constexpr std::array<KernelT, KernelSize> get_fixed_gaussian_kernel()
 {
@@ -247,13 +282,13 @@ void gaussian_blur_in_place(ImageT& image)
 
 template <typename SrcImageT, typename DstImageT, int KernelSize, typename KernelT = float,
           GaussianCastMode CastMode = GaussianCastMode::Round>
-void gaussian_blur(const SrcImageT& src, DstImageT& dst)
+void gaussian_blur(const SrcImageT& src, DstImageT& dst, const std::array<KernelT, KernelSize>& kernel)
 {
   static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
   static constexpr int rows = SrcImageT::rows_;
   static constexpr int cols = SrcImageT::cols_;
   static constexpr int half = KernelSize / 2;
-  static constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
+  //static constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
 
   auto reflect = [](int x, int max) -> int {
     if (x < 0)
@@ -332,6 +367,15 @@ void gaussian_blur(const SrcImageT& src, DstImageT& dst)
       }
     }
   }
+}
+
+template <typename SrcImageT, typename DstImageT, int KernelSize, typename KernelT = float,
+          GaussianCastMode CastMode = GaussianCastMode::Round>
+void gaussian_blur(const SrcImageT& src, DstImageT& dst)
+{
+  static_assert(KernelSize % 2 == 1, "Kernel size must be odd");
+  static constexpr auto kernel = get_fixed_gaussian_kernel<KernelT, KernelSize>();
+  gaussian_blur<SrcImageT, DstImageT, KernelSize, KernelT, CastMode>(src, dst, kernel);
 }
 
 #endif // IMAGE_UTIL_H

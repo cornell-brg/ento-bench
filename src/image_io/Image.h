@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-//#include <Eigen/Dense>
 #include <image_io/Pixel.h>
 #include <ento-util/debug.h>
 #include <type_traits>
@@ -22,6 +21,9 @@ public:
   PixelT data[Rows * Cols];
 
   Image(): data{} {}
+
+  constexpr int rows() const { return rows_; }
+  constexpr int cols() const { return cols_; }
 
   void set_pixel(int row, int col, PixelT pixel)
   {
