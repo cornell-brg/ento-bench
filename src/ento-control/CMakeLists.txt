@@ -9,6 +9,23 @@ target_include_directories(ento-control INTERFACE
 )
 
 # =============================================================================
+# Adaptive Controller (Simulink Generated)
+# =============================================================================
+
+# Add the Simulink-generated code as a library
+add_library(adaptive_controller 
+  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller_data.c
+)
+
+target_include_directories(adaptive_controller PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Link the adaptive controller to the main interface
+target_link_libraries(ento-control INTERFACE adaptive_controller)
+
+# =============================================================================
 # Testing
 # =============================================================================
 
@@ -18,6 +35,8 @@ set(TEST_FILES
   test_tiny_mpc.cc
   test_lqr.cc
   test_robofly_tinympc.cc
+  test_adaptive_controller.cc
+  test_adaptive_controller_trajectory.cc
 )
 
 set(LIBRARIES_test_tiny_mpc
@@ -30,6 +49,14 @@ set(LIBRARIES_test_lqr
 
 set(LIBRARIES_test_robofly_tinympc
   ento_util ento_math Eigen ento-control
+)
+
+set(LIBRARIES_test_adaptive_controller
+  ento_util ento_math Eigen ento-control adaptive_controller
+)
+
+set(LIBRARIES_test_adaptive_controller_trajectory
+  ento_util ento_math Eigen ento-control adaptive_controller
 )
 
 foreach(TEST_FILE ${TEST_FILES})
