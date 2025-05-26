@@ -58,7 +58,8 @@ CMSIS_6/
 m5out/
 
 # Ignore External
-external/*
+external/eigen
+external/eigen_old
 
 
 # Do not ignore CMakeLists.txt or datasets/*.txt

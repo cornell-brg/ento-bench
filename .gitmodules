@@ -4,3 +4,6 @@
 [submodule "external/eigen"]
 	path = external/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+[submodule "external/robobee3d"]
+	path = external/robobee3d
+	url = https://github.com/avikde/robobee3d.git

@@ -4,6 +4,9 @@
 #include <Eigen/Dense>
 #include <ento-util/debug.h>
 
+#ifdef NATIVE
+#include <iostream>
+#endif
 
 Eigen::IOFormat TinyApiFmt(4, 0, ", ", "\n", "[", "]");
 

@@ -1,7 +1,11 @@
 include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
-add_library(ento-control
-  INTERFACE
+# Main interface library
+add_library(ento-control INTERFACE)
+
+# Add includes to ento-control
+target_include_directories(ento-control INTERFACE
+  ${CMAKE_CURRENT_SOURCE_DIR}  # For ento-control headers
 )
 
 # =============================================================================
@@ -12,9 +16,19 @@ include(CTest)
 
 set(TEST_FILES
   test_tiny_mpc.cc
+  test_lqr.cc
+  test_robofly_tinympc.cc
 )
 
 set(LIBRARIES_test_tiny_mpc
+  ento_util ento_math Eigen ento-control
+)
+
+set(LIBRARIES_test_lqr
+  ento_util ento_math Eigen ento-control
+)
+
+set(LIBRARIES_test_robofly_tinympc
   ento_util ento_math Eigen ento-control
 )
 

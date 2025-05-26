@@ -1,12 +1,12 @@
 #include <Eigen/Dense>
 #include <ento-control/opt_control_problem.h>
-#include <ento-control/TinyMPCSolver.h>
+#include <ento-control/tinympc_solver.h>
 #include <ento-util/unittest.h>
 #include <ento-util/debug.h>
 #include <ento-util/experiment_io.h>
 #include <ento-util/file_path_util.h>
 
-const int path_len = path_len;
+constexpr int path_len = 315; // Fixed value instead of circular reference
 const int num_states = 12;
 const int num_inputs = 4;
 const int len_horizon = 10;
