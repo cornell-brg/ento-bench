@@ -4,6 +4,29 @@
 #include <ento-bench/problem.h>
 #include <ento-util/containers.h>
 #include <ento-util/debug.h>
+#include <type_traits>
+
+// SFINAE helper to detect if solver has get_Adyn/get_Bdyn methods
+template<typename T, typename = void>
+struct has_dynamics_matrices : std::false_type {};
+
+template<typename T>
+struct has_dynamics_matrices<T, std::void_t<
+  decltype(std::declval<T>().get_Adyn()),
+  decltype(std::declval<T>().get_Bdyn())
+>> : std::true_type {};
+
+// SFINAE helper to detect if solver has simulate_forward method
+template<typename T, typename = void>
+struct has_forward_simulation : std::false_type {};
+
+template<typename T>
+struct has_forward_simulation<T, std::void_t<
+  decltype(std::declval<T>().simulate_forward(
+    std::declval<typename T::State>(),
+    std::declval<typename T::Control>()
+  ))
+>> : std::true_type {};
 
 template< typename Scalar, typename Solver, int StateSize, int CtrlSize, int HorizonSize, int PathLen >
 class OptControlProblem :
@@ -26,8 +49,11 @@ class OptControlProblem :
     EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, PathLen > m_trajectory;
     int m_iter;
     EntoUtil::EntoContainer< Eigen::Matrix< Scalar_t, StateSize, 1 >, PathLen > m_real_path;
+    
+    // Dynamics matrices - only used if solver provides them
     Eigen::Matrix< Scalar_t, StateSize, StateSize > m_Adyn;
     Eigen::Matrix< Scalar_t, StateSize, CtrlSize > m_Bdyn;
+    
     int m_written_states;
   
   public:
@@ -126,8 +152,35 @@ class OptControlProblem :
       m_solver.set_x_ref( x_ref );
       m_solver.reset_duals();
       m_solver.solve();
-      m_real_path.push_back( m_Adyn * x0 + m_Bdyn * m_solver.get_u0() );
+      // Note: Forward simulation moved to step_impl() to keep it outside ROI timing
+    }
+
+    void step_impl()
+    {
+      // Forward simulation: different approaches based on solver capabilities
+      Eigen::Matrix< Scalar_t, StateSize, 1 >& x0 = m_real_path[m_iter];
+      auto u0 = m_solver.get_u0();
+      
+      if constexpr (has_dynamics_matrices<Solver_t>::value) {
+        // Matrix-based solvers (LQR, TinyMPC): use external dynamics
+        m_real_path.push_back( m_Adyn * x0 + m_Bdyn * u0 );
+      } else if constexpr (has_forward_simulation<Solver_t>::value) {
+        // OSQP-style solvers with forward simulation: use solver's method
+        auto x_next = m_solver.simulate_forward(x0, u0);
+        m_real_path.push_back(x_next);
+      } else {
+        // Fallback: no forward simulation available
+        // This should not happen for properly implemented solvers
+        ENTO_DEBUG("Warning: No forward simulation available for solver");
+        m_real_path.push_back(x0); // Just copy current state
+      }
       m_iter++;
+    }
+
+    // Public method to perform forward simulation step
+    void step()
+    {
+      static_cast<OptControlProblem*>(this)->step_impl();
     }
 
     void clear_impl()
@@ -144,8 +197,10 @@ class OptControlProblem :
       m_iter(0),
       m_written_states(0)
     {
-      m_Adyn = solver.get_Adyn();
-      m_Bdyn = solver.get_Bdyn();
+      if constexpr (has_dynamics_matrices<Solver_t>::value) {
+        m_Adyn = solver.get_Adyn();
+        m_Bdyn = solver.get_Bdyn();
+      }
     }
 };
 

@@ -9,6 +9,57 @@ target_include_directories(ento-control INTERFACE
 )
 
 # =============================================================================
+# UprightMPC2 Template Controller (RoboBee)
+# =============================================================================
+
+# Add the uprightmpc2 template controller library
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/uprightmpc2)
+
+# Include the uprightmpc2 library in the interface
+target_include_directories(ento-control INTERFACE ${UPRIGHTMPC2_INCLUDE_DIRS})
+target_link_libraries(ento-control INTERFACE ${UPRIGHTMPC2_LIBRARIES})
+
+# Add the RoboBeeMPC wrapper
+add_library(robobee_mpc_wrapper
+  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_mpc.cc
+)
+
+target_include_directories(robobee_mpc_wrapper PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${UPRIGHTMPC2_INCLUDE_DIRS}
+)
+
+target_link_libraries(robobee_mpc_wrapper PUBLIC
+  ${UPRIGHTMPC2_LIBRARIES}
+  ento_util
+)
+
+# Link the RoboBeeMPC wrapper to the main interface
+target_link_libraries(ento-control INTERFACE robobee_mpc_wrapper)
+
+# =============================================================================
+# RoboBee MPC (OSQP Generated)
+# =============================================================================
+
+# Add the RoboBee MPC code as a library
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/generated/robobee_mpc)
+
+# Include the RoboBee MPC library in the interface
+target_include_directories(ento-control INTERFACE ${ROBOBEE_MPC_INCLUDE_DIRS})
+target_link_libraries(ento-control INTERFACE ${ROBOBEE_MPC_LIBRARIES})
+
+# =============================================================================
+# RoboFly MPC (OSQP Generated)
+# =============================================================================
+
+# Add the RoboFly MPC code as a library
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/generated/robofly_mpc)
+
+# Include the RoboFly MPC library in the interface
+target_include_directories(ento-control INTERFACE ${ROBOFLY_MPC_INCLUDE_DIRS})
+target_link_libraries(ento-control INTERFACE ${ROBOFLY_MPC_LIBRARIES})
+
+# =============================================================================
 # Adaptive Controller (Simulink Generated)
 # =============================================================================
 
@@ -37,6 +88,10 @@ set(TEST_FILES
   test_robofly_tinympc.cc
   test_adaptive_controller.cc
   test_adaptive_controller_trajectory.cc
+  test_robobee_mpc.cc
+  test_robobee3d_mpc.cc
+  test_osqp_mpc.cc
+  test_template_mpc_opt_control.cc
 )
 
 set(LIBRARIES_test_tiny_mpc
@@ -57,6 +112,22 @@ set(LIBRARIES_test_adaptive_controller
 
 set(LIBRARIES_test_adaptive_controller_trajectory
   ento_util ento_math Eigen ento-control adaptive_controller
+)
+
+set(LIBRARIES_test_robobee_mpc
+  ento_util ento_math Eigen ento-control ${ROBOBEE_MPC_LIBRARIES}
+)
+
+set(LIBRARIES_test_robobee3d_mpc
+  ento_util ento_math Eigen ento-control
+)
+
+set(LIBRARIES_test_osqp_mpc
+  ento_util ento_math Eigen ento-control ${ROBOFLY_MPC_LIBRARIES}
+)
+
+set(LIBRARIES_test_template_mpc_opt_control
+  ento_util ento_math Eigen ento-control robobee_mpc_wrapper ${UPRIGHTMPC2_LIBRARIES}
 )
 
 foreach(TEST_FILE ${TEST_FILES})

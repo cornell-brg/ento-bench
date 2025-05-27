@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <cstring>                // for std::memcpy
+#include <type_traits>            // for std::enable_if_t, std::is_same_v
 
 namespace EntoControl
 {
@@ -19,7 +20,10 @@ enum class OSQPStatus {
   UNSOLVED = -10
 };
 
-template< typename API, typename Traits, bool UseWarmStart = false >
+// Default empty traits for when no traits are needed
+struct EmptyTraits {};
+
+template< typename API, typename Traits = EmptyTraits, bool UseWarmStart = false >
 class OSQPSolver
 {
 public:
@@ -30,6 +34,7 @@ public:
 
   using State = Eigen::Matrix<Scalar, N, 1>;
   using Input = Eigen::Matrix<Scalar, M, 1>;
+  using Control = Input; // Alias for SFINAE detection
 
   // OSQPWorkspace is managed by the C API, we just use it
   // The workspace is pre-allocated and initialized in robofly_init()
@@ -70,8 +75,15 @@ public:
     // Get the static workspace pointer
     typename API::Workspace* work = API::get_workspace();
     
+    // Expand single reference state to full horizon trajectory
+    // The API expects xref to be [N*H] elements (state repeated over horizon)
+    Eigen::Matrix<Scalar, N * H, 1> xref_horizon;
+    for (int k = 0; k < H; ++k) {
+      xref_horizon.template segment<N>(k * N) = xref_;
+    }
+    
     // Compute b = xref - Φ x0 and update the bounds
-    API::update_rhs(work, x0_.data(), xref_.data());
+    API::update_rhs(work, x0_.data(), xref_horizon.data());
 
     // Apply warm starting if enabled and available
     if constexpr (UseWarmStart) {
@@ -114,8 +126,16 @@ public:
     return API::get_iter_count(API::get_workspace());
   }
 
-  static constexpr auto get_Adyn() { return Traits::Adyn; }
-  static constexpr auto get_Bdyn() { return Traits::Bdyn; }
+  // Getter methods only available if traits are provided (not EmptyTraits)
+  template<typename T = Traits>
+  static constexpr auto get_Adyn() -> typename std::enable_if_t<!std::is_same_v<T, EmptyTraits>, decltype(T::Adyn)> {
+    return T::Adyn;
+  }
+
+  template<typename T = Traits>
+  static constexpr auto get_Bdyn() -> typename std::enable_if_t<!std::is_same_v<T, EmptyTraits>, decltype(T::Bdyn)> {
+    return T::Bdyn;
+  }
 
 private:
   State  x0_{}, xref_{};
