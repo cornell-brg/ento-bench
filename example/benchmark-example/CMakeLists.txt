@@ -6,7 +6,7 @@ set(SOURCE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/benchmark_example.cc)
 if (STM32_BUILD)
   set(MODULES
     bench
-    mcu-util
+    ento-mcu-semihosted
     Eigen
     CMSIS::STM32::${STM_PRODUCT}
   )
@@ -16,6 +16,6 @@ if (STM32_BUILD)
                 SOURCES ${SOURCE_FILE}
                 LIBRARIES ${MODULES})
 
-  add_stm32_flash_and_debug_targets(benchmark-example)
-  add_stm32_no_semihosting_flash_targets(benchmark-example-no-semihosting)
+  add_stm32_target(benchmark-example)
+  add_stm32_no_semihosting_target(benchmark-example-no-semihosting)
 endif()

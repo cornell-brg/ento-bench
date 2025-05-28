@@ -1,0 +1,19 @@
+Feature Recognition Problem
+feat2d/books/medium/image0.pgm,feat2d/books/medium/image0_feats.txt
+feat2d/books/medium/image1.pgm,feat2d/books/medium/image1_feats.txt
+feat2d/books/medium/image2.pgm,feat2d/books/medium/image2_feats.txt
+feat2d/books/medium/image3.pgm,feat2d/books/medium/image3_feats.txt
+feat2d/books/medium/image4.pgm,feat2d/books/medium/image4_feats.txt
+feat2d/books/medium/image5.pgm,feat2d/books/medium/image5_feats.txt
+feat2d/books/medium/image6.pgm,feat2d/books/medium/image6_feats.txt
+feat2d/books/medium/image7.pgm,feat2d/books/medium/image7_feats.txt
+feat2d/books/medium/image8.pgm,feat2d/books/medium/image8_feats.txt
+feat2d/books/medium/image9.pgm,feat2d/books/medium/image9_feats.txt
+feat2d/books/medium/image10.pgm,feat2d/books/medium/image10_feats.txt
+feat2d/books/medium/image11.pgm,feat2d/books/medium/image11_feats.txt
+feat2d/books/medium/image12.pgm,feat2d/books/medium/image12_feats.txt
+feat2d/books/medium/image13.pgm,feat2d/books/medium/image13_feats.txt
+feat2d/books/medium/image14.pgm,feat2d/books/medium/image14_feats.txt
+feat2d/books/medium/image15.pgm,feat2d/books/medium/image15_feats.txt
+feat2d/books/medium/image16.pgm,feat2d/books/medium/image16_feats.txt
+feat2d/books/medium/image17.pgm,feat2d/books/medium/image17_feats.txt

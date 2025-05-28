@@ -1,0 +1,4 @@
+Feature Recognition Problem
+feat2d/books/tiny/image0.pgm,feat2d/books/tiny/image0_feats.txt,feat2d/books/tiny/image0_descs.txt
+feat2d/books/tiny/image1.pgm,feat2d/books/tiny/image1_feats.txt,feat2d/books/tiny/image1_descs.txt
+feat2d/books/tiny/image2.pgm,feat2d/books/tiny/image2_feats.txt,feat2d/books/tiny/image2_descs.txt

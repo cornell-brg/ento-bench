@@ -29,7 +29,7 @@ struct RoboFlyV1DynamicsModel
                           [[maybe_unused]] Eigen::Matrix<Scalar, 1, 1>& u)
   {
     A.setZero();
-    A(2, 3) = 1;
+    A(2, 3) = Scalar(1);
   }
 };
 
@@ -56,7 +56,7 @@ struct RoboFlyV1MeasurementModel
     pred(0) = z / cos(theta);
     pred(1) = (cos_theta / z) * (vx * cos_theta + vz * sin_theta) - omega;
     pred(2) = -g_ * sin_theta;
-    pred(3) = -g_ * cos_theta;
+    pred(3) = g_ * cos_theta;
   }
 
   void jacobian(Eigen::Matrix<Scalar, 4, 4>& H,
@@ -65,6 +65,6 @@ struct RoboFlyV1MeasurementModel
     H.setZero();
     H(0, 2) = 1;
     H(1, 1) = Scalar(1) / x[2];
-    H(2, 0) = g_;
+    H(2, 0) = -g_;
   }
 };

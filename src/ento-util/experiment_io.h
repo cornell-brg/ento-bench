@@ -24,6 +24,7 @@ private:
   // @TODO: Add separate headers for input and output files
   bool header_written_;
   bool header_validated_; 
+  bool setup_finished_;
 
 #ifdef NATIVE
   std::ifstream ifile_;
@@ -39,7 +40,7 @@ public:
   ExperimentIO& operator=(const ExperimentIO&) = delete;
 
   // Default constructor
-  ExperimentIO() : header_written_(false), header_validated_(false),
+  ExperimentIO() : header_written_(false), header_validated_(false), setup_finished_(false),
 #ifdef NATIVE
                    ifile_(), ofile_()
 #else
@@ -50,7 +51,8 @@ public:
   // Move constructor
   ExperimentIO(ExperimentIO&& other) noexcept
     : header_written_(other.header_written_),
-      header_validated_(other.header_validated_)
+      header_validated_(other.header_validated_),
+      setup_finished_(setup_finished_)
   {
 #ifdef NATIVE
     ifile_ = std::move(other.ifile_);
@@ -70,6 +72,7 @@ public:
     {
       header_written_ = other.header_written_;
       header_validated_ = other.header_validated_;
+      setup_finished_ = other.setup_finished_;
 
 #ifdef NATIVE
       ifile_ = std::move(other.ifile_);
@@ -91,7 +94,7 @@ public:
 #ifdef NATIVE
   explicit ExperimentIO(const std::optional<std::string>& input_filepath = std::nullopt,
                         const std::optional<std::string>& output_filepath = std::nullopt)
-    : header_written_(false), header_validated_(false)
+    : header_written_(false), header_validated_(false), setup_finished_(false)
   {
     if (input_filepath && !input_filepath->empty())
     {
@@ -116,8 +119,8 @@ public:
   }
 #else
   // Constructor for `char*` (MCU builds only)
-  explicit ExperimentIO(const char *input_filepath = "",
-                        const char *output_filepath = "")
+  explicit ExperimentIO(const char *input_filepath,
+                        const char *output_filepath)
   {
     char resolved_input[MAX_PATH];
     char resolved_output[MAX_PATH];
@@ -129,6 +132,8 @@ public:
       if (!ifile_)
       {
         ENTO_DEBUG("Failed to open input file: %s\n", resolved_input);
+        printf("Failed to open input file: %s\n", input_filepath);
+        printf("Failed to open resolved input file: %s\n", resolved_input);
       }
     }
     if (output_filepath && output_filepath[0] != '\0')
@@ -178,6 +183,7 @@ public:
   template <EntoBench::ProblemConcept Problem>
   bool read_next(Problem &problem_instance)
   {
+    __asm__ volatile("" ::: "memory");
     if (!header_validated_)
     {
       if (!validate_input_header<Problem>())
@@ -191,6 +197,21 @@ public:
       }
     }
 
+    if constexpr (Problem::RequiresSetup_)
+    {
+      if (!setup_finished_)
+      {
+        if (!setup_problem<Problem>(problem_instance))
+        {
+#ifdef NATIVE
+          ifile_.close();
+#else
+          fclose(ifile_);
+#endif
+        }
+      } 
+    }
+
     problem_instance.clear();
 #ifdef NATIVE
     std::string line;
@@ -199,12 +220,13 @@ public:
       return problem_instance.deserialize(line);
     }
 #else
-    char line[256];
+    char line[1024];
     if (ifile_ && fgets(line, sizeof(line), ifile_))
     {
       return problem_instance.deserialize(line);
     }
 #endif
+    __asm__ volatile("" ::: "memory");
     return false; // End of file or error
   }
 
@@ -296,6 +318,28 @@ private:
       header_validated_ = true;
       return true;
     }
+  }
+
+  template <EntoBench::ProblemConcept Problem>
+  bool setup_problem(Problem &problem_instance)
+  {
+    for ( int i = 0; i < Problem::SetupLines_; i++ ) {
+#ifdef NATIVE
+      std::string line;
+      if (std::getline(ifile_, line))
+      {
+        problem_instance.deserialize(line);
+      }
+#else
+      char line[256];
+      if (ifile_ && fgets(line, sizeof(line), ifile_))
+      {
+        problem_instance.deserialize(line);
+      }
+#endif
+    }
+    setup_finished_ = true;
+    return true;
   }
 
 };

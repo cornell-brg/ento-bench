@@ -1,7 +1,6 @@
 #include <Eigen/Dense>
 #include <cmath>
 
-
 template<typename Scalar>
 struct RobobeeDynamicsModel
 {
@@ -11,11 +10,10 @@ struct RobobeeDynamicsModel
   Scalar rw_;
   
   // Inertia Constants
-  static constexpr Eigen::Matrix<Scalar, 3, 1> I_ =
-    (Eigen::Matrix<Scalar, 3, 1>() << Scalar(1.42e-9), Scalar(1.34e-9), Scalar(4.5e-10)).finished();
-  static constexpr Scalar Ixx_ = I_(0);
-  static constexpr Scalar Iyy_ = I_(1);
-  static constexpr Scalar Izz_ = I_(2);
+  static constexpr Scalar Ixx_ = Scalar(1.42e-9);
+  static constexpr Scalar Iyy_ = Scalar(1.34e-9);
+  static constexpr Scalar Izz_ = Scalar(4.5e-10);
+  //const Eigen::Matrix<Scalar, 3, 1> I_ = { Ixx_, Iyy_, Izz_ };
   static constexpr Scalar Ixx_inv_ = Scalar(1) / Ixx_;
   static constexpr Scalar Iyy_inv_ = Scalar(1) / Iyy_;
   static constexpr Scalar Izz_inv_ = Scalar(1) / Izz_;
@@ -97,9 +95,9 @@ struct RobobeeDynamicsModel
     xdot(0) = p;
     xdot(1) = q;
     xdot(2) = r;
-    xdot(3) = tau_total(0) / I_(0);
-    xdot(4) = tau_total(1) / I_(1);
-    xdot(5) = tau_total(2) / I_(2);
+    xdot(3) = tau_total(0) / Ixx_;
+    xdot(4) = tau_total(1) / Iyy_;
+    xdot(5) = tau_total(2) / Izz_;
     xdot(6) = vz;
     xdot(7) = F_world(0) / m_;
     xdot(8) = F_world(1) / m_;
@@ -107,6 +105,9 @@ struct RobobeeDynamicsModel
 
     // Update state: x = x + dt * xdot
     x = x + dt_ * xdot;
+    ENTO_DEBUG_EIGEN_MATRIX(x);
+    ENTO_DEBUG("dt_: %f", dt_);
+    ENTO_DEBUG_EIGEN_MATRIX(xdot);
   }
   
   void jacobian(Eigen::Matrix<Scalar, 10, 10>& A,
@@ -145,18 +146,18 @@ struct RobobeeDynamicsModel
     A.setIdentity();
 
     Scalar v = vx*cos_psi*cos_theta + vy*cos_theta*cos_psi - vz*sin_theta;
-    Scalar w = p*cos_psi*sin_theta*sin_phi - sin_psi*cos_phi + 
-                   q*(sin_psi*sin_theta*sin_phi - cos_psi*cos_phi) + r*cos_theta*sin_phi;
+    Scalar w = p*(cos_psi*sin_theta*sin_phi - sin_psi*cos_phi) + 
+               q*(sin_psi*sin_theta*sin_phi - cos_psi*cos_phi) + r*cos_theta*sin_phi;
 
-    Scalar fd      = -bw_(rw_*v+v);
+    Scalar fd      = -bw_*(rw_*w+v);
     Scalar td      = -rw_*fd;
     Scalar dtd_dfd = -rw_;
-    Scalar dfd_dw  = -rw_;
+    Scalar dfd_dw  = -rw_*bw_;
     Scalar dfd_dv  = -bw_;
     
     Scalar dv_dvx    = cos_psi * cos_theta;
-    Scalar dv_dvy    = -sin_theta;
-    Scalar dv_dvz    = cos_theta * sin_psi;
+    Scalar dv_dvy    = cos_theta * sin_psi;
+    Scalar dv_dvz    = -sin_theta;
     Scalar dv_dtheta = -vx*cos_psi*sin_theta - vy*sin_theta*sin_psi - vz*cos_theta;
     Scalar dv_dpsi   = p*(-sin_psi*sin_theta*sin_phi - cos_psi*cos_phi) +
                           q*(cos_psi*sin_theta*sin_phi + sin_psi*cos_phi);
@@ -277,6 +278,9 @@ struct RobobeeDynamicsModel
     A(9, 7) = m_inv*-sin_theta*dfd_dv*dv_dvx;
     A(9, 8) = m_inv*-sin_theta*dfd_dv*dv_dvy;
     A(9, 9) = m_inv*-sin_theta*dfd_dv*dv_dvz;
+
+    A *= dt_;
+    A += Eigen::Matrix<Scalar, 10, 10>::Identity();
   }
 };
 
@@ -294,7 +298,7 @@ struct RobobeeMeasurementModel
   }
 
   constexpr void jacobian(Eigen::Matrix<Scalar, 4, 10>& H,
-                          [[maybe_unused]] const Eigen::Matrix<Scalar, 10, 1>& /* x */)
+                          [[maybe_unused]] const Eigen::Matrix<Scalar, 10, 1>& /* x */) const
   {
     H.setZero();
     H(0, 0) = 1;

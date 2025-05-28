@@ -26,7 +26,11 @@ include (CTest)
 set(TEST_FILES
   test_fast.cc
   test_feature2d_util.cc
+  test_lk_optical_flow.cc
+  test_lk_optical_flow_iter.cc
+  test_image_pyramid.cc
   test_sparse_optical_flow_problem.cc
+  test_feature_recognition_problem.cc
 )
 
 set(LIBRARIES_test_fast
@@ -37,6 +41,18 @@ set(LIBRARIES_test_feature2d_util
 
 set(LIBRARIES_test_sparse_optical_flow_problem
   m ento-perception ento_util Eigen image_io)
+
+set(LIBRARIES_test_lk_optical_flow
+  m ento_util image_io Eigen)
+
+set(LIBRARIES_test_lk_optical_flow_iter
+  m ento_util image_io Eigen)
+
+set(LIBRARIES_test_image_pyramid
+  m ento_util image_io Eigen)
+
+set(LIBRARIES_test_feature_recognition_problem
+  m ento-perception ento_util image_io Eigen )
 
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Building ento-feature2d")

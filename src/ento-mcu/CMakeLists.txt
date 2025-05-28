@@ -20,11 +20,26 @@ if(STM32_BUILD)
   message(STATUS "HAL Bus Target: ${HAL_BUS_TARGET}")
   message(STATUS "HAL Pwr Target: ${HAL_PWR_TARGET}")
   message(STATUS "HAL Utils Target: ${HAL_UTILS_TARGET}")
-  message(STATUS "Src files for mcu-util: ${SRC_FILES}")
-  add_library(mcu-util STATIC
+  message(STATUS "Src files for ento-mcu: ${SRC_FILES}")
+  add_library(ento-mcu STATIC
+    ${SRC_FILES})
+  add_library(ento-mcu-semihosted STATIC
     ${SRC_FILES})
 
-  target_link_libraries(mcu-util
+  target_link_libraries(ento-mcu
+    PUBLIC
+    m
+    ${HAL_BUS_TARGET}
+    ${HAL_RCC_TARGET}
+    ${HAL_PWR_TARGET}
+    ${HAL_UTILS_TARGET}
+    ${HAL_GPIO_TARGET}
+    ${CMSIS_TYPE_TARGET}
+    STM32::NoSys
+    STM32::Nano
+  )
+
+  target_link_libraries(ento-mcu-semihosted
     PUBLIC
     m
     ${HAL_BUS_TARGET}
@@ -35,9 +50,8 @@ if(STM32_BUILD)
     ${CMSIS_TYPE_TARGET}
     STM32::Nano::FloatPrint
     STM32::Nano::FloatScan
-    STM32::NoSys
-    STM32::Nano
   )
+
 
 # =============================================
 
@@ -50,24 +64,22 @@ if(STM32_BUILD)
   )
 
   set(TEST_LIBRARIES_test_clock_cfg
-    mcu-util
+    ento-mcu-semihosted
     ento_util
     CMSIS::STM32::${STM_PRODUCT}
  )
 
   set(TEST_LIBRARIES_test_cache_cfg
-    mcu-util
+    ento-mcu-semihosted
     ento_util
     CMSIS::STM32::${STM_PRODUCT}
   )
 
 
   foreach(TEST_FILE ${TEST_FILES})
-    message(STATUS "Building ${TEST_FILE} in mcu-util/tests...")
     get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
     set(TEST_SRC "test/${TEST_FILE}")
 
-    # Construct the library variable name and retrieve the list
     string(CONCAT LIBRARY_VAR_NAME "TEST_LIBRARIES_" ${TEST_BIN})
     set(TEST_LIBRARIES ${${LIBRARY_VAR_NAME}})
 
@@ -76,8 +88,7 @@ if(STM32_BUILD)
       SOURCES ${TEST_SRC}
       LIBRARIES ${TEST_LIBRARIES}
     )
-    message(STATUS "Building flash and debug target for: ${TEST_BIN}")
-    add_stm32_flash_and_debug_targets(${TEST_BIN})
+    add_stm32_target(${TEST_BIN})
   endforeach()
 
 

@@ -249,8 +249,11 @@ else() # Native Build
   set(CMAKE_C_COMPILER gcc)
   set(CMAKE_CXX_COMPILER g++)
   set(CMAKE_ASM_COMPILER gcc)
-  set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O3")
-  #set(CMAKE_CXX_FLAGS "-Wall -Wextra -g -gdwarf-4 -std=c++20 -O3")
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -g3 -O0")
+  else()
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O0")
+  endif()
   add_definitions(-DNATIVE)
 endif()
 
@@ -292,6 +295,7 @@ add_subdirectory(${SRC_DIR})
 add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
+add_subdirectory(${BENCHMARK_DIR})
 
 
 if(BUILD_H7A3ZIQ)
@@ -317,4 +321,3 @@ if(BUILD_H7A3ZIQ)
         message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
     endif()
 endif()
-
