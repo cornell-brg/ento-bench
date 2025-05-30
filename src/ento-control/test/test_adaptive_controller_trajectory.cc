@@ -6,7 +6,7 @@
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
 #include <ento-control/adaptive_controller.h>
-#include <ento-control/adaptive_control_problem.h>
+#include <ento-control/control_problem.h>
 #include "trajectory_data.h"
 
 using namespace std;
@@ -219,10 +219,10 @@ void test_adaptive_controller_real_trajectory() {
 }
 
 // Test with multi-step trajectory tracking - Modified to avoid accessing private members
-void test_adaptive_control_problem_trajectory() {
-  ENTO_DEBUG("\n\nTesting AdaptiveControlProblem with real trajectory...");
+void test_control_problem_trajectory() {
+  ENTO_DEBUG("\n\nTesting ControlProblem with real trajectory...");
   
-  // Create problem instance with default time step
+  // Create a problem instance using the new template signature
   AdaptiveControlProblem<float, 10, 3, 20, 100> problem;
   
   ENTO_DEBUG("Problem time step: %f", problem.get_dt());
@@ -463,7 +463,7 @@ int main(int argc, char** argv)
   ENTO_TEST_START();
   
   if (__ento_test_num(__n, 1)) test_adaptive_controller_real_trajectory();
-  if (__ento_test_num(__n, 2)) test_adaptive_control_problem_trajectory();
+  if (__ento_test_num(__n, 2)) test_control_problem_trajectory();
   if (__ento_test_num(__n, 3)) test_complete_trajectory_tracking();
   
   ENTO_TEST_END();
