@@ -3,6 +3,7 @@
 
 #include <ento-pose/pose_util.h>
 #include <ento-pose/prob_gen.h>
+#include <ento-pose/abs-pose/dlt.h>
 #include <ento-pose/abs-pose/p3p.h>
 #include <ento-pose/abs-pose/up2p.h>
 #include <ento-pose/abs-pose/up2p.h>
@@ -532,6 +533,45 @@ struct SolverHomographyNptDLT {
       return "Homography4pt";
     }
   }
+};
+
+// Solver for DLT (general absolute pose, non-planar)
+template <typename Scalar>
+struct SolverDLT {
+  using scalar_type = Scalar;
+  static constexpr size_t MaxSolns = 1;
+  static constexpr size_t MinSampleSize = 6;
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverDLT<Scalar>, 0>& instance,
+                         std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return dlt(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverDLT<Scalar>, 6>& instance,
+                         EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return dlt(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                         EntoContainer<Vec3<Scalar>, N>& X,
+                         std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return dlt(x, X, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                         EntoContainer<Vec3<Scalar>, N>& X,
+                         EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return dlt(x, X, solutions);
+  }
+
+  typedef CalibratedAbsolutePoseValidator<Scalar> validator;
+  static std::string name() { return "dlt"; }
 };
 
 } // namespace EntoPose

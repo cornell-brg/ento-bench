@@ -105,6 +105,22 @@ struct CameraPose
   inline Vec3<Scalar> apply(const Vec3<Scalar> &p) const { return rotate(p) + t; }
 
   inline Vec3<Scalar> center() const { return -derotate(t); }
+
+  // Extract rotation and translation from a projection matrix
+  inline void from_projection(const Eigen::Matrix<Scalar, 3, 4>& P) {
+    // Extract rotation matrix from first 3x3 block
+    Matrix3x3<Scalar> R = P.template block<3, 3>(0, 0);
+    
+    // Normalize the rotation matrix to ensure it's orthogonal
+    Eigen::JacobiSVD<Matrix3x3<Scalar>> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    R = svd.matrixU() * svd.matrixV().transpose();
+    
+    // Convert rotation matrix to quaternion
+    q = rotmat_to_quat<Scalar>(R);
+    
+    // Extract translation vector
+    t = P.col(3);
+  }
 };
 
 template <typename Scalar, typename CameraModel>
