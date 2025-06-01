@@ -5,6 +5,7 @@ include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 # ======================================
 set(SRC_FILES
   unittest.cc
+  random.cc
 )
 
 add_library(ento_util

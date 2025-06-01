@@ -14,7 +14,7 @@ void prng_seed(uint32_t seed)
   __ento_rand_state = seed;
 }
 
-// Simple XORShift for random sampling. Consider using a better implementation
+// Simple XORShift for random sampling. We might need to consider using a better implementation
 // depending on profiling/performance.
 uint32_t prng_next_int(void)
 {

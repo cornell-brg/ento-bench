@@ -47,6 +47,12 @@ BundleStats<Scalar> lm_impl(Problem &problem,
         if (recompute_jac) {
             JtJ.setZero();
             Jtr.setZero();
+            // Add debug prints here
+            // ENTO_DEBUG("lm_impl: parameters = (%f, %f, %f, %f, %f, %f), JtJ = (%f, %f, %f, %f, %f, %f), Jtr = (%f, %f, %f, %f, %f, %f)",
+            //            parameters->q.x(), parameters->q.y(), parameters->q.z(), parameters->q.w(),
+            //            parameters->t.x(), parameters->t.y(),
+            //            JtJ.coeff(0, 0), JtJ.coeff(1, 1), JtJ.coeff(2, 2), JtJ.coeff(3, 3), JtJ.coeff(4, 4), JtJ.coeff(5, 5),
+            //            Jtr.coeff(0), Jtr.coeff(1), Jtr.coeff(2), Jtr.coeff(3), Jtr.coeff(4), Jtr.coeff(5));
             problem.accumulate(*parameters, JtJ, Jtr);
             stats.grad_norm = Jtr.norm();
             if (stats.grad_norm < opt.gradient_tol) {

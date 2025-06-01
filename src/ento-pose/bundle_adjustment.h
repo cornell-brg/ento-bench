@@ -58,7 +58,7 @@ IterationCallback<Scalar> setup_callback(const BundleOptions<Scalar> &opt, LossF
   {
     if (opt.verbose)
     {
-      return print_iteration;
+      return print_iteration<Scalar>;
     }
     else
     {
@@ -68,44 +68,46 @@ IterationCallback<Scalar> setup_callback(const BundleOptions<Scalar> &opt, LossF
 }
 
 // Minimizes reprojection error. Assumes identity intrinsics (calibrated camera)
-template <typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+template <typename Scalar, typename WeightType, typename LossFunction = TrivialLoss<Scalar>, size_t N = 0>
 BundleStats<Scalar> bundle_adjust(const EntoContainer<Point2D<Scalar>, N>    &x,
                                   const EntoContainer<Point3D<Scalar>, N>    &X,
                                   CameraPose<Scalar>                   *pose,
                                   const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                  const EntoContainer<Scalar, N> &weights = EntoContainer<Scalar, N>())
+                                  const WeightType &weights = WeightType())
 {
-  Camera<Scalar> camera;
-  bundle_adjust(x, X, camera, pose, opt);
+  // Create identity camera: width=1, height=1, empty params for IdentityCameraModel
+  typename IdentityCameraModel<Scalar>::Params identity_params;  // Empty array for identity model
+  Camera<Scalar, IdentityCameraModel<Scalar>> camera(1, 1, identity_params);
+  return bundle_adjust<Scalar, WeightType, IdentityCameraModel<Scalar>, LossFunction, N>(x, X, camera, pose, opt, weights);
 }
 
 
 // Uses intrinsic calibration from Camera (see colmap_models.h)
 // Slightly slower than bundle_adjust above
-template <typename Scalar, typename WeightType, typename CameraModel, typename LossFunction, size_t N = 0>
-BundleStats<Scalar> bundle_adjust(const std::vector<Point2D<Scalar>> &x,
-                                  const std::vector<Point3D<Scalar>> &X,
+template <typename Scalar, typename WeightType, typename CameraModel, typename LossFunction = TrivialLoss<Scalar>, size_t N = 0>
+BundleStats<Scalar> bundle_adjust(const EntoContainer<Point2D<Scalar>, N> &x,
+                                  const EntoContainer<Point3D<Scalar>, N> &X,
                                   const Camera<Scalar, CameraModel> &camera,
                                   CameraPose<Scalar> *pose,
                                   const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                                  const std::vector<Scalar> &weights = std::vector<Scalar>())
+                                  const WeightType &weights = WeightType())
 {
   LossFunction loss_fn(opt.loss_scale);
   IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
   CameraJacobianAccumulator<Scalar, CameraModel, LossFunction, WeightType, N> accum(x, X, camera, loss_fn, weights);
-  return lm_impl<decltype(accum)>(accum, pose, opt, callback);
+  return lm_impl<Scalar, decltype(accum)>(accum, pose, opt, callback);
 }
 
 
 
 // Relative pose refinement. Minimizes Sampson error error. Assumes identity intrinsics (calibrated camera)
-template<typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+template<typename Scalar, typename WeightType, typename LossFunction = TrivialLoss<Scalar>, size_t N = 0>
 BundleStats<Scalar>
 refine_relpose(const EntoContainer<Point2D<Scalar>, N> &x1,
                const EntoContainer<Point2D<Scalar>, N> &x2,
                CameraPose<Scalar> *pose,
                const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-               const EntoContainer<Scalar, N> &weights = std::vector<Scalar>())
+               const WeightType &weights = WeightType())
 {
   LossFunction loss_fn(opt.loss_scale);
   IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
@@ -114,13 +116,13 @@ refine_relpose(const EntoContainer<Point2D<Scalar>, N> &x1,
 }
 
 // Homography matrix refinement.
-template <typename Scalar, typename WeightType, typename LossFunction, size_t N = 0>
+template <typename Scalar, typename WeightType, typename LossFunction = TrivialLoss<Scalar>, size_t N = 0>
 BundleStats<Scalar>
 refine_homography(const EntoContainer<Point2D<Scalar>, N> &x1,
                   const std::vector<Point2D<Scalar>> &x2,
                   Eigen::Matrix3d *H,
                   const BundleOptions<Scalar> &opt = BundleOptions<Scalar>(),
-                  const std::vector<Scalar> &weights = std::vector<Scalar>())
+                  const WeightType &weights = WeightType())
 {
   LossFunction loss_fn(opt.loss_scale);
   IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);

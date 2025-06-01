@@ -1,5 +1,6 @@
 add_subdirectory(abs-pose)
 add_subdirectory(rel-pose)
+add_subdirectory(robust-est)
 
 add_library(ento-pose
   INTERFACE

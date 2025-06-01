@@ -3,6 +3,9 @@
 
 #include <algorithm>
 
+namespace EntoPose
+{
+
 template <typename Scalar>
 class TrivialLoss
 {
@@ -98,6 +101,8 @@ public:
     }
   }
 };
+
+} // namespace EntoPose
 
 
 #endif

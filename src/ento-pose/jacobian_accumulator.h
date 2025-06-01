@@ -35,17 +35,18 @@ template <typename Scalar,
 class CameraJacobianAccumulator
 {
 private:
-  const EntoUtil::EntoArray<EntoMath::Vec2<Scalar>, N> &x_;
-  const EntoUtil::EntoArray<EntoMath::Vec3<Scalar>, N> &X_;
+  const EntoUtil::EntoContainer<EntoMath::Vec2<Scalar>, N> &x_;
+  const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N> &X_;
   const Camera<Scalar> &camera_;
   const LossFunction &loss_fn_;
   const ResidualWeightVector &weights_;
+  using CameraParams = typename CameraModel::Params;
 
 public:
   typedef CameraPose<Scalar> param_t;
   static constexpr size_t num_params = 6;
-  CameraJacobianAccumulator(const EntoUtil::EntoArray<EntoMath::Vec2<Scalar>, N>& points2d,
-                            const EntoUtil::EntoArray<EntoMath::Vec3<Scalar>, N>& points3d,
+  CameraJacobianAccumulator(const EntoUtil::EntoContainer<EntoMath::Vec2<Scalar>, N>& points2d,
+                            const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N>& points3d,
                             const Camera<Scalar>& cam,
                             const LossFunction &loss,
                             const ResidualWeightVector &w = ResidualWeightVector())
@@ -74,22 +75,34 @@ public:
   size_t accumulate(const CameraPose<Scalar> &pose, Eigen::Matrix<Scalar, 6, 6> &JtJ,
                     Eigen::Matrix<Scalar, 6, 1> &Jtr) const
   {
+    // ENTO_DEBUG("accumulate: Starting accumulate function");
     Matrix3x3<Scalar> R = pose.R();
+    // ENTO_DEBUG("accumulate: Got rotation matrix");
     Matrix2x2<Scalar> Jcam;
     Jcam.setIdentity(); // we initialize to identity here (this is for the calibrated case)
+    // ENTO_DEBUG("accumulate: Initialized Jcam");
     size_t num_residuals = 0;
+    // ENTO_DEBUG("accumulate: x_.size() = %zu, X_.size() = %zu", x_.size(), X_.size());
     for (size_t i = 0; i < x_.size(); ++i)
     {
+      // ENTO_DEBUG("accumulate: Processing point %zu", i);
       const Vec3<Scalar> Z = R * X_[i] + pose.t;
+      // ENTO_DEBUG("accumulate: Computed Z = (%f, %f, %f)", Z.x(), Z.y(), Z.z());
       const Vec2<Scalar> z = Z.hnormalized();
+      // ENTO_DEBUG("accumulate: Computed z = (%f, %f)", z.x(), z.y());
 
       // Note this assumes points that are behind the camera will stay behind the camera
       // during the optimization
-      if (Z(2) < 0) continue;
+      if (Z(2) < 0) {
+        // ENTO_DEBUG("accumulate: Point %zu is behind camera, skipping", i);
+        continue;
+      }
 
       // Project with intrinsics
       Vec2<Scalar> zp = z;
-      CameraModel::project_with_jac(camera_.params, z, &zp, &Jcam);
+      // ENTO_DEBUG("accumulate: About to call project_with_jac");
+      CameraModel::project_with_jac(camera_.params(), z, &zp, &Jcam);
+      // ENTO_DEBUG("accumulate: Called project_with_jac");
 
       // Setup residual
       Vec2<Scalar> r = zp - x_[i];
@@ -151,9 +164,9 @@ public:
                           const CameraPose<Scalar> &pose) const
   {
     CameraPose<Scalar> pose_new;
-    // The rotation is parameterized via the lie-rep. and post-multiplication
-    //   i.e. R(delta) = R * expm([delta]_x)
-    pose_new.q = quat_step_post(pose.q, dp.template block<3, 1>(0, 0));
+    // Convert block to matrix before passing to quat_step_post
+    Eigen::Matrix<Scalar, 3, 1> w_delta = dp.template block<3, 1>(0, 0);
+    pose_new.q = quat_step_post(pose.q, w_delta);
 
     // Translation is parameterized as (negative) shift in position
     //  i.e. t(delta) = t + R*delta

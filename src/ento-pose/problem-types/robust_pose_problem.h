@@ -4,27 +4,29 @@
 #include <cstdint>
 #include <ento-bench/problem.h>
 #include <ento-util/containers.h>
-#include <ento-bench/problem-types/absolute_pose_problem.h>
-#include <ento-bench/problem-types/relative_pose_problem.h>
-#include <ento-bench/problem-types/homography_problem.h>
+#include <ento-pose/problem-types/pose_problem.h>
+#include <ento-pose/problem-types/absolute_pose_problem.h>
+#include <ento-pose/problem-types/relative_pose_problem.h>
+#include <ento-pose/problem-types/homography_problem.h>
 
 #ifdef NATIVE
 #include <iostream>
 #include <iomanip>
 #endif
 
-namespace EntoBench
+namespace EntoPose
 {
 template <typename Scalar, size_t NumPts=0>
 class RobustPoseProblem : 
-  EntoProblem<RobustPoseProblem<Scalar, NumPts>>
+  EntoBench::EntoProblem<RobustPoseProblem<Scalar, NumPts>>
 {
 private:
-  static constexpr size_t calculate_container_size(size_t num_points)
+  // Calculate inlier container size
+  static constexpr size_t calculate_inlier_container_size(size_t num_points)
   {
     return (num_points + 7) / 8;
   }
-  static constexpr size_t StaticInlierFlagSize = (NumPts > 0) ? calculate_container_size(NumPts) : 0;
+  static constexpr size_t StaticInlierFlagSize = (NumPts > 0) ? calculate_inlier_container_size(NumPts) : 0;
   size_t dyn_inlier_flag_size_ = 0;
 
 protected:
@@ -35,6 +37,7 @@ protected:
 
 public:
   RobustPoseProblem() = default;
+  RobustPoseProblem(Scalar inlier_ratio) : inlier_ratio_(inlier_ratio) {};
 
   // Inititalize inlier flags with given size
   void initialize_inliers()
@@ -45,7 +48,7 @@ public:
   void initialize_inliers(size_t num_pts)
   {
     static_assert(NumPts == 0);
-    dyn_inlier_flag_size_ = calculate_container_size(num_pts);
+    dyn_inlier_flag_size_ = calculate_inlier_container_size(num_pts);
     inlier_flags_.resize(dyn_inlier_flag_size_);
   }
 
@@ -115,54 +118,107 @@ public:
 };
 
 
-template <typename Scalar, size_t NumPts = 0>
-struct RobustAbsolutePoseProblem : AbsolutePoseProblem<Scalar, NumPts>,
-                                   RobustPoseProblem<Scalar, NumPts>
+template <typename Scalar, typename Solver, size_t NumPts = 0>
+struct RobustAbsolutePoseProblem : 
+  public AbsolutePoseProblem<Scalar, Solver, NumPts>,
+  public RobustPoseProblem<Scalar, NumPts>
 {
+  using AbsBase    = AbsolutePoseProblem<Scalar, Solver, NumPts>;
+  using RobustBase = RobustPoseProblem <Scalar,             NumPts>;
+
+  explicit RobustAbsolutePoseProblem(Solver solver)
+    : AbsBase(solver), RobustBase{} {}
+  
+#ifdef NATIVE
   std::string serialize() const
   {
-    std::string exp_data    = AbsolutePoseProblem<Scalar, NumPts>::serialize();
-    std::string ransac_data = RobustPoseProblem<Scalar, NumPts>::serialize();
-    return exp_data + "," + ransac_data;
+    return AbsBase::serialize() + "," + RobustBase::serialize();
   }
+  bool deserialize_impl(const std::string& line)
+  {
+    // This needs to be custom.
+  }
+#endif
+
+  bool deserialize_impl(const char* line)
+  {
+    // This needs to be custom.
+  } 
+
+  void solve_impl();
+  bool validate_impl();
+  void clear_impl();
+
 };
 
 
-template <typename Scalar, size_t NumPts = 0>
-struct RobustRelativePoseProblem : RelativePoseProblem<Scalar, NumPts>,
+template <typename Scalar, typename Solver, size_t NumPts = 0>
+struct RobustRelativePoseProblem : RelativePoseProblem<Scalar, Solver, NumPts>,
                                    RobustPoseProblem<Scalar, NumPts>
 {
+  using RelBase = RelativePoseProblem<Scalar, Solver, NumPts>;
+  using RobustBase = RobustPoseProblem<Scalar, NumPts>;
+
+  RobustRelativePoseProblem(Solver solver)
+    : RelBase(solver) , RobustBase{} {}
+
   std::string serialize() const
   {
-    std::string exp_data    = RelativePoseProblem<Scalar, NumPts>::serialize();
-    std::string ransac_data = RobustPoseProblem<Scalar, NumPts>::serialize();
-    return exp_data + "," + ransac_data;
   }
 };
 
-template <typename Scalar, size_t NumPts = 0>
-struct RobustHomographyProblem : HomographyProblem<Scalar, NumPts>,
+template <typename Scalar, typename Solver, size_t NumPts = 0>
+struct RobustHomographyProblem : HomographyProblem<Scalar, Solver, NumPts>,
                                      RobustPoseProblem<Scalar, NumPts>
 {
+  using HomogProblem = HomographyProblem<Scalar, Solver, NumPts>;
+  using RobustProblem = RobustPoseProblem<Scalar, NumPts>;
   std::string serialize() const
   {
-    std::string exp_data    = HomographyProblem<Scalar, NumPts>::serialize();
-    std::string ransac_data = RobustPoseProblem<Scalar, NumPts>::serialize();
-    return exp_data + "," + ransac_data;
   }
 
 #ifdef NATIVE
-  static void deserialize(std::istream& stream,
-                          RobustHomographyProblem<Scalar, NumPts>* instance)
+  void deserialize(const std::string& line)
+  {
+  }
+
+  std::string serialize_impl() const
   {
   }
 #endif
-  static void deserialize(const char* line,
-                          RobustHomographyProblem<Scalar, NumPts>)
+  void deserialize(const char* line)
   {
 
   }
 };
+
+template <typename T>
+concept RobustPoseProblemConcept =
+  PoseProblemConcept<T> &&
+  requires(T obj, std::size_t idx, bool flag)
+  {
+    // inlier mask API
+    { obj.is_inlier(idx) }            -> std::same_as<bool>;
+    { obj.set_inlier(idx, flag) }     -> std::same_as<void>;
+    { obj.initialize_inliers() }      -> std::same_as<void>;
+    // second overload only participates when NumPts == 0
+    { obj.initialize_inliers(idx) }   -> std::same_as<void>;
+
+    // inlier ratio – convertible to the Scalar typedef exported by problem
+    { obj.get_inlier_ratio() }        -> std::convertible_to<typename T::Scalar_>;
+  };
+
+template <typename T>
+concept RobustAbsolutePoseProblemConcept =
+  RobustPoseProblemConcept<T> && AbsolutePoseProblemConcept<T>;
+
+template <typename T>
+concept RobustRelativePoseProblemConcept =
+  RobustPoseProblemConcept<T> && RelativePoseProblemConcept<T>;
+
+template <typename T>
+concept RobustHomographyProblemConcept =
+  RobustPoseProblemConcept<T> && HomographyProblemConcept<T>;
 
 } // namespace EntoBench
 

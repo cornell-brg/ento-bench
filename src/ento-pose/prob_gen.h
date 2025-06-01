@@ -17,6 +17,7 @@
 #include <ento-util/containers.h>
 #include <ento-pose/problem-types/absolute_pose_problem.h>
 #include <ento-pose/problem-types/relative_pose_problem.h>
+#include <ento-pose/problem-types/robust_pose_problem.h>
 
 using namespace EntoUtil;
 
@@ -1583,12 +1584,15 @@ void generate_robust_relpose_problems(size_t n_problems,
 }
 
 
-template <typename Scalar>
-void generate_robust_homography_problems(size_t n_problems,
-                                         Scalar inlier_ratio,
-                                         std::vector<RobustRelativePoseProblemInstance<Scalar>> *problem_instances,
-                                         const ProblemOptions<Scalar> &options)
+template <RobustPoseProblemConcept Problem>
+void generate_robust_homography_problems(int n_problems,
+                                         typename Problem::Scalar_ inlier_ratio,
+                                         std::vector<Problem> *problem_instances,
+                                         const ProblemOptions<typename Problem::Scalar_> &options)
 {
+  using Scalar = typename Problem::Scalar_;
+  using Solver = typename Problem::Solver_;
+
   problem_instances->clear();
   problem_instances->reserve(n_problems);
 

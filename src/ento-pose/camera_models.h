@@ -24,12 +24,12 @@ public:
                                Vec2<Scalar>* xp,
                                Matrix2x2<Scalar>* jac)
   {
-    Derived::project_with_jac(p, x, xp, jac);
+    Derived::project_with_jac_impl(p, x, xp, jac);
   }
 
-  void unproject(const Params& p, const Vec2<Scalar>& xp, Vec2<Scalar>* x) const
+  static void unproject(const Params& p, const Vec2<Scalar>& xp, Vec2<Scalar>* x)
   {
-    Derived::unproject(p, xp, x);
+    Derived::unproject_impl(p, xp, x);
   }
 };
 
@@ -311,6 +311,7 @@ struct Camera
   
   // Vector of params?
   using Params = typename CameraModel::Params;
+  using CameraModel_ = CameraModel;
   Params params_;
   
   Camera(int w, int h, const Params& p)
@@ -339,7 +340,7 @@ struct Camera
 
   Scalar focal() const
   {
-    if constexpr (params_.empty())
+    if constexpr (CameraModel::focal_size == 0)
     {
       return static_cast<Scalar>(1.0);
     }
@@ -351,7 +352,24 @@ struct Camera
       return focal;
     }
   }
+
+  void rescale(Scalar scale)
+  {
+    if (params_.size() == 0)
+    {
+      return;
+    }
+    for (size_t idx : CameraModel::focal_idx)
+    {
+      params_.at(idx) *= scale;
+    }
+    for (size_t idx : CameraModel::principal_point_idx)
+    {
+      params_.at(idx) *= scale;
+    }
+  }
   
+  const Params& params() const { return params_; }
 };
 
 

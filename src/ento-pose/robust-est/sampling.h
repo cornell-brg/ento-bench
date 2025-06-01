@@ -22,7 +22,7 @@ void draw_sample(size_t sample_size,
     bool done = false;
     while (!done)
     {
-      (*sample)[i] = random_int(rng) % n;
+      (*sample)[i] = prng_next_int(rng) % n;
       done = true;
       for (size_t j = 0; j < i; ++j)
       {
@@ -88,22 +88,40 @@ public:
     }
   }
 
-  void generate_sample(EntoUtil::EntoContainer<size_t> *sample)
+  void generate_sample(EntoUtil::EntoArray<size_t, K> *sample)
   {
     if constexpr (UsePROSAC)
     {
       if (prosac_state_.prosac_k_ < MaxPROSACIters)
       {
-        draw_sample<K, RNG_t>(sample_size_ - 1,
-                              prosac_state_.prosac_subset_sz_ - 1,
-                              sample,
-                              state_);
-        (*sample)[sample_size_ - 1] = prng_next_int(state_);
+        draw_sample<RNG_t, K>(sample_size_ - 1, sample, state_);
+        (*sample)[sample_size_ - 1] = prng_next_int(state_) % num_data_;
       }
     }
     else
     {
-      draw_sample<K, RNG_t>(sample_size_, num_data_, sample, state_);
+      draw_sample<RNG_t, K>(sample_size_, sample, state_);
+    }
+  }
+
+  void generate_sample(std::vector<size_t> *sample)
+  {
+    if (UsePROSAC && prosac_state_.prosac_k_ < MaxPROSACIters) {
+        draw_sample<RNG_t, K>(sample_size_ - 1, sample, state_);
+        (*sample)[sample_size_ - 1] = prosac_state_.prosac_subset_sz_ - 1;
+
+        // update prosac state
+        prosac_state_.prosac_k_++;
+        if (prosac_state_.prosac_k_ < MaxPROSACIters) {
+            if (prosac_state_.prosac_k_ > prosac_state_.growth[prosac_state_.prosac_subset_sz_ - 1]) {
+                if (++prosac_state_.prosac_subset_sz_ > num_data_) {
+                    prosac_state_.prosac_subset_sz_ = num_data_;
+                }
+            }
+        }
+    } else {
+        // uniform ransac sampling
+        draw_sample<RNG_t, K>(sample_size_, sample, state_);
     }
   }
 

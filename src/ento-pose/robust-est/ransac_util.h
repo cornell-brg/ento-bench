@@ -6,6 +6,7 @@
 #include <ento-pose/pose_util.h>
 #include <ento-util/containers.h>
 #include <ento-math/core.h>
+#include <ento-util/debug.h>
 
 namespace EntoPose
 {
@@ -27,22 +28,23 @@ template <typename Scalar, bool ProgressiveSampling = false, size_t ProgressiveS
 struct RansacOptions
 {
   size_t max_iters = 0;
-  size_t min_ters = 0;
+  size_t min_iters = 0;
   Scalar dynamic_trials_mult = 3.0;
   Scalar success_prob = 0.9999;
   Scalar max_reproj_error = 12.0;
   Scalar max_epipolar_error = 1.0;
   unsigned long seed = 0;
-  static constexpr bool progressive_sampling = false;
-  static constexpr size_t max_prosac_iterations = 100000;
+  bool score_initial_model = false;
+  static constexpr bool progressive_sampling = ProgressiveSampling;
+  static constexpr size_t max_prosac_iterations = ProgressiveSamplingIters;
 };
 
 template <typename Scalar, size_t N = 0>
 Scalar compute_msac_score(const CameraPose<Scalar> &pose,
-                          const EntoContainer<Vec2<Scalar>> &x,
-                          const EntoContainer<Vec3<Scalar>> &X,
-                          Scalar sq_threshold,
-                          size_t *inlier_count) {
+                          const EntoContainer<Vec2<Scalar>, N> &x,
+                          const EntoContainer<Vec3<Scalar>, N> &X,
+                          Scalar threshold_squared,
+                          size_t *inlier_count = nullptr) {
     *inlier_count = 0;
     Scalar score = 0.0;
     const Matrix3x3<Scalar> R = pose.R();
@@ -50,25 +52,24 @@ Scalar compute_msac_score(const CameraPose<Scalar> &pose,
     const Scalar P1_0 = R(1, 0), P1_1 = R(1, 1), P1_2 = R(1, 2), P1_3 = pose.t(1);
     const Scalar P2_0 = R(2, 0), P2_1 = R(2, 1), P2_2 = R(2, 2), P2_3 = pose.t(2);
 
-    for (size_t k = 0; k < x.size(); ++k)
-    {
-      const Scalar X0 = X[k](0), X1 = X[k](1), X2 = X[k](2);
-      const Scalar x0 = x[k](0), x1 = x[k](1);
-      const Scalar z0 = P0_0 * X0 + P0_1 * X1 + P0_2 * X2 + P0_3;
-      const Scalar z1 = P1_0 * X0 + P1_1 * X1 + P1_2 * X2 + P1_3;
-      const Scalar z2 = P2_0 * X0 + P2_1 * X1 + P2_2 * X2 + P2_3;
-      const Scalar inv_z2 = 1.0 / z2;
+    for (size_t k = 0; k < x.size(); ++k) {
+        const Scalar X0 = X[k](0), X1 = X[k](1), X2 = X[k](2);
+        const Scalar x0 = x[k](0), x1 = x[k](1);
+        const Scalar z0 = P0_0 * X0 + P0_1 * X1 + P0_2 * X2 + P0_3;
+        const Scalar z1 = P1_0 * X0 + P1_1 * X1 + P1_2 * X2 + P1_3;
+        const Scalar z2 = P2_0 * X0 + P2_1 * X1 + P2_2 * X2 + P2_3;
+        const Scalar inv_z2 = 1.0 / z2;
 
-      const Scalar r_0 = z0 * inv_z2 - x0;
-      const Scalar r_1 = z1 * inv_z2 - x1;
-      const Scalar r_sq = r_0 * r_0 + r_1 * r_1;
-      if (r_sq < sq_threshold && z2 > 0.0)
-      {
-        (*inlier_count)++;
-        score += r_sq;
-      }
+        const Scalar r_0 = z0 * inv_z2 - x0;
+        const Scalar r_1 = z1 * inv_z2 - x1;
+        const Scalar r_sq = r_0 * r_0 + r_1 * r_1;
+        if (r_sq < threshold_squared && z2 > 0.0) 
+        {
+            (*inlier_count)++;
+            score += r_sq;
+        }
     }
-    score += (x.size() - *inlier_count) * sq_threshold;
+    score += (x.size() - *inlier_count) * threshold_squared;
     return score;
 }
 
@@ -222,7 +223,10 @@ void get_homography_inliers(const Matrix3x3<Scalar> &H,
   const Scalar H1_0 = H(1, 0), H1_1 = H(1, 1), H1_2 = H(1, 2);
   const Scalar H2_0 = H(2, 0), H2_1 = H(2, 1), H2_2 = H(2, 2);
 
-  inliers->resize(x1.size());
+  if constexpr (N == 0) 
+    inliers->resize(x1.size());
+  inliers->clear();
+
   for (size_t k = 0; k < x1.size(); ++k)
   {
       const Scalar x1_0 = x1[k](0), x1_1 = x1[k](1);
@@ -242,19 +246,28 @@ void get_homography_inliers(const Matrix3x3<Scalar> &H,
 // Compute inliers for absolute pose estimation (using reprojection error and cheirality check)
 template <typename Scalar, size_t N = 0>
 void get_inliers(const CameraPose<Scalar> &pose,
-                 const EntoContainer<Vec2<Scalar>, N> &x,
-                 const EntoContainer<Vec3<Scalar>, N> &X,
-                 Scalar sq_threshold,
-                 EntoContainer<uint8_t, N> *inliers) {
-  inliers->resize(x.size());
-  const Matrix3x3<Scalar> R = pose.R();
+                const EntoUtil::EntoContainer<Vec2<Scalar>, N> &x,
+                const EntoUtil::EntoContainer<Vec3<Scalar>, N> &X,
+                Scalar threshold_squared,
+                EntoUtil::EntoContainer<uint8_t, N> *inliers)
+{
+    // Only resize for dynamic containers (N=0)
+    if constexpr (N == 0)
+      inliers->reserve(x.size());
 
-  for (size_t k = 0; k < x.size(); ++k)
-  {
-    Vec3<Scalar> Z = (R * X[k] + pose.t);
-    Scalar r2 = (Z.hnormalized() - x[k]).squaredNorm();
-    (*inliers)[k] = (r2 < sq_threshold && Z(2) > 0.0);
-  }
+    inliers->clear();
+    
+    const Matrix3x3<Scalar> R = pose.R();
+    
+    ENTO_DEBUG("In get_inliers! x.size: %i, X.size: %i", x.size(), x.size());
+    for (size_t k = 0; k < x.size(); ++k) {
+        Vec3<Scalar> Z = R * X[k] + pose.t;
+        Scalar r2 = (Z.hnormalized() - x[k]).squaredNorm();
+        bool flag = (r2 < threshold_squared && Z(2) > 0.0);
+        ENTO_DEBUG("Inliers[%d] = (%f < %f && Z(2) [%f] > 0.0 ? %i)",
+                   k, r2, threshold_squared, Z(2), flag);
+        (*inliers).push_back(r2 < threshold_squared && Z(2) > 0.0);
+    }
 }
 
 // Compute inliers for relative pose estimation (using Sampson error)
@@ -264,7 +277,11 @@ int get_inliers(const CameraPose<Scalar> &pose,
                 const EntoContainer<Vec2<Scalar>, N> &x2,
                 Scalar sq_threshold,
                 EntoContainer<uint8_t, N> *inliers) {
-  inliers->resize(x1.size());
+  if constexpr(N == 0)
+    inliers->reserve(x1.size());
+
+  inliers->clear();
+
   Matrix3x3<Scalar> E;
   essential_from_motion(pose, &E);
   const Scalar E0_0 = E(0, 0), E0_1 = E(0, 1), E0_2 = E(0, 2);
@@ -307,7 +324,7 @@ int get_inliers(const CameraPose<Scalar> &pose,
         inlier = false;
       }
     }
-    (*inliers)[k] = inlier;
+    (*inliers).push_back(inlier);
   }
   return inlier_count;
 }
@@ -319,7 +336,11 @@ int get_inliers(const Matrix3x3<Scalar> &E,
                 const EntoContainer<Vec2<Scalar>, N> &x2,
                 Scalar sq_threshold,
                 EntoContainer<uint8_t, N> *inliers) {
-  inliers->resize(x1.size());
+  if constexpr (N == 0)
+    inliers->reserve(x1.size());
+
+  inliers->clear();
+
   const Scalar E0_0 = E(0, 0), E0_1 = E(0, 1), E0_2 = E(0, 2);
   const Scalar E1_0 = E(1, 0), E1_1 = E(1, 1), E1_2 = E(1, 2);
   const Scalar E2_0 = E(2, 0), E2_1 = E(2, 1), E2_2 = E(2, 2);
@@ -349,7 +370,7 @@ int get_inliers(const Matrix3x3<Scalar> &E,
 
     if (inlier) inlier_count++;
 
-    (*inliers)[k] = inlier;
+    (*inliers).push_back(inlier);
   }
   return inlier_count;
 }
