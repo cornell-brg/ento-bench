@@ -65,3 +65,7 @@ external/eigen_old
 # Do not ignore CMakeLists.txt or datasets/*.txt
 !**/CMakeLists.txt
 !datasets/**/*.txt
+
+datasets/rel-pose
+datasets/abs-pose
+datasets/homography
