@@ -19,6 +19,7 @@ set(TEST_FILES
   test_ransac.cc
   test_estimators.cc
   test_robust_absolute_pose.cc
+  test_robust_relative_pose.cc
 )
 
 set(LIBRARIES_test_ransac
@@ -30,6 +31,10 @@ set(LIBRARIES_test_estimators
 )
 
 set(LIBRARIES_test_robust_absolute_pose
+  ento_util ento-robust-est ento-pose Eigen
+)
+
+set(LIBRARIES_test_robust_relative_pose
   ento_util ento-robust-est ento-pose Eigen
 )
 

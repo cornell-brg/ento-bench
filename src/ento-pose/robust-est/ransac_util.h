@@ -109,17 +109,22 @@ Scalar compute_sampson_msac_score(const CameraPose<Scalar> &pose,
     const Scalar Cy = Ex2_0 * Ex2_0 + Ex2_1 * Ex2_1;
     const Scalar r2 = C * C / (Cx + Cy);
 
+    //ENTO_DEBUG("Point %zu - Sampson error: %f, threshold: %f", k, r2, sq_threshold);
+
     if (r2 < sq_threshold) {
         bool cheirality =
-            check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), 0.01);
+            check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), Scalar(0.0001));
         if (cheirality) {
             (*inlier_count)++;
             score += r2;
+            //ENTO_DEBUG("Point %zu - ACCEPTED as inlier", k);
         } else {
             score += sq_threshold;
+            //ENTO_DEBUG("Point %zu - REJECTED by cheirality check", k);
         }
     } else {
         score += sq_threshold;
+        //ENTO_DEBUG("Point %zu - REJECTED by Sampson error", k);
     }
   }
   return score;
@@ -313,7 +318,7 @@ int get_inliers(const CameraPose<Scalar> &pose,
     if (inlier)
     {
       bool cheirality =
-          check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), 0.01);
+          check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), Scalar(0.01));
 
       if (cheirality)
       {

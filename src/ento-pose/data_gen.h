@@ -12,6 +12,7 @@
 #include <ento-pose/rel-pose/five_pt_nister.h>
 #include <ento-pose/rel-pose/upright_planar_two_pt.h>
 #include <ento-pose/rel-pose/upright_three_pt.h>
+#include <ento-pose/rel-pose/upright_planar_three_pt.h>
 
 #include <ento-pose/problem-types/homography_problem.h>
 #include <ento-pose/problem-types/absolute_pose_problem.h>
@@ -116,30 +117,37 @@ struct SolverUP2P {
 template <typename Scalar>
 struct SolverRelUpright3pt {
   using scalar_type = Scalar;
-  static constexpr size_t MaxSolns = 2;
+  static constexpr size_t MaxSolns = 4;
   static constexpr size_t MinSampleSize = 3;
 
   static inline int solve(const RelativePoseProblem<Scalar, SolverRelUpright3pt<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>>* solutions)
   {
-    return relpose_upright_planar_3pt(instance.x1_, instance.x2_, solutions);
+    return relpose_upright_3pt<Scalar, 0>(instance.x1_, instance.x2_, solutions);
   }
 
-  template <size_t N = 0>
-  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
-                          EntoContainer<Vec3<Scalar>, N>& X,
-                          std::vector<CameraPose<Scalar>>* solutions)
+  static inline int solve(RelativePoseProblem<Scalar, SolverRelUpright3pt<Scalar>, 3>& instance,
+                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_upright_planar_3pt(x, X, solutions);
+    return relpose_upright_3pt<Scalar, 3>(instance.x1_, instance.x2_, solutions);
   }
-  
+
   // Add missing EntoArray overload for template version
   template <size_t N = 0>
   static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
                           EntoContainer<Vec3<Scalar>, N>& X,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_upright_planar_3pt(x, X, solutions);
+    ENTO_DEBUG("HERE!!!!");
+    return relpose_upright_3pt<Scalar, N>(x, X, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                          EntoContainer<Vec3<Scalar>, N>& X,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return relpose_upright_3pt<Scalar, N>(x, X, solutions);
   }
 
   typedef CalibratedAbsolutePoseValidator<Scalar> validator;
@@ -179,7 +187,7 @@ struct SolverRel8pt
                           std::vector<CameraPose<Scalar>>* solutions)
   {
     EntoArray<CameraPose<Scalar>, 4> solutions_;
-    size_t sols = relpose_8pt<Scalar, 0>(x1, x2, &solutions_);
+    size_t sols = relpose_8pt<Scalar, N>(x1, x2, &solutions_);
     for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
@@ -194,7 +202,7 @@ struct SolverRel8pt
                           EntoContainer<Vec3<Scalar>, N>& x2,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_8pt<Scalar, 0>(x1, x2, solutions);
+    return relpose_8pt<Scalar, N>(x1, x2, solutions);
   }
 
   typedef CalibratedRelativePoseValidator<Scalar> validator;
@@ -319,7 +327,7 @@ struct SolverRelUprightPlanar3pt {
                           std::vector<CameraPose<Scalar>> *solutions)
   {
     EntoArray<CameraPose<Scalar>, 2> solutions_;
-    int sols = relpose_upright_planar_3pt<Scalar>(instance.x1_, instance.x2_, &solutions_);
+    int sols = relpose_upright_planar_3pt<Scalar, 0>(instance.x1_, instance.x2_, &solutions_);
     for (int i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
@@ -333,7 +341,7 @@ struct SolverRelUprightPlanar3pt {
                           std::vector<CameraPose<Scalar>>* solutions)
   {
     EntoArray<CameraPose<Scalar>, 2> solutions_;
-    size_t sols = relpose_upright_planar_3pt<Scalar>(x1, x2, &solutions_);
+    size_t sols = relpose_upright_planar_3pt<Scalar, N>(x1, x2, &solutions_);
     for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
@@ -347,7 +355,7 @@ struct SolverRelUprightPlanar3pt {
                           EntoContainer<Vec3<Scalar>, N>& x2,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_upright_planar_3pt<Scalar>(x1, x2, solutions);
+    return relpose_upright_planar_3pt<Scalar, N>(x1, x2, solutions);
   }
   typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;

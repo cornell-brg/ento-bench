@@ -112,7 +112,7 @@ refine_relpose(const EntoContainer<Point2D<Scalar>, N> &x1,
   LossFunction loss_fn(opt.loss_scale);
   IterationCallback<Scalar> callback = setup_callback(opt, loss_fn);
   RelativePoseJacobianAccumulator<Scalar, LossFunction, WeightType, N> accum(x1, x2, loss_fn, weights);
-  return lm_impl<decltype(accum)>(accum, pose, opt, callback);
+  return lm_impl<Scalar, decltype(accum)>(accum, pose, opt, callback);
 }
 
 // Homography matrix refinement.

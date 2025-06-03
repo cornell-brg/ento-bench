@@ -119,58 +119,71 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     CameraPose<typename Solver::scalar_type> *relative_pose,
     EntoUtil::EntoContainer<uint8_t, N> *inliers)
 {
-    using Scalar = typename Solver::scalar_type;
-    const size_t num_pts = points2D_1.size();
+  using Scalar = typename Solver::scalar_type;
+  const size_t num_pts = points2D_1.size();
 
-    // Normalize image points for both cameras
-    EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_calib, x2_calib;
-    if constexpr (N == 0) {
-        x1_calib.resize(num_pts);
-        x2_calib.resize(num_pts);
-    }
+  // Normalize image points for both cameras
+  EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_calib, x2_calib;
+  if constexpr (N == 0) 
+  {
+    x1_calib.resize(num_pts);
+    x2_calib.resize(num_pts);
+  }
+  
+  for (size_t k = 0; k < num_pts; ++k)
+  {
+    Vec2<Scalar> norm1, norm2;
+    camera1.unproject(points2D_1[k], &norm1);
+    camera2.unproject(points2D_2[k], &norm2);
     
-    for (size_t k = 0; k < num_pts; ++k) {
-        Vec2<Scalar> norm1, norm2;
-        camera1.unproject(points2D_1[k], &norm1);
-        camera2.unproject(points2D_2[k], &norm2);
-        
-        if constexpr (N == 0) {
-            x1_calib[k] = norm1;
-            x2_calib[k] = norm2;
-        } else {
-            x1_calib.push_back(norm1);
-            x2_calib.push_back(norm2);
-        }
+    if constexpr (N == 0) 
+    {
+      x1_calib[k] = norm1;
+      x2_calib[k] = norm2;
+    } 
+    else 
+    {
+      x1_calib.push_back(norm1);
+      x2_calib.push_back(norm2);
+    }
+  }
+
+  // Scale threshold for normalized coordinates
+  RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
+  ransac_opt_scaled.max_epipolar_error = 
+      ransac_opt.max_epipolar_error * Scalar(0.5) * (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+
+  // Run RANSAC
+  RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);
+
+  if (stats.num_inliers > 5) 
+  {
+    // Collect inliers for refinement
+    EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
+    
+    for (size_t k = 0; k < num_pts; ++k) 
+    {
+      if ((*inliers)[k]) 
+      {
+        x1_inliers.push_back(x1_calib[k]);
+        x2_inliers.push_back(x2_calib[k]);
+      }
     }
 
-    // Scale threshold for normalized coordinates
-    RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
-    ransac_opt_scaled.max_epipolar_error = 
-        ransac_opt.max_epipolar_error * Scalar(0.5) * (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+    BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
+    scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
+        (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
 
-    // Run RANSAC
-    RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);
-
+    using WeightT = UniformWeightVector<Scalar>;
+    using LossFn = TruncatedLoss<Scalar>;
+    refine_relpose<Scalar, WeightT, LossFn, N>(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
+    //using CameraModel = decltype(norm_camera)::CameraModel_;
+    //bundle_adjust<Scalar, UniformWeightVector<Scalar>, CameraModel , TruncatedLoss<Scalar>, N>
+    //    (points2D_inliers, points3D_inliers, norm_camera, pose, bundle_opt_scaled);
     // Post-RANSAC refinement if we have enough inliers
-    if (stats.num_inliers > 5) {
-        // Collect inliers for refinement
-        EntoUtil::EntoContainer<Vec2<Scalar>, 0> x1_inliers, x2_inliers;
-        
-        for (size_t k = 0; k < num_pts; ++k) {
-            if ((*inliers)[k]) {
-                x1_inliers.push_back(x1_calib[k]);
-                x2_inliers.push_back(x2_calib[k]);
-            }
-        }
+  }
 
-        BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
-        scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
-            (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
-
-        refine_relpose(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
-    }
-
-    return stats;
+  return stats;
 }
 
 // Estimates a homography matrix using LO-RANSAC followed by non-linear refinement

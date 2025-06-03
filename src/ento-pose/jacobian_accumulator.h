@@ -199,13 +199,13 @@ public:
   Scalar residual(const CameraPose<Scalar> &pose)
   {
     Matrix3x3<Scalar> E;
-    essential_from_motion(pose, &E);
+    essential_from_motion<Scalar>(pose, &E);
     Scalar cost = static_cast<Scalar>(0);
     for (size_t k = 0; k < x1_.size(); ++k)
     {
       Scalar C = x2_[k].homogeneous().dot(E * x1_[k].homogeneous());
       Scalar nJc_sq = (E.template block<2,3>(0, 0) * x1_[k].homogeneous()).squaredNorm() +
-                      (E.template block<3,2>(0, 0).transpose() & x2_[k].homogeneous()).squaredNorm();
+                      (E.template block<3,2>(0, 0).transpose() * x2_[k].homogeneous()).squaredNorm();
       Scalar r2 = (C * C) / nJc_sq;
       cost += weights_[k] * loss_fn_.loss(r2);
     }
@@ -220,28 +220,28 @@ public:
     {
       // x < y
       if (std::abs(pose.t.x()) < std::abs(pose.t.z())) {
-        tangent_basis_.col(0) = pose.t.cross(Eigen::Vector3d::UnitX()).normalized();
+        tangent_basis_.col(0) = pose.t.cross(Vec3<Scalar>::UnitX()).normalized();
       }
       else
       {
-        tangent_basis_.col(0) = pose.t.cross(Eigen::Vector3d::UnitZ()).normalized();
+        tangent_basis_.col(0) = pose.t.cross(Vec3<Scalar>::UnitZ()).normalized();
       }
     } else {
       // x > y
       if (std::abs(pose.t.y()) < std::abs(pose.t.z()))
       {
-        tangent_basis_.col(0) = pose.t.cross(Eigen::Vector3d::UnitY()).normalized();
+        tangent_basis_.col(0) = pose.t.cross(Vec3<Scalar>::UnitY()).normalized();
       }
       else
       {
-        tangent_basis_.col(0) = pose.t.cross(Eigen::Vector3d::UnitZ()).normalized();
+        tangent_basis_.col(0) = pose.t.cross(Vec3<Scalar>::UnitZ()).normalized();
       }
     }
     tangent_basis_.col(1) = tangent_basis_.col(0).cross(pose.t).normalized();
 
-    Eigen::Matrix3d E, R;
+    Matrix3x3<Scalar> E, R;
     R = pose.R();
-    essential_from_motion(pose, &E);
+    essential_from_motion<Scalar>(pose, &E);
 
     // Matrices contain the jacobians of E w.r.t. the rotation and translation parameters
     Eigen::Matrix<Scalar, 9, 3> dR;
@@ -272,7 +272,7 @@ public:
       Scalar C = x2_[k].homogeneous().dot(E * x1_[k].homogeneous());
 
       // J_C is the Jacobian of the epipolar constraint w.r.t. the image points
-      Eigen::Vector4d J_C;
+      Vec4<Scalar> J_C;
       J_C << E.template block<3, 2>(0, 0).transpose() * x2_[k].homogeneous(), E.template block<2, 3>(0, 0) * x1_[k].homogeneous();
       const Scalar nJ_C = J_C.norm();
       const Scalar inv_nJ_C = 1.0 / nJ_C;
@@ -327,7 +327,9 @@ public:
   CameraPose<Scalar> step(Eigen::Matrix<Scalar, 5, 1> dp, const CameraPose<Scalar> &pose) const
   {
     CameraPose<Scalar> pose_new;
-    pose_new.q = quat_step_post(pose.q, dp.template block<3, 1>(0, 0));
+    // Convert block to matrix before passing to quat_step_post
+    Eigen::Matrix<Scalar, 3, 1> w_delta = dp.template block<3, 1>(0, 0);
+    pose_new.q = quat_step_post(pose.q, w_delta);
     pose_new.t = pose.t + tangent_basis_ * dp.template block<2, 1>(3, 0);
     return pose_new;
   }

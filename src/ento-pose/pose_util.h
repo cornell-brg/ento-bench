@@ -342,6 +342,13 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
   const Scalar lambda2 = -a * b1 + b2;
 
   min_depth = min_depth * (1 - a * a);
+  
+  //ENTO_DEBUG("Pose - R: [%f %f %f; %f %f %f; %f %f %f], t: [%f %f %f]",
+  //           pose.R()(0,0), pose.R()(0,1), pose.R()(0,2),
+  //           pose.R()(1,0), pose.R()(1,1), pose.R()(1,2),
+  //           pose.R()(2,0), pose.R()(2,1), pose.R()(2,2),
+  //           pose.t(0), pose.t(1), pose.t(2));
+  
   return lambda1 > min_depth && lambda2 > min_depth;
 }
 

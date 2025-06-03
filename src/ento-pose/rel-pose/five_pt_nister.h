@@ -452,6 +452,7 @@ int relpose_5pt(const EntoArray<Vec3<Scalar>,  N> &x1,
   int n_sols = relpose_5pt(x1, x2, &essential_matrices);
 
   output->clear();
+  ENTO_DEBUG("relpose_5pt: Number of solutions: %d", n_sols);
   for (int i = 0; i < n_sols; ++i)
   {
     motion_from_essential<Scalar, 5, 40>(essential_matrices[i], x1, x2, output);
