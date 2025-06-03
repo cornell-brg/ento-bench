@@ -17,19 +17,20 @@ public:
   using Scalar = typename Solver::scalar_type;
   static constexpr size_t MaxSolns = Solver::MaxSolns;
   static constexpr size_t sample_size_ = Solver::MinSampleSize;
+  static constexpr size_t N_ = N;
 
   RelativePoseRobustEstimator(const RansacOptions<Scalar, UsePROSAC, PROSACIters> &opt,
-                              const EntoContainer<Vec2<Scalar>, N> &points2d_1,
-                              const EntoContainer<Vec2<Scalar>, N> &points2d_2)
-    : num_data_(N == 0 ? points2d_1.size() : N),
+                              const EntoContainer<Vec2<Scalar>, N_> &points2d_1,
+                              const EntoContainer<Vec2<Scalar>, N_> &points2d_2)
+    : num_data_(N_ == 0 ? points2d_1.size() : N_),
       opt_(opt), x1(points2d_1), x2(points2d_2),
       sampler(num_data_, opt.seed)
   {
-    for (size_t k = 0; k < x1.size(); ++k)
-    {
-      ENTO_DEBUG("x1_[%zu]: %f, %f", k, x1[k](0), x1[k](1));
-      ENTO_DEBUG("x2_[%zu]: %f, %f, %f", k, x2[k](0), x2[k](1), x2[k](2));
-    }
+    //for (size_t k = 0; k < x1.size(); ++k)
+    //{
+    //  ENTO_DEBUG("x1_[%zu]: %f, %f, %f", k, x1[k](0), x1[k](1), x1[k](2));
+    //  ENTO_DEBUG("x2_[%zu]: %f, %f, %f", k, x2[k](0), x2[k](1), x2[k](2));
+    //}
   }
 
   void generate_models(EntoContainer<CameraPose<Scalar>, MaxSolns> *models)
@@ -46,7 +47,7 @@ public:
     for (size_t i = 0; i < models->size(); ++i) {
       const auto& model = (*models)[i];
       // Print quaternion and translation
-      ENTO_DEBUG("[RANSAC] Candidate %zu: q = [%f %f %f %f], t = [%f %f %f]", i, model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
+      //ENTO_DEBUG("[RANSAC] Candidate %zu: q = [%f %f %f %f], t = [%f %f %f]", i, model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
       // Optionally: print angular error to ground truth if available (pseudo-code)
       // extern CameraPose<Scalar> true_pose; // <-- for debugging only
       // Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(model.R().transpose() * true_pose.R()).angle());
@@ -57,7 +58,7 @@ public:
 
   Scalar score_model(const CameraPose<Scalar> &pose, size_t *inlier_count) const
   {
-    return compute_sampson_msac_score<Scalar, N>
+    return compute_sampson_msac_score<Scalar, N_>
       (pose, x1, x2, opt_.max_epipolar_error * opt_.max_epipolar_error, inlier_count);
   }
 
@@ -69,10 +70,10 @@ public:
     bundle_opt.max_iterations = 25;
 
     // @TODO: Need to figure out vector support for STM32
-    EntoContainer<uint8_t, N> inliers;
-    EntoContainer<Vec2<Scalar>, N> x1_inlier, x2_inlier;
-    int num_inl = get_inliers<Scalar, N>(*pose, x1, x2, 5*(opt_.max_epipolar_error * opt_.max_epipolar_error), &inliers);
-    if constexpr (N == 0)
+    EntoContainer<uint8_t, N_> inliers;
+    EntoContainer<Vec2<Scalar>, N_> x1_inlier, x2_inlier;
+    int num_inl = get_inliers<Scalar, N_>(*pose, x1, x2, 5*(opt_.max_epipolar_error * opt_.max_epipolar_error), &inliers);
+    if constexpr (N_ == 0)
     {
       x1_inlier.reserve(num_inl);
       x2_inlier.reserve(num_inl);
@@ -91,16 +92,16 @@ public:
 
     using WeightT = UniformWeightVector<Scalar>;
     using LossFn = TruncatedLoss<Scalar>;
-    refine_relpose<Scalar, WeightT, LossFn, N>
+    refine_relpose<Scalar, WeightT, LossFn, N_>
       (x1_inlier, x2_inlier, pose, bundle_opt);
   }
 
   size_t num_data_;
 
-private:
+public:
   RansacOptions<Scalar> opt_;
-  const EntoContainer<Vec2<Scalar>, N> &x1;
-  const EntoContainer<Vec2<Scalar>, N> &x2;
+  const EntoContainer<Vec2<Scalar>, N_> &x1;
+  const EntoContainer<Vec2<Scalar>, N_> &x2;
 
   RandomSampler<Scalar, sample_size_, RNG_t, UsePROSAC, PROSACIters> sampler;
   EntoContainer<Vec3<Scalar>, sample_size_> x1_sample_, x2_sample_;
@@ -123,7 +124,7 @@ RansacStats<typename Solver::scalar_type> ransac_relpose(const EntoUtil::EntoCon
     best->t.setZero();
   }
   
-  ENTO_DEBUG("In ransac_relpose! x1.size: %i, x2.size: %i", x1.size(), x2.size());
+  //ENTO_DEBUG("In ransac_relpose! x1.size: %i, x2.size: %i", x1.size(), x2.size());
   using Estimator = RelativePoseRobustEstimator<Solver, N>;
   Estimator estimator(opt, x1, x2);
   RansacStats<Scalar> stats = ransac<Scalar, Estimator>(estimator, opt, best);

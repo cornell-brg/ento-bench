@@ -72,7 +72,6 @@ void essential_matrix_8pt(const std::vector<Vec3<Scalar>> &x1,
   Matrix3x3<Scalar> E;
   if (x1.size() == 8)
   {
-    // In the case where we have exactly 8 correspondences, there is no need to compute the SVD
     Eigen::Matrix<Scalar, 9, 9> Q = epipolar_constraint.transpose().householderQr().householderQ();
     Eigen::Matrix<Scalar, 9, 1> e = Q.col(8);
     E = Eigen::Map<const RMat3>(e.data());
@@ -143,6 +142,7 @@ int relpose_8pt(const EntoContainer<Vec3<Scalar>, N> &x1,
     essential_matrix_8pt(x1, x2, &essential_matrix);
   else
     essential_matrix_8pt<Scalar, N>(x1, x2, &essential_matrix);
+  // Debug: print essential matrix
 
   // Generate plausible relative motion from E
   output->clear();

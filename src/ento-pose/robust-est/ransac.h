@@ -9,6 +9,7 @@
 #include <ento-pose/robust-est/homography.h>
 #include <ento-pose/robust-est/absolute.h>
 #include <ento-util/containers.h>
+#include <ento-pose/robust-est/linear_refinement.h>
 
 namespace EntoPose
 {
@@ -31,21 +32,12 @@ void score_models(const Solver &estimator,
                   RansacStats<Scalar> &stats, 
                   Model *best_model) 
 {
-    // Find best model among candidates
     int best_model_ind = -1;
     size_t inlier_count = 0;
-    
     for (size_t i = 0; i < models.size(); ++i) {
         Scalar score_msac = estimator.score_model(models[i], &inlier_count);
-        ENTO_DEBUG("[RANSAC] Model %zu: MSAC score = %f, inliers = %zu", i, score_msac, inlier_count);
-        // Optionally: print angular error to ground truth if available (pseudo-code)
-        // extern CameraPose<Scalar> true_pose; // <-- for debugging only
-        // Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(models[i].R().transpose() * true_pose.R()).angle());
-        // Scalar angle_deg = angle_rad * Scalar(180.0 / M_PI);
-        // ENTO_DEBUG("[RANSAC] Model %zu: angular error to GT = %f deg", i, angle_deg);
         bool more_inliers = inlier_count > state.best_minimal_inlier_count;
         bool better_score = score_msac < state.best_minimal_msac_score;
-
         if (more_inliers || better_score) {
             if (more_inliers) {
                 state.best_minimal_inlier_count = inlier_count;
@@ -54,8 +46,6 @@ void score_models(const Solver &estimator,
                 state.best_minimal_msac_score = score_msac;
             }
             best_model_ind = i;
-
-            // Check if we should update best model already
             if (score_msac < stats.model_score) {
                 stats.model_score = score_msac;
                 *best_model = models[i];
@@ -63,29 +53,58 @@ void score_models(const Solver &estimator,
             }
         }
     }
-
     if (best_model_ind == -1)
         return;
 
-    // LO-RANSAC: Local optimization (refinement) on best model
+    // LO-RANSAC: Local optimization (refinement) on best model using inliers
     Model refined_model = models[best_model_ind];
-    estimator.refine_model(&refined_model);
-    stats.refinements++;
-    
+    if (opt.lo_type != LocalRefinementType::None) {
+        // Get inliers for the best model
+        EntoUtil::EntoContainer<uint8_t, Solver::N_> inliers;
+        int num_inl = get_inliers<Scalar, Solver::N_>(refined_model, estimator.x1, estimator.x2, opt.max_epipolar_error * opt.max_epipolar_error, &inliers);
+        if (num_inl > Solver::sample_size_) {
+            // Gather inlier points
+            EntoUtil::EntoContainer<Vec2<Scalar>, Solver::N_> x1_inl, x2_inl;
+            if constexpr (Solver::N_ == 0) {
+                x1_inl.reserve(num_inl);
+                x2_inl.reserve(num_inl);
+            }
+            for (size_t pt_k = 0; pt_k < estimator.x1.size(); ++pt_k) {
+                if (inliers[pt_k]) {
+                    x1_inl.push_back(estimator.x1[pt_k]);
+                    x2_inl.push_back(estimator.x2[pt_k]);
+                }
+            }
+            // Linear refinement
+            if (opt.lo_type == LocalRefinementType::Linear || opt.lo_type == LocalRefinementType::Both) {
+                if (opt.linear_method == LinearRefinementMethod::EightPoint) {
+                    ENTO_DEBUG("[RANSAC] Refining model with 8pt linear refinement");
+                    linear_refine_eight_point<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
+                } else if (opt.linear_method == LinearRefinementMethod::UprightPlanar3pt) {
+                    ENTO_DEBUG("[RANSAC] Refining model with upright planar 3pt linear refinement");
+                    linear_refine_upright_planar_3pt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
+                } // Add DLT if needed
+                stats.refinements++;
+            }
+            // Nonlinear refinement
+            if (opt.lo_type == LocalRefinementType::BundleAdjust || opt.lo_type == LocalRefinementType::Both) {
+                // Use estimator's refine_model (bundle adjustment)
+                ENTO_DEBUG("[RANSAC] Refining model with bundle adjustment");
+                estimator.refine_model(&refined_model);
+                stats.refinements++;
+            }
+        }
+    }
     Scalar refined_msac_score = estimator.score_model(refined_model, &inlier_count);
     if (refined_msac_score < stats.model_score) {
         stats.model_score = refined_msac_score;
         stats.num_inliers = inlier_count;
         *best_model = refined_model;
     }
-
-    // Update dynamic iteration count based on inlier ratio
     stats.inlier_ratio = static_cast<Scalar>(stats.num_inliers) / static_cast<Scalar>(estimator.num_data_);
     if (stats.inlier_ratio >= Scalar(0.9999)) {
-        // Avoid log(prob_outlier) = -inf below
         state.dynamic_max_iter = opt.min_iters;
     } else if (stats.inlier_ratio <= Scalar(0.0001)) {
-        // Avoid log(prob_outlier) = 0 below
         state.dynamic_max_iter = opt.max_iters;
     } else {
         const Scalar prob_outlier = Scalar(1.0) - std::pow(stats.inlier_ratio, static_cast<Scalar>(estimator.sample_size_));
@@ -101,53 +120,28 @@ template <typename Scalar, typename Solver, typename Model = CameraPose<Scalar>>
 RansacStats<Scalar> ransac(Solver &estimator, const RansacOptions<Scalar> &opt, Model *best_model) 
 {
     RansacStats<Scalar> stats;
-
     if (estimator.num_data_ < estimator.sample_size_) {
         return stats;
     }
-
-    // Initialize stats
     stats.num_inliers = 0;
     stats.model_score = std::numeric_limits<Scalar>::max();
-    
-    // Initialize RANSAC state
     RansacState<Scalar> state;
     state.dynamic_max_iter = opt.max_iters;
     state.log_prob_missing_model = std::log(Scalar(1.0) - opt.success_prob);
-
-    // Score initial model if it was supplied
     if (opt.score_initial_model) {
         EntoUtil::EntoContainer<Model, Solver::MaxSolns> initial_models;
         initial_models.push_back(*best_model);
         score_models(estimator, initial_models, opt, state, stats, best_model);
     }
-
-    // Main RANSAC loop
     EntoUtil::EntoContainer<Model, Solver::MaxSolns> models;
     for (stats.iters = 0; stats.iters < opt.max_iters; stats.iters++) {
-        
         if (stats.iters > opt.min_iters && stats.iters > state.dynamic_max_iter) {
             break;
         }
-        
         models.clear();
         estimator.generate_models(&models);
         score_models(estimator, models, opt, state, stats, best_model);
     }
-
-    // Final refinement (always performed)
-    Model refined_model = *best_model;
-    estimator.refine_model(&refined_model);
-    stats.refinements++;
-    
-    size_t inlier_count = 0;
-    Scalar refined_msac_score = estimator.score_model(refined_model, &inlier_count);
-    if (refined_msac_score < stats.model_score) {
-        *best_model = refined_model;
-        stats.num_inliers = inlier_count;
-        stats.model_score = refined_msac_score;
-    }
-
     return stats;
 }
 

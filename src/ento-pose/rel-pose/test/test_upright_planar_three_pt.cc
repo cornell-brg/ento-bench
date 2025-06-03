@@ -7,6 +7,7 @@
 #include <ento-pose/rel-pose/upright_planar_three_pt.h>
 #include <ento-pose/pose_util.h>
 #include <ento-pose/synthetic_relpose.h>
+#include <ento-pose/robust-est/linear_refinement.h>
 
 using namespace std;
 using namespace Eigen;
@@ -197,6 +198,28 @@ void test_upright_planar_three_pt_overdetermined_double()
   ENTO_DEBUG("================\n");
 }
 
+void test_linear_refine_upright_planar_3pt_float() {
+  using Scalar = float;
+  constexpr size_t N = 10;
+  EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N> x1_2d, x2_2d;
+  CameraPose<Scalar> true_pose;
+  EntoPose::generate_synthetic_relpose_upright_planar<Scalar, N>(x1_2d, x2_2d, true_pose, N, Scalar(0.001));
+  EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N> x1, x2;
+  for (size_t i = 0; i < N; ++i) {
+    x1[i] = Eigen::Matrix<Scalar,3,1>(x1_2d[i](0), x1_2d[i](1), Scalar(1));
+    x1[i].normalize();
+    x2[i] = Eigen::Matrix<Scalar,3,1>(x2_2d[i](0), x2_2d[i](1), Scalar(1));
+    x2[i].normalize();
+  }
+  CameraPose<Scalar> refined_pose;
+  EntoPose::linear_refine_upright_planar_3pt<Scalar, N>(x1, x2, &refined_pose);
+  float trace_val = (refined_pose.R().transpose() * true_pose.R()).trace();
+  float angle_rad = std::acos(std::clamp((trace_val - 1.0f) / 2.0f, -1.0f, 1.0f));
+  float angle_deg = angle_rad * 180.0f / static_cast<float>(M_PI);
+  ENTO_DEBUG("Linear refine upright planar 3pt: angular error %f deg", angle_deg);
+  ENTO_TEST_CHECK_TRUE(angle_deg < 2.0f);
+}
+
 int main(int argc, char **argv)
 {
   using namespace EntoUtil;
@@ -211,4 +234,5 @@ int main(int argc, char **argv)
   if (__ento_test_num(__n, 2)) test_upright_planar_three_pt_minimal_double();
   if (__ento_test_num(__n, 3)) test_upright_planar_three_pt_overdetermined_float();
   if (__ento_test_num(__n, 4)) test_upright_planar_three_pt_overdetermined_double();
+  if (__ento_test_num(__n, 7)) test_linear_refine_upright_planar_3pt_float();
 } 

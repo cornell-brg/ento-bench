@@ -6,6 +6,7 @@
 #include <ento-math/quaternion.h>
 #include <ento-util/containers.h>
 #include <ento-pose/camera_models.h>
+#include <ento-util/debug.h>
 
 using namespace EntoMath;
 using namespace EntoUtil;
@@ -488,14 +489,19 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   CameraPose<Scalar> pose;
   pose.q = rotmat_to_quat<Scalar>(UW * Vt);
   pose.t = UW.col(2);
+  //ENTO_DEBUG("Performing 4 cheirality checks ...");
   if (check_cheirality(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
+    //ENTO_DEBUG("Cheirality check #1 passed.");
+    //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
   pose.t = -pose.t;
   if (check_cheirality(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
+    //ENTO_DEBUG("Cheirality check #2 passed.");
+    //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
 
   // U * W.transpose()
@@ -504,11 +510,15 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   if (check_cheirality(pose, x1, x2)) 
   {
     relative_poses->emplace_back(pose);
+    //ENTO_DEBUG("Cheirality check #3 passed.");
+    //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
   pose.t = -pose.t;
   if (check_cheirality(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
+    //ENTO_DEBUG("Cheirality check #4 passed.");
+    //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
 }
 

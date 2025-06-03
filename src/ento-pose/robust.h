@@ -12,6 +12,7 @@
 #include <ento-pose/data_gen.h>
 #include <ento-util/containers.h>
 #include <ento-pose/robust-est/loss.h>
+#include <ento-pose/robust-est/linear_refinement.h>
 
 namespace EntoPose
 {
@@ -156,32 +157,52 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
   // Run RANSAC
   RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);
 
-  if (stats.num_inliers > 5) 
-  {
-    // Collect inliers for refinement
-    EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
-    
-    for (size_t k = 0; k < num_pts; ++k) 
-    {
-      if ((*inliers)[k]) 
-      {
-        x1_inliers.push_back(x1_calib[k]);
-        x2_inliers.push_back(x2_calib[k]);
-      }
+  //if ((ransac_opt.lo_type != LocalRefinementType::None) && stats.num_inliers > 5) {
+  //  // Gather inlier correspondences (N=0 for dynamic, but can be fixed)
+  //  EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
+  //  for (size_t k = 0; k < num_pts; ++k) {
+  //    if ((*inliers)[k]) {
+  //      x1_inliers.push_back(x1_calib[k]);
+  //      x2_inliers.push_back(x2_calib[k]);
+  //    }
+  //  }
+  //  // Local refinement: support both linear and nonlinear in sequence if Both is selected
+  //  if (ransac_opt.lo_type == LocalRefinementType::Linear || ransac_opt.lo_type == LocalRefinementType::Both) {
+  //    switch (ransac_opt.linear_method) {
+  //      case LinearRefinementMethod::EightPoint:
+  //        linear_refine_eight_point<Scalar, N>(x1_inliers, x2_inliers, relative_pose);
+  //        break;
+  //      case LinearRefinementMethod::UprightPlanar3pt:
+  //        linear_refine_upright_planar_3pt<Scalar, N>(x1_inliers, x2_inliers, relative_pose);
+  //        break;
+  //      default:
+  //        break;
+  //    }
+  //  }
+  //  if (ransac_opt.lo_type == LocalRefinementType::BundleAdjust || ransac_opt.lo_type == LocalRefinementType::Both) {
+  //    BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
+  //    scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
+  //        (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+  //    using WeightT = UniformWeightVector<Scalar>;
+  //    using LossFn = TruncatedLoss<Scalar>;
+  //    refine_relpose<Scalar, WeightT, LossFn, N>(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
+  //  }
+  //}
+
+  EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
+  for (size_t k = 0; k < num_pts; ++k) {
+    if ((*inliers)[k]) {
+      x1_inliers.push_back(x1_calib[k]);
+      x2_inliers.push_back(x2_calib[k]);
     }
-
-    BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
-    scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
-        (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
-
-    using WeightT = UniformWeightVector<Scalar>;
-    using LossFn = TruncatedLoss<Scalar>;
-    refine_relpose<Scalar, WeightT, LossFn, N>(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
-    //using CameraModel = decltype(norm_camera)::CameraModel_;
-    //bundle_adjust<Scalar, UniformWeightVector<Scalar>, CameraModel , TruncatedLoss<Scalar>, N>
-    //    (points2D_inliers, points3D_inliers, norm_camera, pose, bundle_opt_scaled);
-    // Post-RANSAC refinement if we have enough inliers
   }
+   BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
+   scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
+       (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+   using WeightT = UniformWeightVector<Scalar>;
+   using LossFn = TruncatedLoss<Scalar>;
+   refine_relpose<Scalar, WeightT, LossFn, N>(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
+   stats.refinements++;
 
   return stats;
 }

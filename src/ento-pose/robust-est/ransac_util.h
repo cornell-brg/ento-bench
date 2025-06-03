@@ -24,6 +24,20 @@ struct RansacStats
   Scalar model_score = std::numeric_limits<Scalar>::max();
 };
 
+// === LO-RANSAC Local Refinement Options ===
+enum class LocalRefinementType {
+    None,         // No local refinement
+    Linear,       // Linear refinement (e.g., 8pt, DLT, upright planar 3pt)
+    BundleAdjust, // Nonlinear refinement (bundle adjustment)
+    Both          // Linear + Nonlinear (do both in sequence)
+};
+
+enum class LinearRefinementMethod {
+    EightPoint,        // For general relative pose
+    UprightPlanar3pt,  // For upright planar relpose
+    DLT                // For absolute pose, homography, etc.
+};
+
 template <typename Scalar, bool ProgressiveSampling = false, size_t ProgressiveSamplingIters=100000>
 struct RansacOptions
 {
@@ -35,6 +49,20 @@ struct RansacOptions
   Scalar max_epipolar_error = 1.0;
   unsigned long seed = 0;
   bool score_initial_model = false;
+  /**
+   * Local optimization (LO) refinement type for LO-RANSAC:
+   *   None:         No local refinement
+   *   Linear:       Linear refinement (e.g., 8pt, DLT, upright planar 3pt)
+   *   BundleAdjust: Nonlinear refinement (bundle adjustment)
+   */
+  LocalRefinementType lo_type = LocalRefinementType::None;
+  /**
+   * Linear refinement method to use if lo_type == Linear:
+   *   EightPoint:        General relative pose (8pt)
+   *   UprightPlanar3pt:  Upright planar relpose (3pt, N >= 3)
+   *   DLT:               Absolute pose, homography.
+   */
+  LinearRefinementMethod linear_method = LinearRefinementMethod::EightPoint;
   static constexpr bool progressive_sampling = ProgressiveSampling;
   static constexpr size_t max_prosac_iterations = ProgressiveSamplingIters;
 };
@@ -113,7 +141,7 @@ Scalar compute_sampson_msac_score(const CameraPose<Scalar> &pose,
 
     if (r2 < sq_threshold) {
         bool cheirality =
-            check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), Scalar(0.0001));
+            check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), Scalar(0.01));
         if (cheirality) {
             (*inlier_count)++;
             score += r2;

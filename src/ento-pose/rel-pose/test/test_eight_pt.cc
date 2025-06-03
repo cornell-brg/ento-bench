@@ -7,6 +7,7 @@
 #include <ento-pose/rel-pose/eight_pt.h>
 #include <ento-pose/pose_util.h>
 #include <ento-pose/synthetic_relpose.h>
+#include <ento-pose/robust-est/linear_refinement.h>
 
 using namespace std;
 using namespace Eigen;
@@ -63,6 +64,46 @@ void test_eight_pt_8_double()  { test_eight_pt_N_scalar<8, double>(1.0); }
 void test_eight_pt_16_double() { test_eight_pt_N_scalar<16, double>(1.0); }
 void test_eight_pt_32_double() { test_eight_pt_N_scalar<32, double>(1.0); }
 
+void test_linear_refine_eight_point_float() {
+  using Scalar = float;
+  constexpr size_t N = 16;
+  EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N> x1_2d, x2_2d;
+  CameraPose<Scalar> true_pose;
+  EntoPose::generate_synthetic_relpose_general<Scalar, N>(x1_2d, x2_2d, true_pose, N, Scalar(0.001));
+
+  // Canonical relpose_8pt (bearing vectors)
+  EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N> x1_bear, x2_bear;
+  for (size_t i = 0; i < N; ++i) {
+    x1_bear[i] = Eigen::Matrix<Scalar,3,1>(x1_2d[i](0), x1_2d[i](1), Scalar(1));
+    x1_bear[i].normalize();
+    x2_bear[i] = Eigen::Matrix<Scalar,3,1>(x2_2d[i](0), x2_2d[i](1), Scalar(1));
+    x2_bear[i].normalize();
+  }
+  EntoUtil::EntoContainer<CameraPose<Scalar>, 4> solutions;
+  ENTO_DEBUG("[relpose_8pt] Calling relpose_8pt with N=%zu", N);
+  int num_solns = EntoPose::relpose_8pt<Scalar, N>(x1_bear, x2_bear, &solutions);
+  ENTO_DEBUG("[relpose_8pt] Num solutions: %d", num_solns);
+  Scalar min_angle_error_deg_8pt = std::numeric_limits<Scalar>::max();
+  for (int i = 0; i < num_solns; ++i) {
+    const CameraPose<Scalar> &pose = solutions[i];
+    Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(pose.R().transpose() * true_pose.R()).angle());
+    Scalar angle_deg = angle_rad * 180.0f / static_cast<float>(M_PI);
+    ENTO_DEBUG("[relpose_8pt] Solution %d: Angular error = %f deg", i, angle_deg);
+    min_angle_error_deg_8pt = std::min(min_angle_error_deg_8pt, angle_deg);
+  }
+
+  // Linear refinement (2D interface)
+  ENTO_DEBUG("[linear_refine_eight_point] Calling linear_refine_eight_point with N=%zu", N);
+  CameraPose<Scalar> refined_pose;
+  EntoPose::linear_refine_eight_point<Scalar, N>(x1_2d, x2_2d, &refined_pose);
+  float trace_val = (refined_pose.R().transpose() * true_pose.R()).trace();
+  float angle_rad = std::acos(std::clamp((trace_val - 1.0f) / 2.0f, -1.0f, 1.0f));
+  float angle_deg = angle_rad * 180.0f / static_cast<float>(M_PI);
+  ENTO_DEBUG("[linear_refine_eight_point] Linear refine 8pt: angular error %f deg", angle_deg);
+  ENTO_TEST_CHECK_TRUE(angle_deg < 2.0f);
+  ENTO_DEBUG("[linear_refine_eight_point] relpose_8pt min angular error: %f deg", min_angle_error_deg_8pt);
+}
+
 int main(int argc, char **argv)
 {
   using namespace EntoUtil;
@@ -79,4 +120,5 @@ int main(int argc, char **argv)
   if (__ento_test_num(__n, 4)) test_eight_pt_8_double();
   if (__ento_test_num(__n, 5)) test_eight_pt_16_double();
   if (__ento_test_num(__n, 6)) test_eight_pt_32_double();
+  if (__ento_test_num(__n, 7)) test_linear_refine_eight_point_float();
 } 

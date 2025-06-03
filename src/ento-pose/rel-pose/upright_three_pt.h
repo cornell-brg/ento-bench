@@ -20,14 +20,14 @@ int relpose_upright_3pt(const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N>
     output->clear();
     //if (x1.size() < 3 || x2.size() < 3) return 0;
 
-    ENTO_DEBUG("relpose_upright_3pt: Input x1 vectors:");
-    for (size_t i = 0; i < 3; ++i) {
-        ENTO_DEBUG("  x1[%zu] = (%f, %f, %f)", i, x1[i](0), x1[i](1), x1[i](2));
-    }
-    ENTO_DEBUG("relpose_upright_3pt: Input x2 vectors:");
-    for (size_t i = 0; i < 3; ++i) {
-        ENTO_DEBUG("  x2[%zu] = (%f, %f, %f)", i, x2[i](0), x2[i](1), x2[i](2));
-    }
+    //ENTO_DEBUG("relpose_upright_3pt: Input x1 vectors:");
+    //for (size_t i = 0; i < 3; ++i) {
+    //    ENTO_DEBUG("  x1[%zu] = (%f, %f, %f)", i, x1[i](0), x1[i](1), x1[i](2));
+    //}
+    //ENTO_DEBUG("relpose_upright_3pt: Input x2 vectors:");
+    //for (size_t i = 0; i < 3; ++i) {
+    //    ENTO_DEBUG("  x2[%zu] = (%f, %f, %f)", i, x2[i](0), x2[i](1), x2[i](2));
+    //}
 
     // Compute cross products
     Vec3 u1 = x1[0].cross(x1[1]);
@@ -116,12 +116,12 @@ int relpose_upright_3pt(const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N>
                 Vec3 trans = lambda * x2[0] - R * x1[0];
                 trans.normalize();
                 output->push_back(CameraPose<Scalar>(R, trans));
-                ENTO_DEBUG("relpose_upright_3pt: Solution %d: R = [ [%f, %f, %f], [%f, %f, %f], [%f, %f, %f] ], t = (%f, %f, %f)",
-                    n_sols,
-                    R(0,0), R(0,1), R(0,2),
-                    R(1,0), R(1,1), R(1,2),
-                    R(2,0), R(2,1), R(2,2),
-                    trans(0), trans(1), trans(2));
+                //ENTO_DEBUG("relpose_upright_3pt: Solution %d: R = [ [%f, %f, %f], [%f, %f, %f], [%f, %f, %f] ], t = (%f, %f, %f)",
+                //    n_sols,
+                //    R(0,0), R(0,1), R(0,2),
+                //    R(1,0), R(1,1), R(1,2),
+                //    R(2,0), R(2,1), R(2,2),
+                //    trans(0), trans(1), trans(2));
                 ++n_sols;
                 if (n_sols >= 4) break;
             }
@@ -145,19 +145,19 @@ int relpose_upright_3pt(const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N>
                 Vec3 trans = lambda * x2[0] - R * x1[0];
                 trans.normalize();
                 output->push_back(CameraPose<Scalar>(R, trans));
-                ENTO_DEBUG("relpose_upright_3pt: Solution %d: R = [ [%f, %f, %f], [%f, %f, %f], [%f, %f, %f] ], t = (%f, %f, %f)",
-                    n_sols,
-                    R(0,0), R(0,1), R(0,2),
-                    R(1,0), R(1,1), R(1,2),
-                    R(2,0), R(2,1), R(2,2),
-                    trans(0), trans(1), trans(2));
+                //ENTO_DEBUG("relpose_upright_3pt: Solution %d: R = [ [%f, %f, %f], [%f, %f, %f], [%f, %f, %f] ], t = (%f, %f, %f)",
+                //    n_sols,
+                //    R(0,0), R(0,1), R(0,2),
+                //    R(1,0), R(1,1), R(1,2),
+                //    R(2,0), R(2,1), R(2,2),
+                //    trans(0), trans(1), trans(2));
                 ++n_sols;
                 if (n_sols >= 4) break;
             }
         }
         if (n_sols > 0 && G) break;
     }
-    ENTO_DEBUG("relpose_upright_3pt: Number of solutions found: %d", n_sols);
+    //ENTO_DEBUG("relpose_upright_3pt: Number of solutions found: %d", n_sols);
     return n_sols;
 }
 

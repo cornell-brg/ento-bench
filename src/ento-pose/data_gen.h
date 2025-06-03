@@ -138,7 +138,6 @@ struct SolverRelUpright3pt {
                           EntoContainer<Vec3<Scalar>, N>& X,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    ENTO_DEBUG("HERE!!!!");
     return relpose_upright_3pt<Scalar, N>(x, X, solutions);
   }
 

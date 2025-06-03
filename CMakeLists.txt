@@ -256,7 +256,7 @@ else() # Native Build
   set(CMAKE_CXX_COMPILER g++)
   set(CMAKE_ASM_COMPILER gcc)
   if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -g3 -O0")
+    set(CMAKE_CXX_FLAGS "-std=c++20 -g3 -O0")
   else()
     set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O0")
   endif()
