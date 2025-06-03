@@ -296,7 +296,7 @@ struct SolverRelUprightPlanar2pt
                           std::vector<CameraPose<Scalar>>* solutions)
   {
     EntoArray<CameraPose<Scalar>, 4> solutions_;
-    size_t sols = relpose_upright_planar_2pt<Scalar>(x1, x2, &solutions_);
+    size_t sols = relpose_upright_planar_2pt<Scalar, N>(x1, x2, &solutions_);
     for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
@@ -310,7 +310,7 @@ struct SolverRelUprightPlanar2pt
                           EntoContainer<Vec3<Scalar>, N>& x2,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_upright_planar_2pt<Scalar>(x1, x2, solutions);
+    return relpose_upright_planar_2pt<Scalar, N>(x1, x2, solutions);
   }
   typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;

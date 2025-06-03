@@ -43,9 +43,15 @@ public:
     
     // Use the solver's solve method
     Solver::template solve<sample_size_>(x1_sample_, x2_sample_, models);
-    for ( const auto& model : *models )
-    {
-      //ENTO_DEBUG("Model: %f, %f, %f, %f, %f, %f, %f, %f", model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
+    for (size_t i = 0; i < models->size(); ++i) {
+      const auto& model = (*models)[i];
+      // Print quaternion and translation
+      ENTO_DEBUG("[RANSAC] Candidate %zu: q = [%f %f %f %f], t = [%f %f %f]", i, model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
+      // Optionally: print angular error to ground truth if available (pseudo-code)
+      // extern CameraPose<Scalar> true_pose; // <-- for debugging only
+      // Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(model.R().transpose() * true_pose.R()).angle());
+      // Scalar angle_deg = angle_rad * Scalar(180.0 / M_PI);
+      // ENTO_DEBUG("[RANSAC] Candidate %zu: angular error to GT = %f deg", i, angle_deg);
     }
   }
 

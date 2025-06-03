@@ -37,6 +37,12 @@ void score_models(const Solver &estimator,
     
     for (size_t i = 0; i < models.size(); ++i) {
         Scalar score_msac = estimator.score_model(models[i], &inlier_count);
+        ENTO_DEBUG("[RANSAC] Model %zu: MSAC score = %f, inliers = %zu", i, score_msac, inlier_count);
+        // Optionally: print angular error to ground truth if available (pseudo-code)
+        // extern CameraPose<Scalar> true_pose; // <-- for debugging only
+        // Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(models[i].R().transpose() * true_pose.R()).angle());
+        // Scalar angle_deg = angle_rad * Scalar(180.0 / M_PI);
+        // ENTO_DEBUG("[RANSAC] Model %zu: angular error to GT = %f deg", i, angle_deg);
         bool more_inliers = inlier_count > state.best_minimal_inlier_count;
         bool better_score = score_msac < state.best_minimal_msac_score;
 
