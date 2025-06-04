@@ -9,6 +9,11 @@
 #ifdef DEBUG
 
 #include <ento-util/unittest.h>
+#include <type_traits>
+#include <string>
+#include <vector>
+#include <array>
+#include <Eigen/Dense>
 
 #define DPRINTF(...) std::printf(__VA_ARGS__)
 
@@ -267,6 +272,50 @@ inline void __ento_debug_print_matrix_comparison(const char* file, int line, con
 #define ENTO_DEBUG_EIGEN_MATRIX_COMPARISON(matrix0_, matrix1_, tol_) \
   __ento_debug_print_matrix_comparison(__FILE__, __LINE__, __func__, #matrix0_, matrix0_, #matrix1_, matrix1_, tol_)
 
+// Generic debug print for any array-like container or pointer+size
+// Prints each element as int
+// Usage: ENTO_DEBUG_ARRAY(container) or ENTO_DEBUG_ARRAY(ptr, size)
+template <typename T>
+inline void __ento_debug_print_array(const char* file, int line, const char* func,
+                                    const char* name, const T& container)
+{
+  if (EntoUtil::__n > 0)
+  {
+    std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s: %s = { ",
+                EntoUtil::__ento_debug_get_file_name(file), line, func, name);
+    for (size_t i = 0; i < container.size(); ++i)
+    {
+      std::printf("%d", static_cast<int>(container[i]));
+      if (i != container.size() - 1)
+        std::printf(", ");
+    }
+    std::printf(" }\n");
+  }
+}
+
+template <typename T>
+inline void __ento_debug_print_array(const char* file, int line, const char* func,
+                                    const char* name, const T* array, size_t size)
+{
+  if (EntoUtil::__n > 0)
+  {
+    std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s: %s = { ",
+                EntoUtil::__ento_debug_get_file_name(file), line, func, name);
+    for (size_t i = 0; i < size; ++i)
+    {
+      std::printf("%d", static_cast<int>(array[i]));
+      if (i != size - 1)
+        std::printf(", ");
+    }
+    std::printf(" }\n");
+  }
+}
+
+#define ENTO_DEBUG_ARRAY(array_) \
+  __ento_debug_print_array(__FILE__, __LINE__, __func__, #array_, array_)
+
+#define ENTO_DEBUG_ARRAY_PTR(array_, size_) \
+  __ento_debug_print_array(__FILE__, __LINE__, __func__, #array_, array_, size_)
 
 #define ENTO_DEBUG_NEWLINE \
   if (EntoUtil::__n > 0) { std::printf("\n"); }

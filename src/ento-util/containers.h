@@ -20,8 +20,11 @@ class EntoArray
 public:
   constexpr EntoArray() : size_(0) {}
 
+  T* data() { return data_.data(); }
+  const T* data() const { return data_.data(); }  
+
   // Add a new element to the end of the array
-  [[nodiscard]] bool push_back(const T& value) {
+  bool push_back(const T& value) {
     if (size_ >= Capacity) {
       ENTO_DEBUG("Pushed item onto EntoArray that is at capacity!");
       return false;
@@ -30,7 +33,7 @@ public:
     return true;
   }
 
-  [[nodiscard]] bool push_back(T&& value) {
+  bool push_back(T&& value) {
     if (size_ >= Capacity) {
       ENTO_DEBUG("Pushed item onto EntoArray that is at capacity!");
       return false;
@@ -53,7 +56,7 @@ public:
   }
 
   // Remove the last element from the array
-  [[nodiscard]] std::optional<T> pop_back() {
+  std::optional<T> pop_back() {
     if (size_ == 0) {
       ENTO_DEBUG("Popped item from EntoArray that is empty!");
       return std::nullopt;
@@ -62,7 +65,7 @@ public:
   }
 
   // Access the last element
-  [[nodiscard]] std::optional<T> back() const {
+  std::optional<T> back() const {
     if (size_ == 0) {
       ENTO_DEBUG("Accessing back of empty array...");
       return std::nullopt;
@@ -85,12 +88,12 @@ public:
   }
 
   // Check if the array is empty
-  [[nodiscard]] constexpr bool empty() const {
+  constexpr bool empty() const {
     return size_ == 0;
   }
 
   // Check if the array is full
-  [[nodiscard]] constexpr bool full() const {
+  constexpr bool full() const {
     return size_ == Capacity;
   }
 

@@ -20,6 +20,7 @@ set(TEST_FILES
   test_estimators.cc
   test_robust_absolute_pose.cc
   test_robust_relative_pose.cc
+  test_robust_pose_problem.cc
 )
 
 set(LIBRARIES_test_ransac
@@ -38,6 +39,10 @@ set(LIBRARIES_test_robust_relative_pose
   ento_util ento-robust-est ento-pose Eigen
 )
 
+set(LIBRARIES_test_robust_pose_problem
+  ento_util ento-robust-est ento-pose Eigen
+)
+
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Test file: ${TEST_FILE}")
   set(TEST_SRC "test/${TEST_FILE}")
@@ -50,4 +55,6 @@ foreach(TEST_FILE ${TEST_FILES})
     SOURCES   ${TEST_SRC}
     LIBRARIES ${TEST_LIBRARIES}
   )
-endforeach() 
+endforeach()
+
+# Remove manual add_executable/target_link_libraries/add_test for test_robust_pose_problem 
