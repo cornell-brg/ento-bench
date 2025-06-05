@@ -123,6 +123,7 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
   using Scalar = typename Solver::scalar_type;
   const size_t num_pts = points2D_1.size();
 
+  ENTO_DEBUG("Hello...");
   // Normalize image points for both cameras
   EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_calib, x2_calib;
   if constexpr (N == 0) 
@@ -149,6 +150,7 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     }
   }
 
+  ENTO_DEBUG("Hello...");
   // Scale threshold for normalized coordinates
   RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
   ransac_opt_scaled.max_epipolar_error = 
@@ -156,6 +158,7 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
 
   // Run RANSAC
   RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);
+  ENTO_DEBUG("Hello...");
 
   //if ((ransac_opt.lo_type != LocalRefinementType::None) && stats.num_inliers > 5) {
   //  // Gather inlier correspondences (N=0 for dynamic, but can be fixed)

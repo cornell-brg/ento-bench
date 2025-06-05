@@ -46,13 +46,7 @@ public:
     Solver::template solve<sample_size_>(x1_sample_, x2_sample_, models);
     for (size_t i = 0; i < models->size(); ++i) {
       const auto& model = (*models)[i];
-      // Print quaternion and translation
       //ENTO_DEBUG("[RANSAC] Candidate %zu: q = [%f %f %f %f], t = [%f %f %f]", i, model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
-      // Optionally: print angular error to ground truth if available (pseudo-code)
-      // extern CameraPose<Scalar> true_pose; // <-- for debugging only
-      // Scalar angle_rad = std::abs(Eigen::AngleAxis<Scalar>(model.R().transpose() * true_pose.R()).angle());
-      // Scalar angle_deg = angle_rad * Scalar(180.0 / M_PI);
-      // ENTO_DEBUG("[RANSAC] Candidate %zu: angular error to GT = %f deg", i, angle_deg);
     }
   }
 
@@ -117,6 +111,7 @@ RansacStats<typename Solver::scalar_type> ransac_relpose(const EntoUtil::EntoCon
                                                          EntoUtil::EntoContainer<uint8_t, N> *inliers)
 {
   using Scalar = typename Solver::scalar_type;
+  ENTO_DEBUG("Hello...");
   
   if (!opt.score_initial_model)
   {
@@ -124,10 +119,12 @@ RansacStats<typename Solver::scalar_type> ransac_relpose(const EntoUtil::EntoCon
     best->t.setZero();
   }
   
-  //ENTO_DEBUG("In ransac_relpose! x1.size: %i, x2.size: %i", x1.size(), x2.size());
+  ENTO_DEBUG("Hello...");
+  ENTO_DEBUG("In ransac_relpose! x1.size: %i, x2.size: %i", x1.size(), x2.size());
   using Estimator = RelativePoseRobustEstimator<Solver, N>;
   Estimator estimator(opt, x1, x2);
   RansacStats<Scalar> stats = ransac<Scalar, Estimator>(estimator, opt, best);
+  ENTO_DEBUG("Hello...");
   
   get_inliers<Scalar, N>(*best, x1, x2, opt.max_epipolar_error * opt.max_epipolar_error, inliers);
   return stats;

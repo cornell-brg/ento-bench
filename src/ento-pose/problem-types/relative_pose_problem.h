@@ -35,8 +35,8 @@ public:
   // Ground truth 
   EntoPose::CameraPose<Scalar> pose_gt_;
   //EntoMath::Matrix3x3<Scalar> H_gt; // for homography problems
-  static constexpr Scalar scale_gt_ = 1.0;
-  static constexpr Scalar focal_gt_ = 1.0;
+  Scalar scale_gt_ = 1.0;
+  Scalar focal_gt_ = 1.0;
   size_t n_point_point_ = NumPts;
 
   // RelativePose Algorithm Outputs
@@ -199,7 +199,7 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(std::string& 
   {
     if (n_point_point_ != num_points)
     {
-      ENTO_DEBUG("Capacity (NumPts) does not match num points. Error!");
+      //ENTO_DEBUG("Capacity (NumPts) does not match num points. Error!");
       return false;
     }
   }
@@ -289,25 +289,28 @@ template <typename Scalar, typename Solver, size_t NumPts>
 bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
 {
   char* pos = const_cast<char*>(line);
+  //ENTO_DEBUG("[relpose] pos at start: %s", pos);
   int problem_type;
-
 
   if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 3)
   {
+      ENTO_DEBUG("[relpose] failed to parse problem_type");
       return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
+  //ENTO_DEBUG("[relpose] pos after problem_type: %s", pos);
 
-  
   int num_pts;
   if (sscanf(pos, "%d,", &num_pts) != 1 )
   {
+    //ENTO_DEBUG("[relpose] failed to parse num_pts");
     if (NumPts == 0) n_point_point_ = num_pts;
     else if (NumPts != n_point_point_) return false;
     return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
-
+  //ENTO_DEBUG("[relpose] num_pts: %d", num_pts);
+  //ENTO_DEBUG("[relpose] pos after num_pts: %s", pos);
 
   // Parse quaternion (q)
   Scalar qi = 0;
@@ -315,10 +318,12 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
   {
     if (sscanf(pos, "%f,", &qi) != 1)
     {
+      //ENTO_DEBUG("[relpose] failed to parse q[%d]", i);
       return false; // Parsing failed
     }
     pose_gt_.q[i] = qi;
     pos = strchr(pos, ',') + 1;
+    //ENTO_DEBUG("[relpose] q[%d]=%f, pos=%s", i, qi, pos);
   }
 
   // Parse translation (t)
@@ -327,19 +332,23 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
   {
     if (sscanf(pos, "%f,", &ti) != 1)
     {
+        //ENTO_DEBUG("[relpose] failed to parse t[%d]", i);
         return false; // Parsing failed
     }
     pose_gt_.t[i] = ti;
     pos = strchr(pos, ',') + 1;
+    //ENTO_DEBUG("[relpose] t[%d]=%f, pos=%s", i, ti, pos);
   }
 
   // Parse scale_gt and focal_gt
   if (sscanf(pos, "%f,%f,", &scale_gt_, &focal_gt_) != 2)
   {
+    //ENTO_DEBUG("[relpose] failed to parse scale/focal");
     return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
   pos = strchr(pos, ',') + 1;
+  //ENTO_DEBUG("[relpose] scale_gt=%f, focal_gt=%f, pos=%s", scale_gt_, focal_gt_, pos);
 
   // Parse x_point correspondences
   Scalar x, y, z;
@@ -347,12 +356,15 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
   {
     if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
     {
+      //ENTO_DEBUG("[relpose] failed to parse x1[%zu]", i);
       return false; // Parsing failed
     }
     x1_.push_back(Vec3<Scalar>(x, y, z));
+    //ENTO_DEBUG("[relpose] x1_[%zu]=(%f,%f,%f), size=%zu", i, x, y, z, x1_.size());
     pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
+    //ENTO_DEBUG("[relpose] pos after x1_[%zu]: %s", i, pos);
   }
 
   // Parse X_point correspondences
@@ -362,21 +374,25 @@ bool RelativePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
     {
       if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
       {
-      return false; // Parsing failed
+        //ENTO_DEBUG("[relpose] failed to parse x2[%zu]", i);
+        return false; // Parsing failed
       }
     }
     else
     {
       if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
       {
+        //ENTO_DEBUG("[relpose] failed to parse x2[%zu] (last)", i);
         return false; // Parsing failed
       }
     }
     x2_.push_back(Vec3<Scalar>(x, y, z));
+    //ENTO_DEBUG("[relpose] x2_[%zu]=(%f,%f,%f), size=%zu", i, x, y, z, x2_.size());
     pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
     if ( i != x2_.capacity() - 1)
       pos = strchr(pos, ',') + 1;
+    //ENTO_DEBUG("[relpose] pos after x2_[%zu]: %s", i, pos);
   }
 
   return true; // Successfully parsed
