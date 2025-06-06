@@ -23,12 +23,26 @@ include(CTest)
 
 set(TEST_FILES
   test_ekf.cc
+  test_robobee_ekf_problem.cc
+  test_robofly_ekf_problem.cc
+  test_robobee_ekf_validation.cc
 )
 
 set(LIBRARIES_test_ekf
   ento_util ento_math Eigen ento-state-est
 )
 
+set(LIBRARIES_test_robobee_ekf_problem
+  ento_util ento_math Eigen ento-state-est
+)
+
+set(LIBRARIES_test_robofly_ekf_problem
+  ento_util ento_math Eigen ento-state-est
+)
+
+set(LIBRARIES_test_robobee_ekf_validation
+  ento_util ento_math Eigen ento-state-est
+)
 
 #set(LIBRARIES_test_saam
 #  ento_util ento_math Eigen

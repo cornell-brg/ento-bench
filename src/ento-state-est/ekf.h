@@ -3,10 +3,16 @@
 
 #include <Eigen/Dense>
 #include <concepts>
+#include <ento-util/debug.h>
 
 template<typename T, typename Scalar, size_t StateDim, typename ControlInputs>
-concept DynamicsModelConcept = requires(T t, Eigen::Matrix<Scalar, StateDim, 1>& x, ControlInputs u, Eigen::Matrix<Scalar, StateDim, StateDim>& jacobian_matrix) {
+concept DynamicsModelConcept = requires(T t, Eigen::Matrix<Scalar, StateDim, 1>& x, ControlInputs u, Eigen::Matrix<Scalar, StateDim, StateDim>& jacobian_matrix, Scalar dt) {
+    // Accept either interface: (x, u) OR (x, u, dt)
     { t(x, u) } -> std::same_as<void>;
+} || requires(T t, Eigen::Matrix<Scalar, StateDim, 1>& x, ControlInputs u, Scalar dt) {
+    { t(x, u, dt) } -> std::same_as<void>;
+} && requires(T t, Eigen::Matrix<Scalar, StateDim, 1>& x, ControlInputs u, Eigen::Matrix<Scalar, StateDim, StateDim>& jacobian_matrix) {
+    // Jacobian method should exist with const parameters
     { t.jacobian(jacobian_matrix, x, u) } -> std::same_as<void>;
 };
 
@@ -17,6 +23,9 @@ concept MeasurementModelConcept = requires(T t, const Eigen::Matrix<Scalar, Stat
                                            Eigen::Matrix<Scalar, MeasurementDim, 1>& pred)
 {
   { t(x, z, pred) } -> std::same_as<void>;
+  // Accept either const or non-const x in jacobian
+  { t.jacobian(jacobian_matrix, x) } -> std::same_as<void>;
+} || requires(T t, Eigen::Matrix<Scalar, StateDim, 1>& x, Eigen::Matrix<Scalar, MeasurementDim, StateDim>& jacobian_matrix) {
   { t.jacobian(jacobian_matrix, x) } -> std::same_as<void>;
 };
 
@@ -44,8 +53,19 @@ public:
   requires DynamicsModelConcept<DynamicsModel, Scalar, StateDim, ControlInputs>
   void predict(const DynamicsModel& dynamics, ControlInputs u)
   {
-    // Predict state using dynamics model
-    dynamics(x_, u);
+    // Try the simpler interface first (RoboBee style)
+    if constexpr (requires { dynamics(x_, u); }) {
+      dynamics(x_, u);
+    } 
+    // Fall back to dt interface (RoboFly style) - use member dt or default
+    else if constexpr (requires { dynamics(x_, u, Scalar(0.004)); }) {
+      // Try to access dt from the dynamics model, or use default
+      if constexpr (requires { dynamics.dt_; }) {
+        dynamics(x_, u, dynamics.dt_);
+      } else {
+        dynamics(x_, u, Scalar(0.004)); // Default dt
+      }
+    }
 
     //Eigen::Matrix<Scalar, StateDim, StateDim> F;
     dynamics.jacobian(F_, x_, u);
@@ -186,6 +206,11 @@ public:
   void set_covariance(Eigen::Matrix<Scalar, StateDim, StateDim> P)
   {
     P_ = P;
+  }
+
+  void set_state(const Eigen::Matrix<Scalar, StateDim, 1>& x)
+  {
+    x_ = x;
   }
 
 private:

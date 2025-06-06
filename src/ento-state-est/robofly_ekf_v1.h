@@ -25,8 +25,8 @@ struct RoboFlyV1DynamicsModel
     x += dt * f_c;
   }
   constexpr void jacobian(Eigen::Matrix<Scalar, 4, 4>& A,
-                          [[maybe_unused]] Eigen::Matrix<Scalar, 4, 1>& x,
-                          [[maybe_unused]] Eigen::Matrix<Scalar, 1, 1>& u)
+                          [[maybe_unused]] const Eigen::Matrix<Scalar, 4, 1>& x,
+                          [[maybe_unused]] const Eigen::Matrix<Scalar, 1, 1>& u) const
   {
     A.setZero();
     A(2, 3) = Scalar(1);
@@ -60,7 +60,7 @@ struct RoboFlyV1MeasurementModel
   }
 
   void jacobian(Eigen::Matrix<Scalar, 4, 4>& H,
-                Eigen::Matrix<Scalar, 4, 1>& x)
+                const Eigen::Matrix<Scalar, 4, 1>& x) const
   {
     H.setZero();
     H(0, 2) = 1;
