@@ -18,6 +18,9 @@ template <typename T, std::size_t Capacity>
 class EntoArray
 {
 public:
+  using value_type = T;  // Add standard container typedef to be idiomatic
+                         // to std::vector
+  
   constexpr EntoArray() : size_(0) {}
 
   T* data() { return data_.data(); }

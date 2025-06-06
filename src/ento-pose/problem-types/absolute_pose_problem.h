@@ -38,8 +38,8 @@ public:
 
   // Ground truth 
   CameraPose<Scalar> pose_gt_;
-  static constexpr Scalar scale_gt_ = 1.0;
-  static constexpr Scalar focal_gt_ = 1.0;
+  Scalar scale_gt_;
+  Scalar focal_gt_;
   std::size_t n_point_point_ = NumPts;
 
   // AbsolutePose Algorithm Outputs

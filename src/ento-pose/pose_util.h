@@ -148,6 +148,161 @@ bool normalize_points(const Eigen::DenseBase<Derived>& P,
                       Eigen::DenseBase<Derived>* Q,
                       Eigen::DenseBase<Derived>* T);
 
+// Unified isotropic normalization for DLT - works with both EntoArray and EntoContainer
+template <typename Scalar, typename Container2D_In, typename Container3D_In, typename Container2D_Out, typename Container3D_Out>
+void isotropic_normalize_points(
+    const Container2D_In& points2D_in,   // 2D points (can be Vec2 or Vec3 homogeneous)
+    const Container3D_In& points3D_in,   // 3D points
+    Container2D_Out& points2D_out,       // normalized 2D points (homogeneous Vec3)
+    Container3D_Out& points3D_out,       // normalized 3D points
+    Eigen::Matrix<Scalar, 3, 3>& T1,     // 2D normalization (3×3)
+    Eigen::Matrix<Scalar, 4, 4>& T2      // 3D normalization (4×4)
+) {
+    const size_t n = points2D_in.size();
+    ENTO_DEBUG("isotropic_normalize_points: Starting normalization with %zu points", n);
+    
+    // Clear outputs
+    points2D_out.clear();
+    points3D_out.clear();
+
+    // Convert 2D points to homogeneous if needed
+    using Point2DType = typename Container2D_In::value_type;
+    using Point3DType = typename Container3D_In::value_type;
+    
+    ENTO_DEBUG("isotropic_normalize_points: 2D input type has %d rows, 3D input type has %d rows", 
+               Point2DType::RowsAtCompileTime, Point3DType::RowsAtCompileTime);
+    
+    // -------------------------------------------------------
+    // 2D normalization
+    // -------------------------------------------------------
+    ENTO_DEBUG("isotropic_normalize_points: Computing 2D centroid...");
+    // Compute 2D centroid (in homogeneous form [u; v; 1])
+    Vec3<Scalar> x_centroid = Vec3<Scalar>::Zero();
+    for (size_t i = 0; i < n; ++i) {
+        if constexpr (Point2DType::RowsAtCompileTime == 2) {
+            // Input is Vec2, convert to homogeneous
+            Vec3<Scalar> x_h;
+            x_h << points2D_in[i](0), points2D_in[i](1), Scalar(1);
+            x_centroid += x_h;
+        } else {
+            // Input is already Vec3 homogeneous
+            x_centroid += points2D_in[i];
+        }
+    }
+    x_centroid /= Scalar(n);
+    ENTO_DEBUG("isotropic_normalize_points: 2D centroid = (%f, %f, %f)", 
+               x_centroid.x(), x_centroid.y(), x_centroid.z());
+
+    // Compute mean distance to centroid in 2D
+    ENTO_DEBUG("isotropic_normalize_points: Computing 2D mean distance...");
+    Scalar x_mean_dist = Scalar(0);
+    for (size_t i = 0; i < n; ++i) {
+        Vec3<Scalar> x_h;
+        if constexpr (Point2DType::RowsAtCompileTime == 2) {
+            x_h << points2D_in[i](0), points2D_in[i](1), Scalar(1);
+        } else {
+            x_h = points2D_in[i];
+        }
+        Vec3<Scalar> d = x_h - x_centroid;
+        x_mean_dist += d.norm();
+    }
+    x_mean_dist /= Scalar(n);
+    ENTO_DEBUG("isotropic_normalize_points: 2D mean distance = %f", x_mean_dist);
+
+    // Compute 2D scale so that average distance → √2
+    Scalar x_scale = std::sqrt(Scalar(2)) / (x_mean_dist > Scalar(1e-12) ? x_mean_dist : Scalar(1));
+    ENTO_DEBUG("isotropic_normalize_points: 2D scale = %f (target: sqrt(2) = %f)", 
+               x_scale, std::sqrt(Scalar(2)));
+
+    // Build the 3×3 homogeneous T1 matrix
+    T1.setIdentity();
+    T1(0,0) = x_scale; 
+    T1(1,1) = x_scale;
+    T1(0,2) = -x_scale * x_centroid.x();  
+    T1(1,2) = -x_scale * x_centroid.y();
+    ENTO_DEBUG("isotropic_normalize_points: 2D transformation T1:");
+    ENTO_DEBUG("  [%f %f %f]", T1(0,0), T1(0,1), T1(0,2));
+    ENTO_DEBUG("  [%f %f %f]", T1(1,0), T1(1,1), T1(1,2));
+    ENTO_DEBUG("  [%f %f %f]", T1(2,0), T1(2,1), T1(2,2));
+
+    // Fill normalized 2D points (always output as Vec3 homogeneous)
+    ENTO_DEBUG("isotropic_normalize_points: Normalizing 2D points...");
+    for (size_t i = 0; i < n; ++i) {
+        Vec3<Scalar> x_h;
+        if constexpr (Point2DType::RowsAtCompileTime == 2) {
+            x_h << points2D_in[i](0), points2D_in[i](1), Scalar(1);
+        } else {
+            x_h = points2D_in[i];
+        }
+        Vec3<Scalar> p = x_h - x_centroid;
+        p *= x_scale;
+        p.z() = Scalar(1);  // restore homogeneous = 1
+        points2D_out.push_back(p);
+        
+        if (i < 3) {  // Debug first few points
+            ENTO_DEBUG("  Point %zu: (%f,%f,%f) -> (%f,%f,%f)", i,
+                       x_h.x(), x_h.y(), x_h.z(), p.x(), p.y(), p.z());
+        }
+    }
+
+    // -------------------------------------------------------
+    // 3D normalization
+    // -------------------------------------------------------
+    ENTO_DEBUG("isotropic_normalize_points: Computing 3D centroid...");
+    // Compute 3D centroid
+    Vec3<Scalar> X_centroid = Vec3<Scalar>::Zero();
+    for (size_t i = 0; i < n; ++i) {
+        X_centroid += points3D_in[i];
+    }
+    X_centroid /= Scalar(n);
+    ENTO_DEBUG("isotropic_normalize_points: 3D centroid = (%f, %f, %f)", 
+               X_centroid.x(), X_centroid.y(), X_centroid.z());
+
+    // Compute mean distance to centroid in 3D
+    ENTO_DEBUG("isotropic_normalize_points: Computing 3D mean distance...");
+    Scalar X_mean_dist = Scalar(0);
+    for (size_t i = 0; i < n; ++i) {
+        Vec3<Scalar> d = points3D_in[i] - X_centroid;
+        X_mean_dist += d.norm();
+    }
+    X_mean_dist /= Scalar(n);
+    ENTO_DEBUG("isotropic_normalize_points: 3D mean distance = %f", X_mean_dist);
+
+    // Compute 3D scale so that average distance → √3
+    Scalar X_scale = std::sqrt(Scalar(3)) / (X_mean_dist > Scalar(1e-12) ? X_mean_dist : Scalar(1));
+    ENTO_DEBUG("isotropic_normalize_points: 3D scale = %f (target: sqrt(3) = %f)", 
+               X_scale, std::sqrt(Scalar(3)));
+
+    // Fill normalized 3D points
+    ENTO_DEBUG("isotropic_normalize_points: Normalizing 3D points...");
+    for (size_t i = 0; i < n; ++i) {
+        Vec3<Scalar> P = points3D_in[i] - X_centroid;
+        P *= X_scale;
+        points3D_out.push_back(P);
+        
+        if (i < 3) {  // Debug first few points
+            ENTO_DEBUG("  Point %zu: (%f,%f,%f) -> (%f,%f,%f)", i,
+                       points3D_in[i].x(), points3D_in[i].y(), points3D_in[i].z(),
+                       P.x(), P.y(), P.z());
+        }
+    }
+
+    // Build the 4×4 homogeneous T2 matrix
+    T2.setIdentity();
+    T2(0,0) = X_scale;
+    T2(1,1) = X_scale;
+    T2(2,2) = X_scale;
+    T2(0,3) = -X_scale * X_centroid.x();
+    T2(1,3) = -X_scale * X_centroid.y();
+    T2(2,3) = -X_scale * X_centroid.z();
+    ENTO_DEBUG("isotropic_normalize_points: 3D transformation T2:");
+    ENTO_DEBUG("  [%f %f %f %f]", T2(0,0), T2(0,1), T2(0,2), T2(0,3));
+    ENTO_DEBUG("  [%f %f %f %f]", T2(1,0), T2(1,1), T2(1,2), T2(1,3));
+    ENTO_DEBUG("  [%f %f %f %f]", T2(2,0), T2(2,1), T2(2,2), T2(2,3));
+    ENTO_DEBUG("  [%f %f %f %f]", T2(3,0), T2(3,1), T2(3,2), T2(3,3));
+    
+    ENTO_DEBUG("isotropic_normalize_points: Normalization completed successfully");
+}
 
 template <typename Scalar, int Order=0>
 void unnormalize_homography(Eigen::Matrix<Scalar, 3, 3, Order>* H ,

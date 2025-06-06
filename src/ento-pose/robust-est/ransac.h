@@ -61,38 +61,108 @@ void score_models(const Solver &estimator,
     if (opt.lo_type != LocalRefinementType::None) {
         // Get inliers for the best model
         EntoUtil::EntoContainer<uint8_t, Solver::N_> inliers;
-        int num_inl = get_inliers<Scalar, Solver::N_>(refined_model, estimator.x1, estimator.x2, opt.max_epipolar_error * opt.max_epipolar_error, &inliers);
+        int num_inl;
+        if constexpr (std::is_same_v<Solver, RelativePoseRobustEstimator<typename Solver::SolverType, Solver::N_>>) {
+            num_inl = get_inliers<Scalar, Solver::N_>(refined_model, estimator.x1, estimator.x2, opt.max_epipolar_error * opt.max_epipolar_error, &inliers);
+        } else if constexpr (std::is_same_v<Solver, AbsolutePoseRobustEstimator<typename Solver::SolverType, Solver::N_>>) {
+            num_inl = get_inliers<Scalar, Solver::N_>(refined_model, estimator.points2D_, estimator.points3D_, opt.max_reproj_error * opt.max_reproj_error, &inliers);
+        }
+
+        ENTO_DEBUG("[RANSAC] Number of inliers: %d", num_inl);
         if (num_inl > Solver::sample_size_) {
+            ENTO_DEBUG("[RANSAC] Number of inliers is greater than sample size. Performing local optimization.");
             // Gather inlier points
-            EntoUtil::EntoContainer<Vec2<Scalar>, Solver::N_> x1_inl, x2_inl;
-            if constexpr (Solver::N_ == 0) {
-                x1_inl.reserve(num_inl);
-                x2_inl.reserve(num_inl);
-            }
-            for (size_t pt_k = 0; pt_k < estimator.x1.size(); ++pt_k) {
-                if (inliers[pt_k]) {
-                    x1_inl.push_back(estimator.x1[pt_k]);
-                    x2_inl.push_back(estimator.x2[pt_k]);
+            if constexpr (std::is_same_v<Solver, RelativePoseRobustEstimator<typename Solver::SolverType, Solver::N_>>) {
+                ENTO_DEBUG("[RANSAC] Performing linear refinement for relative pose");
+                EntoUtil::EntoContainer<Vec2<Scalar>, Solver::N_> x1_inl, x2_inl;
+                if constexpr (Solver::N_ == 0) {
+                    x1_inl.reserve(num_inl);
+                    x2_inl.reserve(num_inl);
+                }
+                for (size_t pt_k = 0; pt_k < estimator.x1.size(); ++pt_k) {
+                    if (inliers[pt_k]) {
+                        x1_inl.push_back(estimator.x1[pt_k]);
+                        x2_inl.push_back(estimator.x2[pt_k]);
+                    }
+                }
+
+                if (opt.lo_type == LocalRefinementType::Linear || opt.lo_type == LocalRefinementType::Both) {
+                    if (opt.linear_method == LinearRefinementMethod::EightPoint) {
+                        ENTO_DEBUG("[RANSAC] Refining model with 8pt linear refinement");
+                        if (opt.use_irls) {
+                            ENTO_DEBUG("[RANSAC] Using IRLS Huber refinement for 8pt (max_iters=%d, threshold=%f)", 
+                                       opt.irls_max_iters, opt.irls_huber_threshold);
+                            linear_refine_irls_huber_eight_point<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model, 
+                                                                                     opt.irls_max_iters, opt.irls_huber_threshold);
+                        } else {
+                            linear_refine_eight_point<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
+                        }
+                    } else if (opt.linear_method == LinearRefinementMethod::UprightPlanar3pt) {
+                        ENTO_DEBUG("[RANSAC] Refining model with upright planar 3pt linear refinement");
+                        if (opt.use_irls) {
+                            ENTO_DEBUG("[RANSAC] Using IRLS Huber refinement for upright planar 3pt (max_iters=%d, threshold=%f)", 
+                                       opt.irls_max_iters, opt.irls_huber_threshold);
+                            linear_refine_irls_huber_upright_planar_3pt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model, 
+                                                                                            opt.irls_max_iters, opt.irls_huber_threshold);
+                        } else {
+                            linear_refine_upright_planar_3pt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
+                        }
+                    }
+                }
+                // Nonlinear refinement
+                if (opt.lo_type == LocalRefinementType::BundleAdjust || opt.lo_type == LocalRefinementType::Both) {
+                    // Use estimator's refine_model (bundle adjustment)
+                    ENTO_DEBUG("[RANSAC] Refining model with bundle adjustment");
+                    estimator.refine_model(&refined_model);
+                }
+
+                if (opt.lo_type != LocalRefinementType::None) {
+                    stats.refinements++;
                 }
             }
-            // Linear refinement
-            if (opt.lo_type == LocalRefinementType::Linear || opt.lo_type == LocalRefinementType::Both) {
-                if (opt.linear_method == LinearRefinementMethod::EightPoint) {
-                    ENTO_DEBUG("[RANSAC] Refining model with 8pt linear refinement");
-                    linear_refine_eight_point<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
-                } else if (opt.linear_method == LinearRefinementMethod::UprightPlanar3pt) {
-                    ENTO_DEBUG("[RANSAC] Refining model with upright planar 3pt linear refinement");
-                    linear_refine_upright_planar_3pt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
-                } // Add DLT if needed
-                stats.refinements++;
+            else if constexpr (std::is_same_v<Solver, AbsolutePoseRobustEstimator<typename Solver::SolverType, Solver::N_>>)
+            {
+                ENTO_DEBUG("[RANSAC] Performing linear refinement for absolute pose");
+                EntoUtil::EntoContainer<Vec2<Scalar>, Solver::N_> x1_inl;
+                EntoUtil::EntoContainer<Vec3<Scalar>, Solver::N_> x2_inl;
+                if constexpr (Solver::N_ == 0) {
+                    x1_inl.reserve(num_inl);
+                    x2_inl.reserve(num_inl);
+                }
+                for (size_t pt_k = 0; pt_k < estimator.points2D_.size(); ++pt_k) {
+                    if (inliers[pt_k]) {
+                        x1_inl.push_back(estimator.points2D_[pt_k]);
+                        x2_inl.push_back(estimator.points3D_[pt_k]);
+                    }
+                }
+
+                if (opt.lo_type == LocalRefinementType::Linear || opt.lo_type == LocalRefinementType::Both) {
+                    if (opt.linear_method == LinearRefinementMethod::DLT) {
+                        ENTO_DEBUG("[RANSAC] Refining model with DLT linear refinement");
+                        if (opt.use_irls) {
+                            ENTO_DEBUG("[RANSAC] Using IRLS Huber refinement (max_iters=%d, threshold=%f)", 
+                                       opt.irls_max_iters, opt.irls_huber_threshold);
+                            linear_refine_irls_huber_dlt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model, 
+                                                                             opt.irls_max_iters, opt.irls_huber_threshold);
+                        } else {
+                            linear_refine_dlt<Scalar, Solver::N_>(x1_inl, x2_inl, &refined_model);
+                        }
+                    }
+                }
+                // Nonlinear refinement
+                if (opt.lo_type == LocalRefinementType::BundleAdjust || opt.lo_type == LocalRefinementType::Both) {
+                    // Use estimator's refine_model (bundle adjustment)
+                    ENTO_DEBUG("[RANSAC] Refining model with bundle adjustment");
+                    estimator.refine_model(&refined_model);
+                }
+
+                if (opt.lo_type != LocalRefinementType::None) {
+                    stats.refinements++;
+                }
             }
-            // Nonlinear refinement
-            if (opt.lo_type == LocalRefinementType::BundleAdjust || opt.lo_type == LocalRefinementType::Both) {
-                // Use estimator's refine_model (bundle adjustment)
-                ENTO_DEBUG("[RANSAC] Refining model with bundle adjustment");
-                estimator.refine_model(&refined_model);
-                stats.refinements++;
-            }
+        }
+        else {
+            ENTO_DEBUG("[RANSAC] Number of inliers is less than sample size. No local optimization performed.");
         }
     }
     Scalar refined_msac_score = estimator.score_model(refined_model, &inlier_count);

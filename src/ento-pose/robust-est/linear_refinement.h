@@ -5,6 +5,8 @@
 #include <ento-pose/rel-pose/eight_pt.h>
 #include <ento-pose/rel-pose/upright_planar_three_pt.h>
 #include <ento-pose/robust-est/ransac_util.h>
+#include <ento-pose/abs-pose/dlt.h>
+#include <ento-pose/pose_util.h>
 
 namespace EntoPose {
 
@@ -40,6 +42,9 @@ static inline void iso_normalize_points(const EntoUtil::EntoContainer<Eigen::Mat
     T(0,2) = -scale * centroid(0);
     T(1,2) = -scale * centroid(1);
 }
+
+// Note: Isotropic normalization for DLT is now unified in pose_util.h as isotropic_normalize_points()
+// This avoids duplication between dlt.h and linear_refinement.h
 
 // Linear refinement using the 8-point algorithm (all inliers)
 // N can be 0 (dynamic) or >0 (fixed size)
@@ -179,13 +184,334 @@ void linear_refine_upright_planar_3pt(
 
 // Linear refinement using DLT (for abs pose, homography, etc.)
 // N can be 0 (dynamic) or >0 (fixed size)
-template<typename Scalar, size_t N>
+// UseIsoNormalization: whether to use isotropic normalization (default true)
+template<typename Scalar, size_t N, bool UseIsoNormalization = true>
 void linear_refine_dlt(
-    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& x1,
-    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& X,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& points2D,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& points3D,
     CameraPose<Scalar>* pose_out)
 {
-    // TODO: Implement DLT for abs pose/homography
+    const size_t n = points2D.size();
+    ENTO_DEBUG("linear_refine_dlt: n = %zu, iso_norm = %s", n, UseIsoNormalization ? "true" : "false");
+    
+    if (n < 6) {
+        ENTO_DEBUG("linear_refine_dlt: Not enough points for DLT (need at least 6, got %zu)", n);
+        return;
+    }
+
+    // Prepare data for DLT
+    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N> points2D_homo, points3D_work;
+    Eigen::Matrix<Scalar, 3, 3> T1 = Eigen::Matrix<Scalar, 3, 3>::Identity();
+    Eigen::Matrix<Scalar, 4, 4> T2 = Eigen::Matrix<Scalar, 4, 4>::Identity();
+    
+    if constexpr (UseIsoNormalization) {
+        // Use isotropic normalization
+        ENTO_DEBUG("linear_refine_dlt: Using isotropic normalization");
+        isotropic_normalize_points<Scalar>(points2D, points3D, points2D_homo, points3D_work, T1, T2);
+    } else {
+        // No normalization - just convert 2D to homogeneous
+        ENTO_DEBUG("linear_refine_dlt: No normalization");
+        if constexpr (N == 0) {
+            points2D_homo.reserve(n);
+            points3D_work.reserve(n);
+        }
+        for (size_t i = 0; i < n; ++i) {
+            Eigen::Matrix<Scalar,3,1> x_h;
+            x_h << points2D[i](0), points2D[i](1), Scalar(1);
+            points2D_homo.push_back(x_h);
+            points3D_work.push_back(points3D[i]);
+        }
+    }
+
+    // Build DLT system: A * p = 0 where p is the vectorized projection matrix
+    // Use hybrid Eigen matrix pattern: Dynamic with compile-time max size
+    Eigen::Matrix<Scalar, Eigen::Dynamic, 12, Eigen::RowMajor, N*2, 12> A(2*n, 12);
+    
+    for (size_t i = 0; i < n; ++i) {
+        const auto& X = points3D_work[i];  // 3D point (normalized or original)
+        const auto& x = points2D_homo[i];  // homogeneous 2D point (normalized or original)
+        
+        // First row: x[2] * (P[0] * X) - x[0] * (P[2] * X) = 0
+        A.row(2*i) << X(0) * x(2), X(1) * x(2), X(2) * x(2), x(2),
+                      Scalar(0), Scalar(0), Scalar(0), Scalar(0),
+                      -x(0) * X(0), -x(0) * X(1), -x(0) * X(2), -x(0);
+        
+        // Second row: x[2] * (P[1] * X) - x[1] * (P[2] * X) = 0  
+        A.row(2*i+1) << Scalar(0), Scalar(0), Scalar(0), Scalar(0),
+                        X(0) * x(2), X(1) * x(2), X(2) * x(2), x(2),
+                        -x(1) * X(0), -x(1) * X(1), -x(1) * X(2), -x(1);
+    }
+    
+    // Solve least squares: A * p = 0
+    Eigen::JacobiSVD<Eigen::Matrix<Scalar, Eigen::Dynamic, 12, Eigen::RowMajor, N*2, 12>> svd(A, Eigen::ComputeFullV);
+    Eigen::Matrix<Scalar, 12, 1> p = svd.matrixV().col(11);
+    
+    // Reshape to 3x4 projection matrix
+    Eigen::Matrix<Scalar, 3, 4> P = Eigen::Map<Eigen::Matrix<Scalar, 3, 4, Eigen::RowMajor>>(p.data());
+    
+    // Check for degeneracy
+    if (!P.allFinite() || std::abs(P.determinant()) < Scalar(1e-8)) {
+        ENTO_DEBUG("linear_refine_dlt: Degenerate solution");
+        return;
+    }
+    
+    // Normalize so that last entry is 1 (if possible)
+    if (std::abs(P(2,3)) > Scalar(1e-8)) {
+        P /= P(2,3);
+    }
+    
+    if constexpr (UseIsoNormalization) {
+        // Unnormalize P: P_original = T1^-1 * P_normalized * T2
+        P = T1.inverse() * P * T2;
+    }
+    
+    // Extract pose from projection matrix
+    pose_out->from_projection(P);
+    ENTO_DEBUG("linear_refine_dlt: Successfully refined pose using DLT");
+}
+
+// Weighted linear refinement using DLT (for absolute pose)
+// N can be 0 (dynamic) or >0 (fixed size)
+// UseIsoNormalization: whether to use isotropic normalization (default true)
+template<typename Scalar, size_t N, bool UseIsoNormalization = true>
+void linear_refine_dlt_weighted(
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& points2D,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& points3D,
+    const EntoUtil::EntoContainer<Scalar, N>& weights,
+    CameraPose<Scalar>* pose_out)
+{
+    const size_t n = points2D.size();
+    ENTO_DEBUG("linear_refine_dlt_weighted: n = %zu, iso_norm = %s", n, UseIsoNormalization ? "true" : "false");
+    
+    if (n < 6) {
+        ENTO_DEBUG("linear_refine_dlt_weighted: Not enough points for DLT (need at least 6, got %zu)", n);
+        return;
+    }
+
+    // Prepare data for DLT
+    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N> points2D_homo, points3D_work;
+    Eigen::Matrix<Scalar, 3, 3> T1 = Eigen::Matrix<Scalar, 3, 3>::Identity();
+    Eigen::Matrix<Scalar, 4, 4> T2 = Eigen::Matrix<Scalar, 4, 4>::Identity();
+    
+    if constexpr (UseIsoNormalization) {
+        // Use isotropic normalization
+        ENTO_DEBUG("linear_refine_dlt_weighted: Using isotropic normalization");
+        isotropic_normalize_points<Scalar>(points2D, points3D, points2D_homo, points3D_work, T1, T2);
+    } else {
+        // No normalization - just convert 2D to homogeneous
+        ENTO_DEBUG("linear_refine_dlt_weighted: No normalization");
+        if constexpr (N == 0) {
+            points2D_homo.reserve(n);
+            points3D_work.reserve(n);
+        }
+        for (size_t i = 0; i < n; ++i) {
+            Eigen::Matrix<Scalar,3,1> x_h;
+            x_h << points2D[i](0), points2D[i](1), Scalar(1);
+            points2D_homo.push_back(x_h);
+            points3D_work.push_back(points3D[i]);
+        }
+    }
+
+    // Build weighted DLT system: A * p = 0 where p is the vectorized projection matrix
+    // Use hybrid Eigen matrix pattern: Dynamic with compile-time max size
+    Eigen::Matrix<Scalar, Eigen::Dynamic, 12, Eigen::RowMajor, N*2, 12> A(2*n, 12);
+    
+    for (size_t i = 0; i < n; ++i) {
+        const auto& X = points3D_work[i];  // 3D point (normalized or original)
+        const auto& x = points2D_homo[i];  // homogeneous 2D point (normalized or original)
+        Scalar w = std::sqrt(weights[i]);  // Square root of weight
+        
+        // First row: w * (x[2] * (P[0] * X) - x[0] * (P[2] * X)) = 0
+        // Note: x is homogeneous 3D, so x[2] is the homogeneous coordinate (should be 1)
+        A.row(2*i) << w * X(0) * x(2), w * X(1) * x(2), w * X(2) * x(2), w * x(2),
+                      Scalar(0), Scalar(0), Scalar(0), Scalar(0),
+                      -w * x(0) * X(0), -w * x(0) * X(1), -w * x(0) * X(2), -w * x(0);
+        
+        // Second row: w * (x[2] * (P[1] * X) - x[1] * (P[2] * X)) = 0  
+        A.row(2*i+1) << Scalar(0), Scalar(0), Scalar(0), Scalar(0),
+                        w * X(0) * x(2), w * X(1) * x(2), w * X(2) * x(2), w * x(2),
+                        -w * x(1) * X(0), -w * x(1) * X(1), -w * x(1) * X(2), -w * x(1);
+    }
+    
+    // Solve weighted least squares: A * p = 0
+    Eigen::JacobiSVD<Eigen::Matrix<Scalar, Eigen::Dynamic, 12, Eigen::RowMajor, N*2, 12>> svd(A, Eigen::ComputeFullV);
+    Eigen::Matrix<Scalar, 12, 1> p = svd.matrixV().col(11);
+    
+    // Reshape to 3x4 projection matrix
+    Eigen::Matrix<Scalar, 3, 4> P = Eigen::Map<Eigen::Matrix<Scalar, 3, 4, Eigen::RowMajor>>(p.data());
+    
+    // Check for degeneracy
+    if (!P.allFinite() || std::abs(P.determinant()) < Scalar(1e-8)) {
+        ENTO_DEBUG("linear_refine_dlt_weighted: Degenerate solution");
+        return;
+    }
+    
+    // Normalize so that last entry is 1 (if possible)
+    if (std::abs(P(2,3)) > Scalar(1e-8)) {
+        P /= P(2,3);
+    }
+    
+    if constexpr (UseIsoNormalization) {
+        // Unnormalize P: P_original = T1^-1 * P_normalized * T2
+        P = T1.inverse() * P * T2;
+    }
+    
+    // Extract pose from projection matrix
+    pose_out->from_projection(P);
+    ENTO_DEBUG("linear_refine_dlt_weighted: Successfully refined pose using weighted DLT");
+}
+
+// IRLS Huber refinement for DLT (absolute pose)
+// N can be 0 (dynamic) or >0 (fixed size)
+template<typename Scalar, size_t N>
+void linear_refine_irls_huber_dlt(
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& points2D,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& points3D,
+    CameraPose<Scalar>* pose_out,
+    int max_iters = 10,
+    Scalar huber_thresh = Scalar(1.0))
+{
+    const size_t n = points2D.size();
+    ENTO_DEBUG("linear_refine_irls_huber_dlt: n = %zu, max_iters = %d, huber_thresh = %f", 
+               n, max_iters, huber_thresh);
+    
+    if (n < 6) {
+        ENTO_DEBUG("linear_refine_irls_huber_dlt: Not enough points for DLT (need at least 6, got %zu)", n);
+        return;
+    }
+
+    // Initialize weights to uniform
+    EntoUtil::EntoContainer<Scalar, N> weights;
+    if constexpr (N == 0) {
+        weights.reserve(n);
+    }
+    for (size_t i = 0; i < n; ++i) {
+        weights.push_back(Scalar(1.0));
+    }
+    
+    // Initial DLT solution
+    CameraPose<Scalar> pose;
+    ENTO_DEBUG("linear_refine_irls_huber_dlt: Starting with initial DLT solution");
+    linear_refine_dlt_weighted<Scalar, N>(points2D, points3D, weights, &pose);
+    
+    // Compute initial reprojection error statistics
+    Scalar initial_mean_error = Scalar(0);
+    Scalar initial_max_error = Scalar(0);
+    for (size_t i = 0; i < n; ++i) {
+        Eigen::Matrix<Scalar,3,1> X_cam = pose.R() * points3D[i] + pose.t;
+        if (X_cam(2) > Scalar(1e-6)) {
+            Eigen::Matrix<Scalar,2,1> x_proj;
+            x_proj << X_cam(0) / X_cam(2), X_cam(1) / X_cam(2);
+            Scalar error = (x_proj - points2D[i]).norm();
+            initial_mean_error += error;
+            initial_max_error = std::max(initial_max_error, error);
+        }
+    }
+    initial_mean_error /= Scalar(n);
+    ENTO_DEBUG("linear_refine_irls_huber_dlt: Initial errors - mean: %f, max: %f", 
+               initial_mean_error, initial_max_error);
+    
+    // IRLS iterations
+    for (int iter = 0; iter < max_iters; ++iter) {
+        ENTO_DEBUG("linear_refine_irls_huber_dlt: iteration %d", iter);
+        
+        // Compute reprojection residuals
+        EntoUtil::EntoContainer<Scalar, N> residuals;
+        if constexpr (N == 0) {
+            residuals.reserve(n);
+        } else {
+            residuals.clear();
+        }
+        
+        Scalar mean_error = Scalar(0);
+        Scalar max_error = Scalar(0);
+        size_t valid_points = 0;
+        
+        for (size_t i = 0; i < n; ++i) {
+            // Project 3D point using current pose
+            Eigen::Matrix<Scalar,3,1> X_cam = pose.R() * points3D[i] + pose.t;
+            
+            if (X_cam(2) > Scalar(1e-6)) {  // Check for positive depth
+                Eigen::Matrix<Scalar,2,1> x_proj;
+                x_proj << X_cam(0) / X_cam(2), X_cam(1) / X_cam(2);
+                
+                // Compute reprojection error
+                Scalar error = (x_proj - points2D[i]).norm();
+                residuals.push_back(error);
+                mean_error += error;
+                max_error = std::max(max_error, error);
+                valid_points++;
+            } else {
+                // Point behind camera - assign large residual
+                residuals.push_back(huber_thresh * Scalar(10));
+            }
+        }
+        
+        if (valid_points > 0) {
+            mean_error /= Scalar(valid_points);
+        }
+        
+        // Update Huber weights
+        weights.clear();
+        Scalar total_weight = Scalar(0);
+        size_t downweighted_points = 0;
+        for (size_t i = 0; i < n; ++i) {
+            Scalar r = residuals[i];
+            Scalar w = (r <= huber_thresh) ? Scalar(1.0) : huber_thresh / r;
+            if (w < Scalar(0.99)) downweighted_points++;
+            weights.push_back(w);
+            total_weight += w;
+            if (iter == 0 || iter == max_iters - 1) {  // Only log first and last iteration to avoid spam
+                ENTO_DEBUG("Point %zu: residual = %f, weight = %f", i, r, w);
+            }
+        }
+        ENTO_DEBUG("linear_refine_irls_huber_dlt: iteration %d, mean_error = %f, max_error = %f, downweighted = %zu/%zu, total_weight = %f", 
+                   iter, mean_error, max_error, downweighted_points, n, total_weight);
+        
+        // Weighted DLT with updated weights
+        CameraPose<Scalar> pose_new;
+        ENTO_DEBUG("linear_refine_irls_huber_dlt: Calling weighted DLT for iteration %d", iter);
+        linear_refine_dlt_weighted<Scalar, N>(points2D, points3D, weights, &pose_new);
+        
+        // Check for convergence (optional)
+        Scalar pose_change = (pose_new.R() - pose.R()).norm() + (pose_new.t - pose.t).norm();
+        ENTO_DEBUG("linear_refine_irls_huber_dlt: pose change = %f", pose_change);
+        
+        pose = pose_new;
+        
+        if (pose_change < Scalar(1e-6)) {
+            ENTO_DEBUG("linear_refine_irls_huber_dlt: Converged after %d iterations", iter + 1);
+            break;
+        }
+    }
+    
+    // Final error statistics
+    Scalar final_mean_error = Scalar(0);
+    Scalar final_max_error = Scalar(0);
+    size_t final_valid_points = 0;
+    for (size_t i = 0; i < n; ++i) {
+        Eigen::Matrix<Scalar,3,1> X_cam = pose.R() * points3D[i] + pose.t;
+        if (X_cam(2) > Scalar(1e-6)) {
+            Eigen::Matrix<Scalar,2,1> x_proj;
+            x_proj << X_cam(0) / X_cam(2), X_cam(1) / X_cam(2);
+            Scalar error = (x_proj - points2D[i]).norm();
+            final_mean_error += error;
+            final_max_error = std::max(final_max_error, error);
+            final_valid_points++;
+        }
+    }
+    if (final_valid_points > 0) {
+        final_mean_error /= Scalar(final_valid_points);
+    }
+    
+    ENTO_DEBUG("linear_refine_irls_huber_dlt: Error improvement - mean: %f -> %f (%.1f%%), max: %f -> %f (%.1f%%)", 
+               initial_mean_error, final_mean_error, 
+               initial_mean_error > 0 ? (initial_mean_error - final_mean_error) / initial_mean_error * 100 : 0,
+               initial_max_error, final_max_error,
+               initial_max_error > 0 ? (initial_max_error - final_max_error) / initial_max_error * 100 : 0);
+    
+    *pose_out = pose;
+    ENTO_DEBUG("linear_refine_irls_huber_dlt: Completed IRLS refinement");
 }
 
 // Weighted linear refinement using the 8-point algorithm (all inliers)

@@ -65,7 +65,7 @@ public:
         , bundle_options_(bundle_options)
         , camera_(camera) {}
 
-    bool solve(const EntoUtil::EntoContainer<Vec2<Scalar>, N>& points2D,
+    RansacStats<Scalar> solve(const EntoUtil::EntoContainer<Vec2<Scalar>, N>& points2D,
                const EntoUtil::EntoContainer<Vec3<Scalar>, N>& points3D,
                CameraPose<Scalar>* best_pose,
                EntoUtil::EntoContainer<uint8_t, N>* inliers = nullptr) {
@@ -82,7 +82,7 @@ public:
                                                      best_pose, &temp_inliers);
         }
 
-        return stats.num_inliers >= options_.min_iters;
+        return stats;
     }
 
 private:

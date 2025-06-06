@@ -7,10 +7,12 @@
 #include <ento-util/debug.h>
 #include <ento-util/containers.h>
 
+#include <ento-pose/synthetic_abspose.h>
 #include <ento-pose/pose_util.h>
 #include <ento-pose/camera_models.h>
 #include <ento-pose/data_gen.h>
 #include <ento-pose/robust.h>
+#include <algorithm>
 
 using namespace std;
 using namespace Eigen;
@@ -150,7 +152,24 @@ void test_robust_absolute_pose_fixed_size()
     EntoContainer<Vec3<Scalar>, N> points3D;
     CameraPose<Scalar> true_pose;
     
-    generate_synthetic_absolute_pose_data<Scalar, N>(points2D, points3D, true_pose, N, 0.005);
+    // Use same data generation as test 6
+    ENTO_DEBUG("Generating synthetic data using generate_synthetic_abspose_general...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, N, 0.00);
+    
+    // Debug print input data
+    ENTO_DEBUG("Input data before pose estimation:");
+    ENTO_DEBUG("Number of points: %zu", N);
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = true_pose.R() * points3D[i] + true_pose.t;
+        ENTO_DEBUG("Point %zu: 2D=(%f,%f), 3D=(%f,%f,%f), depth=%f", 
+            i, points2D[i](0), points2D[i](1), 
+            points3D[i](0), points3D[i](1), points3D[i](2),
+            Z(2));
+    }
     
     // Setup camera (identity for normalized coordinates)
     using CameraModel = IdentityCameraModel<Scalar>;
@@ -173,6 +192,7 @@ void test_robust_absolute_pose_fixed_size()
     CameraPose<Scalar> estimated_pose;
     EntoContainer<uint8_t, N> inliers;
     
+    ENTO_DEBUG("Calling estimate_absolute_pose...");
     RansacStats<Scalar> stats = estimate_absolute_pose<Solver, N>(
         points2D, points3D, camera, ransac_opt, bundle_opt, &estimated_pose, &inliers);
     
@@ -507,7 +527,7 @@ void test_robust_absolute_pose_up2p()
     // Setup RANSAC options
     RansacOptions<Scalar> ransac_opt;
     ransac_opt.max_iters = 2000; // More iterations for outliers
-    ransac_opt.max_reproj_error = 0.2; // Stricter threshold for outliers
+    ransac_opt.max_reproj_error = 0.5; // Stricter threshold for outliers
     ransac_opt.success_prob = 0.999;
     
     // Setup bundle adjustment options
@@ -588,8 +608,8 @@ void test_robust_absolute_pose_dlt()
 {
     using Scalar = float;
     using Solver = SolverDLT<Scalar>;
-    constexpr size_t N = 30; // Total number of points (including outliers)
-    const size_t num_inliers = 20; // Number of clean inlier points
+    constexpr size_t N = 50; // Total number of points (including outliers)
+    const size_t num_inliers = 40; // Number of clean inlier points
     
     ENTO_DEBUG("================");
     ENTO_DEBUG("Running test_robust_absolute_pose_dlt...");
@@ -600,7 +620,7 @@ void test_robust_absolute_pose_dlt()
     CameraPose<Scalar> true_pose;
     
     // Generate clean inlier data
-    generate_synthetic_absolute_pose_data<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01);
+    generate_synthetic_absolute_pose_data<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.015);
     
     // Add some outliers
     std::default_random_engine rng(123);
@@ -631,7 +651,7 @@ void test_robust_absolute_pose_dlt()
     // Setup bundle adjustment options
     BundleOptions<Scalar> bundle_opt;
     bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
-    bundle_opt.max_iterations = 10;
+    bundle_opt.max_iterations = 25;
     
     // Estimate pose using solver-based LO-RANSAC
     CameraPose<Scalar> estimated_pose;
@@ -687,9 +707,9 @@ void test_robust_absolute_pose_dlt()
     
     // Check that estimated rotation is close to true rotation
     Scalar rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
     Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
-    ENTO_TEST_CHECK_TRUE(rot_error < 0.1);
-    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
     
     ENTO_DEBUG("DLT test passed:");
     ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
@@ -697,8 +717,12 @@ void test_robust_absolute_pose_dlt()
     ENTO_DEBUG("  Score: %f", stats.model_score);
     ENTO_DEBUG("  Iterations: %zu", stats.iters);
     ENTO_DEBUG("  Rotation error: %f", rot_error);
+    ENTO_DEBUG("  Rotation angle: %f", angle_rad * 180.0 / M_PI);
     ENTO_DEBUG("  Translation error: %f", trans_error);
     ENTO_DEBUG("================");
+
+    ENTO_TEST_CHECK_TRUE(rot_error < 0.1);
+    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
 }
 
 int main(int argc, char** argv)

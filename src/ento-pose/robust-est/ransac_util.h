@@ -63,6 +63,13 @@ struct RansacOptions
    *   DLT:               Absolute pose, homography.
    */
   LinearRefinementMethod linear_method = LinearRefinementMethod::EightPoint;
+
+  // IRLS (Iteratively Reweighted Least Squares) options for linear refinement
+  bool use_irls = false;                    // Enable IRLS for linear refinement
+  int irls_max_iters = 5;                   // Maximum IRLS iterations
+  Scalar irls_huber_threshold = Scalar(1.0); // Huber loss threshold for IRLS
+
+  bool final_refinement = true;
   static constexpr bool progressive_sampling = ProgressiveSampling;
   static constexpr size_t max_prosac_iterations = ProgressiveSamplingIters;
 };
@@ -278,7 +285,7 @@ void get_homography_inliers(const Matrix3x3<Scalar> &H,
 
 // Compute inliers for absolute pose estimation (using reprojection error and cheirality check)
 template <typename Scalar, size_t N = 0>
-void get_inliers(const CameraPose<Scalar> &pose,
+int get_inliers(const CameraPose<Scalar> &pose,
                 const EntoUtil::EntoContainer<Vec2<Scalar>, N> &x,
                 const EntoUtil::EntoContainer<Vec3<Scalar>, N> &X,
                 Scalar threshold_squared,
@@ -301,6 +308,8 @@ void get_inliers(const CameraPose<Scalar> &pose,
                    k, r2, threshold_squared, Z(2), flag);
         (*inliers).push_back(r2 < threshold_squared && Z(2) > 0.0);
     }
+
+  return inliers->size();
 }
 
 // Compute inliers for relative pose estimation (using Sampson error)

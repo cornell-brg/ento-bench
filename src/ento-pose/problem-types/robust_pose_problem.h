@@ -160,8 +160,11 @@ struct RobustAbsolutePoseProblem :
   using AbsBase    = AbsolutePoseProblem<Scalar, Solver, NumPts>;
   using RobustBase = RobustPoseProblem <Scalar,             NumPts>;
 
+  EntoUtil::EntoContainer<Vec2<Scalar>, NumPts> x_img_;
+  EntoUtil::EntoContainer<Vec3<Scalar>, NumPts> X_world_;
+
   explicit RobustAbsolutePoseProblem(Solver solver)
-    : AbsBase(std::move(solver)), RobustBase{} {}
+    : AbsBase(std::move(solver)), RobustBase{}, x_img_(), X_world_() {}
   
 #ifdef NATIVE
   std::string serialize() const
@@ -183,21 +186,129 @@ struct RobustAbsolutePoseProblem :
   }
 #endif
 
+  void solve_impl()
+  {
+    this->ransac_stats_ = this->solver_.solve(x_img_, X_world_, &this->best_model_, &this->inliers_);
+  }
+
   bool deserialize_impl(const char* line)
   {
     char* pos = const_cast<char*>(line);
-    if (!AbsBase::deserialize_impl(pos)) return false;
+    int problem_type;
+    if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 1)
+    {
+        ENTO_DEBUG("[abspose] failed to parse problem_type");
+        return false; // Parsing failed
+    }
+    pos = strchr(pos, ',') + 1;
+
+    int num_pts;
+    if (sscanf(pos, "%d,", &num_pts) != 1 )
+    {
+      ENTO_DEBUG("[abspose] failed to parse num_pts");
+      if (NumPts == 0) this->n_point_point_ = num_pts;
+      else if (NumPts != this->n_point_point_) return false;
+      return false; // Parsing failed
+    }
+    pos = strchr(pos, ',') + 1;
+
     if constexpr (NumPts == 0) {
       this->initialize_inliers(this->n_point_point_);
     } else {
       this->initialize_inliers();
     }
+
+    // Parse quaternion (q)
+    Scalar qi = 0;
+    for (int i = 0; i < 4; ++i) {
+      if (sscanf(pos, "%f,", &qi) != 1) {
+        ENTO_DEBUG("[abspose] failed to parse q[%d]", i);
+        return false; // Parsing failed
+      }
+      this->pose_gt_.q[i] = qi;
+      pos = strchr(pos, ',') + 1;
+      ENTO_DEBUG("[abspose] q[%d]=%f, pos=%s", i, qi, pos);
+    }
+
+    // Parse translation (t)
+    Scalar ti = 0;
+    for (int i = 0; i < 3; ++i) {
+      if (sscanf(pos, "%f,", &ti) != 1) {
+        ENTO_DEBUG("[abspose] failed to parse t[%d]", i);
+        return false; // Parsing failed
+      }
+      this->pose_gt_.t[i] = ti;
+      pos = strchr(pos, ',') + 1;
+      ENTO_DEBUG("[abspose] t[%d]=%f, pos=%s", i, ti, pos);
+    }
+
+    // Parse scale_gt and focal_gt
+    Scalar scale_gt = 0;
+    Scalar focal_gt = 0;
+    if (sscanf(pos, "%f,%f,", &scale_gt, &focal_gt) != 2)
+    {
+      ENTO_DEBUG("[abspose] failed to parse scale/focal");
+      return false; // Parsing failed
+    }
+    pos = strchr(pos, ',') + 1;
+    pos = strchr(pos, ',') + 1;
+    ENTO_DEBUG("[abspose] scale_gt=%f, focal_gt=%f, pos=%s", this->scale_gt_, this->focal_gt_, pos);
+
+    // Parse x_point correspondences
+    Scalar x, y;
+    for (std::size_t i = 0; i < x_img_.capacity(); ++i)
+    {
+      if (sscanf(pos, "%f,%f,", &x, &y) != 2)
+      {
+        ENTO_DEBUG("[abspose] failed to parse x[%zu]", i);
+        return false; // Parsing failed
+      }
+      x_img_.push_back(Vec2<Scalar>(x, y));
+      ENTO_DEBUG("[abspose] x_[%zu]=(%f,%f), size=%zu", i, x, y, x_img_.size());
+      pos = strchr(pos, ',') + 1;
+      pos = strchr(pos, ',') + 1;
+      ENTO_DEBUG("[abspose] pos after x_[%zu]: %s", i, pos);
+    }
+
+    // Parse X_point correspondences
+    Scalar z;
+    for (std::size_t i = 0; i < X_world_.capacity(); ++i)
+    {
+      if ( i != X_world_.capacity() - 1)
+      {
+        if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
+        {
+          ENTO_DEBUG("[abspose] failed to parse X[%zu]", i);
+          return false; // Parsing failed
+        }
+      }
+      else
+      {
+        if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
+        {
+          ENTO_DEBUG("[abspose] failed to parse X[%zu] (last)", i);
+          return false; // Parsing failed
+        }
+      }
+      X_world_.push_back(Vec3<Scalar>(x, y, z));
+      ENTO_DEBUG("[abspose] X_[%zu]=(%f,%f,%f), size=%zu", i, x, y, z, X_world_.size());
+      pos = strchr(pos, ',') + 1;
+      pos = strchr(pos, ',') + 1;
+      pos = strchr(pos, ',') + 1;  // Add missing comma advancement for Z coordinate
+      ENTO_DEBUG("[abspose] pos after X_[%zu]: %s", i, pos);
+    }
+
+    ENTO_DEBUG("[abspose] pos after parsing: %s", pos);
+
+
+    //// Skip through the commas
+    //for (size_t i = 0; i < num_commas; ++i) {
+    //  pos = strchr(pos, ',');
     size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
     if (!RobustBase::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
     return true;
   } 
 
-  void solve_impl();
   bool validate_impl();
   void clear_impl();
 };

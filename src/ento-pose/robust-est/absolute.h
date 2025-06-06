@@ -19,6 +19,8 @@ public:
   using Scalar = typename Solver::scalar_type;
   static constexpr size_t MaxSolns = Solver::MaxSolns;
   static constexpr size_t sample_size_ = Solver::MinSampleSize;
+  static constexpr size_t N_ = N;
+  using SolverType = Solver;
 
   AbsolutePoseRobustEstimator(const RansacOptions<Scalar, UsePROSAC, PROSACIters> &opt,
                               const EntoContainer<Vec2<Scalar>, N> &points2D,
@@ -76,7 +78,7 @@ public:
 
   size_t num_data_;
 
-private:
+public:
   RansacOptions<Scalar> opt_;
   const EntoUtil::EntoContainer<Vec2<Scalar>, N> &points2D_;
   const EntoUtil::EntoContainer<Vec3<Scalar>, N> &points3D_;

@@ -298,7 +298,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 
 # Subdirs are only for Cmake to traverse down and autogenerate Makefiles
 add_subdirectory(${SRC_DIR})
-add_subdirectory(${APP_DIR})
 add_subdirectory(${SANDBOX_DIR})
 add_subdirectory(${EXAMPLE_DIR})
 add_subdirectory(${BENCHMARK_DIR})

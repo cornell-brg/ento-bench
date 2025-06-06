@@ -41,6 +41,10 @@ set(LIBRARIES_test_up2p
   ento_util ento-abs-pose ento-pose Eigen
 )
 
+set(LIBRARIES_test_dlt
+  ento_util ento-abs-pose ento-pose Eigen
+)
+
 foreach(TEST_FILE ${TEST_FILES})
   message(STATUS "Test file: ${TEST_FILE}")
   set(TEST_SRC "test/${TEST_FILE}")

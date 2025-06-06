@@ -45,6 +45,9 @@ using Vec3 = Eigen::Matrix<Scalar, 3, 1, Order>;
 template <typename Scalar, int Order = 0>
 using Vec2 = Eigen::Matrix<Scalar, 2, 1, Order>;
 
+template <typename Scalar, int Order = 0>
+using Matrix4x4 = Eigen::Matrix<Scalar, 4, 4, Order>;
+
 template <typename Scalar, int Order=0>
 using Matrix3x3 = Eigen::Matrix<Scalar, 3, 3, Order>;
 

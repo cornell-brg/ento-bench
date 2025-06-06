@@ -20,10 +20,20 @@ int dlt(const EntoArray<Vec3<Scalar>, N>& x,
         EntoArray<CameraPose<Scalar>, 1>* solutions)
 {
     static_assert(N >= 6, "DLT requires at least 6 points");
+
+    EntoMath::Matrix3x3<Scalar> T1;
+    EntoMath::Matrix4x4<Scalar> T2;
+    EntoArray<Vec3<Scalar>, N> x_norm, X_norm;
+    
+    // Use the unified isotropic normalization function from pose_util.h
+    isotropic_normalize_points<Scalar>(x, X, x_norm, X_norm, T1, T2);
+
     Eigen::Matrix<Scalar, Eigen::Dynamic, 12> A(2*N, 12);
     for (size_t i = 0; i < N; ++i) {
-        const auto& Xw = X[i];
-        const auto& xh = x[i];
+        // No auto for above
+        const Vec3<Scalar>& Xw = X_norm[i];
+        const Vec3<Scalar>& xh = x_norm[i];
+
         // First row: xh[2] * (P[0] * Xw) - xh[0] * (P[2] * Xw) = 0
         A.row(2*i) << Xw.x() * xh.z(), Xw.y() * xh.z(), Xw.z() * xh.z(), xh.z(),
                      0, 0, 0, 0,
@@ -44,6 +54,9 @@ int dlt(const EntoArray<Vec3<Scalar>, N>& x,
     // Normalize so that last entry is 1 (if possible)
     if (std::abs(P(2,3)) > Scalar(1e-8)) P /= P(2,3);
     
+    // Unnormalize P
+    P = T1.inverse() * P * T2;
+
     // Extract R and t from P
     solutions->clear();
     CameraPose<Scalar> pose;

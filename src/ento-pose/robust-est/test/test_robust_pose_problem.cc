@@ -2,6 +2,7 @@
 #include <ento-util/debug.h>
 #include <ento-pose/problem-types/robust_pose_problem.h>
 #include <ento-pose/synthetic_relpose.h>
+#include <ento-pose/synthetic_abspose.h>
 #include <ento-pose/data_gen.h>
 #include <ento-pose/robust-est/robust_pose_solver.h>
 #include <ento-pose/robust-est/ransac_util.h>
@@ -27,9 +28,8 @@ struct DummySolver {};
 
 template <typename Scalar, size_t N>
 std::string
-make_csv_line_with_inliers(
-  uint32_t                                          problem_type,
-  const CameraPose<Scalar>                         &pose,
+make_csv_line_robust_relative_pose(
+  const CameraPose<Scalar>                          &pose,
   const EntoContainer<Eigen::Matrix<Scalar,2,1>, N> &x1,
   const EntoContainer<Eigen::Matrix<Scalar,2,1>, N> &x2,
   const EntoContainer<bool, N>                     &inliers,
@@ -40,7 +40,7 @@ make_csv_line_with_inliers(
   std::ostringstream oss;
 
   // 1) problem_type, N
-  oss << problem_type << ',' << N << ',';
+  oss << 3 << ',' << N << ',';
 
   // 2) quaternion (w, x, y, z)
   oss << pose.q.w() << ','
@@ -68,7 +68,7 @@ make_csv_line_with_inliers(
     oss << pt(0) << ',' << pt(1) << ',';
   }
 
-  // 7) pack “inliers” (bool flags) into bytes
+  // 7) pack "inliers" (bool flags) into bytes
   constexpr size_t kNumBytes = (N + 7) / 8;
   std::array<uint8_t, kNumBytes> mask_bytes{};
   for (size_t i = 0; i < N; ++i) {
@@ -90,6 +90,69 @@ make_csv_line_with_inliers(
   return oss.str();
 }
 
+template <typename Scalar, size_t N>
+std::string make_csv_line_robust_absolute_pose(
+  const CameraPose<Scalar>                         &pose,
+  const EntoContainer<Vec2<Scalar>, N> &x,
+  const EntoContainer<Vec3<Scalar>, N> &X,
+  const EntoContainer<bool, N>                     &inliers,
+  Scalar                                            scale = Scalar{1},
+  Scalar                                            focal = Scalar{1})
+{
+  using Vec2 = Eigen::Matrix<Scalar,2,1>;
+  using Vec3 = Eigen::Matrix<Scalar,3,1>;
+  std::ostringstream oss;
+
+  // 1) problem_type, N
+  oss << 1 << ',' << N << ',';
+
+  // 2) quaternion (w, x, y, z)
+  oss << pose.q.w() << ','
+      << pose.q.x() << ','
+      << pose.q.y() << ','
+      << pose.q.z() << ',';
+
+  // 3) translation (tx, ty, tz)
+  oss << pose.t.x() << ','
+      << pose.t.y() << ','
+      << pose.t.z() << ',';
+
+  // 4) camera parameters (scale, focal)
+  oss << scale << ',' << focal << ',';
+
+  // 4) x: dump N points (x, y)
+  for (size_t i = 0; i < N; ++i) {
+    const Vec2 &pt = x[i];
+    oss << pt(0) << ',' << pt(1) << ',';
+  }
+
+  // 5) X: dump N points (x, y, z)
+  for (size_t i = 0; i < N; ++i) {
+    const Vec3 &pt = X[i];
+    oss << pt(0) << ',' << pt(1) << ',' << pt(2) << ',';
+  }
+
+  // 6) pack "inliers" (bool flags) into bytes
+  constexpr size_t kNumBytes = (N + 7) / 8;
+  std::array<uint8_t, kNumBytes> mask_bytes{};
+  for (size_t i = 0; i < N; ++i) {  
+    if (inliers[i]) {
+      size_t byte_idx = i / 8;
+      size_t bit_idx  = i % 8; // LSB = point‐0, next bit = point‐1, etc.
+      mask_bytes[byte_idx] |= static_cast<uint8_t>(1u << bit_idx);
+    }
+  }
+
+  // 7) append each byte in decimal.  If N<=8, that's one byte; otherwise multiple.
+  for (size_t b = 0; b < kNumBytes; ++b) {
+    oss << static_cast<uint32_t>(mask_bytes[b]);
+    if (b + 1 < kNumBytes) {
+      oss << ',';  // comma‐separate multiple inlier‐bytes
+    }
+  }
+
+  return oss.str();
+}
 void test_robust_relative_pose_problem_basic()
 {
     ENTO_DEBUG("Running test_robust_relative_pose_problem_basic...");
@@ -238,8 +301,7 @@ void test_robust_relative_pose_problem_with_solver()
       inlier_flags.push_back(true);
     }
 
-    std::string csv_line = make_csv_line_with_inliers<Scalar, N>(
-      3,
+    std::string csv_line = make_csv_line_robust_relative_pose<Scalar, N>(
       true_pose,
       x1,
       x2,
@@ -261,8 +323,9 @@ void test_robust_relative_pose_problem_with_solver()
 
     BundleOptions<Scalar> bundle_opt;
     bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
-    bundle_opt.loss_scale = 0.1;
-    bundle_opt.max_iterations = 25;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 50;
+    bundle_opt.verbose = true;
 
     RansacSolver robust_solver(ransac_opt, bundle_opt, camera, camera);
     // Instantiate the robust problem with the 5-point solver
@@ -288,8 +351,15 @@ void test_robust_relative_pose_problem_with_solver()
     double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
     double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
     double angle_deg = angle_rad * 180.0 / M_PI;
-    //ENTO_TEST_CHECK_TRUE(angle_deg < 10.0);
-    ENTO_DEBUG("Upright 3pt (double) test stats:");
+    auto t_est = estimated_pose.t;
+    auto t_true = true_pose.t;
+    t_est.normalize();
+    t_true.normalize();
+    Scalar dot = std::clamp(t_est.dot(t_true), Scalar(-1), Scalar(1));
+    Scalar trans_angle = std::acos(dot) * Scalar(180.0 / M_PI);
+    ENTO_TEST_CHECK_TRUE(trans_angle < Scalar(5.0));
+    ENTO_TEST_CHECK_TRUE(angle_deg < 5.0);
+    ENTO_DEBUG("Test Robust Relative Pose Problem with 5pt method:");
     ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
     ENTO_DEBUG("  Clean inliers: %zu/%zu", clean_inliers, N);
     ENTO_DEBUG("  Score: %f", stats.model_score);
@@ -297,12 +367,874 @@ void test_robust_relative_pose_problem_with_solver()
     double rot_error = (estimated_pose.R() - true_pose.R()).norm();
     ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
     ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation vector anguler error: %f degrees", trans_angle);
     ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(), true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
     ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f", estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(), estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
     ENTO_DEBUG("================");
 
     // Check that we got some solutions
     ENTO_DEBUG("test_robust_relative_pose_problem_with_solver passed.");
+}
+
+void test_robust_absolute_pose_problem()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem...");
+    using Scalar = float;
+    constexpr size_t N = 25;  // We'll use 20 points but only need 3 for P3P
+    constexpr size_t num_outliers = 5;
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with some noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate bearing vectors first
+    ENTO_DEBUG("Generating synthetic data using generate_synthetic_abspose_general...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01);
+    
+    // Debug print input data
+    ENTO_DEBUG("Input data before pose estimation:");
+    ENTO_DEBUG("Number of points: %zu", N);
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    
+    for (size_t i = 0; i < num_inliers; ++i) {
+        Vec3<Scalar> Z = true_pose.R() * points3D[i] + true_pose.t;
+        ENTO_DEBUG("Point %zu: 2D=(%f,%f), 3D=(%f,%f,%f), depth=%f", 
+            i, points2D[i](0), points2D[i](1), 
+            points3D[i](0), points3D[i](1), points3D[i](2),
+            Z(2));
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 1000;
+    ransac_opt.max_reproj_error = 3.0;  // Match the working test
+    ransac_opt.success_prob = 0.99;
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 10;  // Match the working test
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running problem...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    //ENTO_TEST_CHECK_TRUE(stats.num_inliers >= 3);  // Should have at least minimal set for P3P
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.8);
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Robust Absolute Pose Problem with P3P method:");
+    ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu", clean_inliers, N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
+    ENTO_TEST_CHECK_TRUE(angle_deg < 5.0);
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem passed.");
+}
+
+void test_robust_absolute_pose_problem_with_dlt_refinement()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem_with_dlt_refinement...");
+    using Scalar = float;
+    constexpr size_t N = 25;  // We'll use 20 points but only need 3 for P3P
+    constexpr size_t num_outliers = 5;
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with some noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate bearing vectors first
+    ENTO_DEBUG("Generating synthetic data using generate_synthetic_abspose_general...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01);
+    
+    // Debug print input data
+    ENTO_DEBUG("Input data before pose estimation:");
+    ENTO_DEBUG("Number of points: %zu", N);
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    
+    for (size_t i = 0; i < num_inliers; ++i) {
+        Vec3<Scalar> Z = true_pose.R() * points3D[i] + true_pose.t;
+        ENTO_DEBUG("Point %zu: 2D=(%f,%f), 3D=(%f,%f,%f), depth=%f", 
+            i, points2D[i](0), points2D[i](1), 
+            points3D[i](0), points3D[i](1), points3D[i](2),
+            Z(2));
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 1000;
+    ransac_opt.max_reproj_error = 3.0;  // Match the working test
+    ransac_opt.success_prob = 0.99;
+    ransac_opt.final_refinement = false;
+    
+    // Enable DLT linear refinement
+    ransac_opt.lo_type = LocalRefinementType::Linear;
+    ransac_opt.linear_method = LinearRefinementMethod::DLT;
+    ransac_opt.use_irls = false;  // NO IRLS
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 10;  // Match the working test
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running problem with DLT linear refinement...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    //ENTO_TEST_CHECK_TRUE(stats.num_inliers >= 3);  // Should have at least minimal set for P3P
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.8);
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Robust Absolute Pose Problem with P3P + DLT refinement:");
+    ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu", clean_inliers, N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    ENTO_DEBUG("  Refinements: %zu", stats.refinements);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation error: %f", trans_error);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
+    ENTO_TEST_CHECK_TRUE(angle_deg < 5.0);
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem_with_dlt_refinement passed.");
+}
+
+void test_robust_absolute_pose_problem_with_dlt_refinement_final_bundle()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem_with_dlt_refinement_final_bundle...");
+    using Scalar = float;
+    constexpr size_t N = 25;  // We'll use 20 points but only need 3 for P3P
+    constexpr size_t num_outliers = 5;
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with some noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate bearing vectors first
+    ENTO_DEBUG("Generating synthetic data using generate_synthetic_abspose_general...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01);
+    
+    // Debug print input data
+    ENTO_DEBUG("Input data before pose estimation:");
+    ENTO_DEBUG("Number of points: %zu", N);
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    
+    for (size_t i = 0; i < num_inliers; ++i) {
+        Vec3<Scalar> Z = true_pose.R() * points3D[i] + true_pose.t;
+        ENTO_DEBUG("Point %zu: 2D=(%f,%f), 3D=(%f,%f,%f), depth=%f", 
+            i, points2D[i](0), points2D[i](1), 
+            points3D[i](0), points3D[i](1), points3D[i](2),
+            Z(2));
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 1000;
+    ransac_opt.max_reproj_error = 3.0;  // Match the working test
+    ransac_opt.success_prob = 0.99;
+    ransac_opt.final_refinement = true;
+    
+    // Enable DLT linear refinement
+    ransac_opt.lo_type = LocalRefinementType::Linear;
+    ransac_opt.linear_method = LinearRefinementMethod::DLT;
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 10;  // Match the working test
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running problem with DLT linear refinement...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    //ENTO_TEST_CHECK_TRUE(stats.num_inliers >= 3);  // Should have at least minimal set for P3P
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.8);
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Robust Absolute Pose Problem with P3P + DLT refinement + final bundle:");
+    ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu", clean_inliers, N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    ENTO_DEBUG("  Refinements: %zu", stats.refinements);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation error: %f", trans_error);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
+    ENTO_TEST_CHECK_TRUE(angle_deg < 5.0);
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem_with_dlt_refinement_final_bundle passed.");
+}
+
+void test_robust_absolute_pose_problem_with_irls_dlt_refinement()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem_with_irls_dlt_refinement...");
+    using Scalar = float;
+    constexpr size_t N = 25;  // We'll use 20 points but only need 3 for P3P
+    constexpr size_t num_outliers = 5;
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with some noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate bearing vectors first
+    ENTO_DEBUG("Generating synthetic data using generate_synthetic_abspose_general...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01);
+    
+    // Debug print input data
+    ENTO_DEBUG("Input data before pose estimation:");
+    ENTO_DEBUG("Number of points: %zu", N);
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    
+    for (size_t i = 0; i < num_inliers; ++i) {
+        Vec3<Scalar> Z = true_pose.R() * points3D[i] + true_pose.t;
+        ENTO_DEBUG("Point %zu: 2D=(%f,%f), 3D=(%f,%f,%f), depth=%f", 
+            i, points2D[i](0), points2D[i](1), 
+            points3D[i](0), points3D[i](1), points3D[i](2),
+            Z(2));
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 1000;
+    ransac_opt.max_reproj_error = 3.0;  // Match the working test
+    ransac_opt.success_prob = 0.99;
+    ransac_opt.final_refinement = false;
+    
+    // Enable DLT linear refinement with IRLS
+    ransac_opt.lo_type = LocalRefinementType::Linear;
+    ransac_opt.linear_method = LinearRefinementMethod::DLT;
+    ransac_opt.use_irls = true;
+    ransac_opt.irls_max_iters = 10;
+    ransac_opt.irls_huber_threshold = Scalar(1.5);  // More reasonable threshold given mean error ~0.57
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 10;
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running problem with IRLS DLT linear refinement...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    //ENTO_TEST_CHECK_TRUE(stats.num_inliers >= 3);  // Should have at least minimal set for P3P
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.8);
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Robust Absolute Pose Problem with P3P + IRLS DLT refinement:");
+    ENTO_DEBUG("  Inliers: %zu/%zu", stats.num_inliers, N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu", clean_inliers, N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    ENTO_DEBUG("  Refinements: %zu", stats.refinements);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation error: %f", trans_error);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    ENTO_TEST_CHECK_TRUE(trans_error < 0.1);
+    ENTO_TEST_CHECK_TRUE(angle_deg < 5.0);
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem_with_irls_dlt_refinement passed.");
+}
+
+void test_robust_absolute_pose_problem_with_irls_dlt_refinement_challenging()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem_with_irls_dlt_refinement_challenging...");
+    using Scalar = float;
+    constexpr size_t N = 100;  // More points
+    constexpr size_t num_outliers = 40;  // 40% outliers (challenging!)
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with more noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate clean inlier data with more noise
+    ENTO_DEBUG("Generating synthetic data with higher noise level...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01); // 5x more noise
+    
+    // Add many outliers
+    std::default_random_engine rng(123);
+    std::uniform_real_distribution<Scalar> outlier_gen(-3.0, 3.0);
+    std::uniform_real_distribution<Scalar> depth_gen(0.5, 15.0);
+    
+    for (size_t i = num_inliers; i < N; ++i) {
+        // Random 3D point
+        Vec3<Scalar> X_outlier(outlier_gen(rng), outlier_gen(rng), depth_gen(rng));
+        // Random 2D point (not consistent with pose)
+        Vec2<Scalar> x_outlier(outlier_gen(rng), outlier_gen(rng));
+        
+        points2D.push_back(x_outlier);
+        points3D.push_back(X_outlier);
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 10000;  // Allow more iterations for challenging case
+    ransac_opt.max_reproj_error = 1.0;  // Tighter threshold with noise
+    ransac_opt.success_prob = 0.99;
+    ransac_opt.final_refinement = false;
+    
+    // Enable IRLS DLT refinement with aggressive settings
+    ransac_opt.lo_type = LocalRefinementType::Linear;
+    ransac_opt.linear_method = LinearRefinementMethod::DLT;
+    ransac_opt.use_irls = true;
+    ransac_opt.irls_max_iters = 10;
+    ransac_opt.irls_huber_threshold = Scalar(0.5);  // More aggressive outlier rejection
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 50;
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running challenging problem with regular DLT refinement (NO IRLS)...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.7);  // Relaxed for challenging case
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Challenging Absolute Pose Problem with P3P + IRLS DLT refinement:");
+    ENTO_DEBUG("  Inliers: %zu/%zu (%.1f%%)", stats.num_inliers, N, 100.0 * stats.num_inliers / N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu (%.1f%%)", clean_inliers, N, 100.0 * clean_inliers / N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    ENTO_DEBUG("  Refinements: %zu", stats.refinements);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation error: %f", trans_error);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    // Relaxed checks for challenging case
+    ENTO_TEST_CHECK_TRUE(trans_error < 1.0);  // Relaxed
+    ENTO_TEST_CHECK_TRUE(angle_deg < 15.0);   // Relaxed
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem_with_irls_dlt_refinement_challenging passed.");
+}
+
+void test_robust_absolute_pose_problem_with_irls_dlt_final_bundle_refinement_challenging()
+{
+    ENTO_DEBUG("Running test_robust_absolute_pose_problem_with_irls_dlt_final_bundle_refinement_challenging...");
+    using Scalar = float;
+    constexpr size_t N = 100;  // More points
+    constexpr size_t num_outliers = 40;  // 40% outliers (challenging!)
+    constexpr size_t num_inliers = N - num_outliers;
+
+    // Generate synthetic data with more noise
+    EntoContainer<Vec2<Scalar>, N> points2D;
+    EntoContainer<Vec3<Scalar>, N> points3D;
+    EntoContainer<Vec3<Scalar>, N> x_bear;
+    CameraPose<Scalar> true_pose;
+    
+    // Generate clean inlier data with more noise
+    ENTO_DEBUG("Generating synthetic data with higher noise level...");
+    EntoPose::generate_synthetic_abspose_general<Scalar, N>(points2D, points3D, true_pose, num_inliers, 0.01); // 5x more noise
+    
+    // Add many outliers
+    std::default_random_engine rng(123);
+    std::uniform_real_distribution<Scalar> outlier_gen(-3.0, 3.0);
+    std::uniform_real_distribution<Scalar> depth_gen(0.5, 15.0);
+    
+    for (size_t i = num_inliers; i < N; ++i) {
+        // Random 3D point
+        Vec3<Scalar> X_outlier(outlier_gen(rng), outlier_gen(rng), depth_gen(rng));
+        // Random 2D point (not consistent with pose)
+        Vec2<Scalar> x_outlier(outlier_gen(rng), outlier_gen(rng));
+        
+        points2D.push_back(x_outlier);
+        points3D.push_back(X_outlier);
+    }
+
+    EntoContainer<bool, N> inlier_flags;
+    for (size_t i = 0; i < num_inliers; ++i) {
+        inlier_flags.push_back(true);
+    }
+    for (size_t i = num_inliers; i < N; ++i) {
+        inlier_flags.push_back(false);
+    }
+
+    std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+        true_pose,
+        points2D,
+        points3D,
+        inlier_flags);
+
+    // Create a solver that uses the P3P algorithm
+    using MinimalSolver = SolverP3P<Scalar>;
+    using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+
+    RansacOptions<Scalar> ransac_opt;
+    ransac_opt.max_iters = 10000;  // Allow more iterations for challenging case
+    ransac_opt.max_reproj_error = 1.0;  // Tighter threshold with noise
+    ransac_opt.success_prob = 0.99;
+    ransac_opt.final_refinement = true;
+    
+    // Enable IRLS DLT refinement with aggressive settings
+    ransac_opt.lo_type = LocalRefinementType::Linear;
+    ransac_opt.linear_method = LinearRefinementMethod::DLT;
+    ransac_opt.use_irls = true;
+    ransac_opt.irls_max_iters = 10;
+    ransac_opt.irls_huber_threshold = Scalar(0.5);  // More aggressive outlier rejection
+
+    using CameraModel = IdentityCameraModel<Scalar>;
+    using Params = std::array<Scalar, 0>;
+    Params params;
+    Camera<Scalar, CameraModel> camera(1.0, 1.0, params);
+
+    BundleOptions<Scalar> bundle_opt;
+    bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
+    bundle_opt.loss_scale = 1.0;
+    bundle_opt.max_iterations = 50;
+    bundle_opt.verbose = true;
+
+    RansacSolver robust_solver(ransac_opt, bundle_opt, camera);
+    
+    // Instantiate the robust problem with the P3P solver
+    RobustAbsolutePoseProblem<Scalar, RansacSolver, N> problem(robust_solver);
+
+    ENTO_DEBUG("CSV line: %s", csv_line.c_str());
+
+    ENTO_DEBUG("Deserializing problem...");
+    problem.deserialize_impl(csv_line.c_str());
+
+    // Solve the problem
+    ENTO_DEBUG("Running challenging problem with regular DLT refinement (NO IRLS)...");
+    problem.solve_impl();
+
+    CameraPose<Scalar> estimated_pose = problem.best_model_;
+    EntoContainer<uint8_t, N> inliers = problem.inliers_; 
+    RansacStats<Scalar> stats = problem.ransac_stats_;
+    
+    size_t clean_inliers = 0;
+    for (size_t i = 0; i < N; ++i) if (inliers[i]) clean_inliers++;
+    ENTO_TEST_CHECK_TRUE(clean_inliers >= stats.num_inliers * 0.7);  // Relaxed for challenging case
+    ENTO_TEST_CHECK_TRUE(estimated_pose.q.norm() > 0.9);
+    
+    // Check rotation error
+    double trace_val = (estimated_pose.R().transpose() * true_pose.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    double angle_deg = angle_rad * 180.0 / M_PI;
+    
+    // Check translation direction error
+    ENTO_DEBUG("True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+
+    ENTO_DEBUG("Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+
+    // Print reprojection errors for each point
+    for (size_t i = 0; i < N; ++i) {
+        Vec3<Scalar> Z = estimated_pose.R() * points3D[i] + estimated_pose.t;
+        Scalar r2 = (Z.hnormalized() - points2D[i]).squaredNorm();
+        ENTO_DEBUG("Point %zu: error=%f, inlier=%d", i, r2, (bool)inliers[i]);
+    }
+
+    Scalar trans_error = (estimated_pose.t - true_pose.t).norm();
+    
+    ENTO_DEBUG("Test Challenging Absolute Pose Problem with P3P + IRLS DLT refinement + final bundle refinement:");
+    ENTO_DEBUG("  Inliers: %zu/%zu (%.1f%%)", stats.num_inliers, N, 100.0 * stats.num_inliers / N);
+    ENTO_DEBUG("  Clean inliers: %zu/%zu (%.1f%%)", clean_inliers, N, 100.0 * clean_inliers / N);
+    ENTO_DEBUG("  Score: %f", stats.model_score);
+    ENTO_DEBUG("  Iterations: %zu", stats.iters);
+    ENTO_DEBUG("  Refinements: %zu", stats.refinements);
+    double rot_error = (estimated_pose.R() - true_pose.R()).norm();
+    ENTO_DEBUG("  Rotation error (matrix norm): %f", rot_error);
+    ENTO_DEBUG("  Angular rotation error: %f degrees", angle_deg);
+    ENTO_DEBUG("  Translation error: %f", trans_error);
+    ENTO_DEBUG("  True pose - R: %f %f %f %f, t: %f %f %f", 
+        true_pose.q.x(), true_pose.q.y(), true_pose.q.z(), true_pose.q.w(),
+        true_pose.t.x(), true_pose.t.y(), true_pose.t.z());
+    ENTO_DEBUG("  Estimated pose - R: %f %f %f %f, t: %f %f %f",
+        estimated_pose.q.x(), estimated_pose.q.y(), estimated_pose.q.z(), estimated_pose.q.w(),
+        estimated_pose.t.x(), estimated_pose.t.y(), estimated_pose.t.z());
+    ENTO_DEBUG("================");
+
+    // Relaxed checks for challenging case
+    ENTO_TEST_CHECK_TRUE(trans_error < 1.0);  // Relaxed
+    ENTO_TEST_CHECK_TRUE(angle_deg < 15.0);   // Relaxed
+
+    ENTO_DEBUG("test_robust_absolute_pose_problem_with_irls_dlt_final_bundle_refinement_challenging passed.");
 }
 
 int main(int argc, char** argv)
@@ -313,5 +1245,12 @@ int main(int argc, char** argv)
     if (__ento_test_num(__n, 3)) test_robust_relative_pose_problem_static_large_inlier_mask();
     if (__ento_test_num(__n, 4)) test_robust_relative_pose_problem_full_line();
     if (__ento_test_num(__n, 5)) test_robust_relative_pose_problem_with_solver();
+    if (__ento_test_num(__n, 6)) test_robust_absolute_pose_problem();
+    if (__ento_test_num(__n, 7)) test_robust_absolute_pose_problem_with_dlt_refinement();
+    if (__ento_test_num(__n, 8)) test_robust_absolute_pose_problem_with_dlt_refinement_final_bundle();
+    if (__ento_test_num(__n, 9)) test_robust_absolute_pose_problem_with_irls_dlt_refinement();
+    if (__ento_test_num(__n, 10)) test_robust_absolute_pose_problem_with_irls_dlt_refinement_challenging();
+    if (__ento_test_num(__n, 11)) test_robust_absolute_pose_problem_with_irls_dlt_refinement_challenging();
+
     return 0;
 }

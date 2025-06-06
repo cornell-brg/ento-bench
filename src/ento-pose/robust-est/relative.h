@@ -18,6 +18,7 @@ public:
   static constexpr size_t MaxSolns = Solver::MaxSolns;
   static constexpr size_t sample_size_ = Solver::MinSampleSize;
   static constexpr size_t N_ = N;
+  using SolverType = Solver;
 
   RelativePoseRobustEstimator(const RansacOptions<Scalar, UsePROSAC, PROSACIters> &opt,
                               const EntoContainer<Vec2<Scalar>, N_> &points2d_1,
