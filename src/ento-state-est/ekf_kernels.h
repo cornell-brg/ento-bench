@@ -75,6 +75,15 @@ public:
     ekf_.set_covariance(P);
   }
   
+  // Access to noise matrices (for debugging)
+  const Eigen::Matrix<Scalar, StateDim_, StateDim_>& getQ() const {
+    return ekf_.getQ();
+  }
+  
+  const Eigen::Matrix<Scalar, MeasurementDim_, MeasurementDim_>& getR() const {
+    return ekf_.getR();
+  }
+  
   // Access to underlying models (for EKFProblem)
   const DynamicsModel& getDynamicsModel() const { return dynamics_; }
   const MeasurementModel& getMeasurementModel() const { return measurement_; }
@@ -147,6 +156,15 @@ public:
   
   void setCovariance(const Eigen::Matrix<Scalar, StateDim_, StateDim_>& P) {
     ekf_.set_covariance(P);
+  }
+  
+  // Access to noise matrices (for debugging)
+  const Eigen::Matrix<Scalar, StateDim_, StateDim_>& getQ() const {
+    return ekf_.getQ();
+  }
+  
+  const Eigen::Matrix<Scalar, MeasurementDim_, MeasurementDim_>& getR() const {
+    return ekf_.getR();
   }
   
   // Access to underlying models (for EKFProblem)

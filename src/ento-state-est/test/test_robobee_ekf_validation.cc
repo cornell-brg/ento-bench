@@ -7,6 +7,10 @@
 #include <vector>
 #include <cmath>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 using Scalar = double;
 constexpr Scalar TOLERANCE = 1e-6;
 
@@ -258,6 +262,104 @@ void test_robobee_covariance_evolution()
 }
 
 //------------------------------------------------------------------------------
+// Test RoboBee EKF with Reference Implementation Parameters - EXACT MATCH
+//------------------------------------------------------------------------------
+void test_robobee_reference_alignment()
+{
+  ENTO_DEBUG("Running test_robobee_reference_alignment...");
+
+  using RoboBeeKernel = RoboBeeEKFKernel<Scalar>;
+  using DynamicsModel = RobobeeDynamicsModel<Scalar>;
+  using MeasurementModel = RobobeeMeasurementModel<Scalar>;
+  
+  // EXACTLY match reference implementation parameters
+  Eigen::Matrix<Scalar, 10, 10> Q = Eigen::Matrix<Scalar, 10, 10>::Identity();  // Q = I (not 0.001*I)
+  Eigen::Matrix<Scalar, 4, 4> R = Eigen::Matrix<Scalar, 4, 4>::Zero();
+  R.diagonal() << 0.07, 0.07, 0.07, 0.002;  // R = diag([0.07, 0.07, 0.07, 0.002])
+  
+  RoboBeeKernel kernel(Q, R);
+  DynamicsModel dynamics;
+  MeasurementModel measurement;
+  
+  // Set initial covariance to match reference: P0 = (π/2) * I
+  Eigen::Matrix<Scalar, 10, 10> P0 = (M_PI/2.0) * Eigen::Matrix<Scalar, 10, 10>::Identity();
+  kernel.setCovariance(P0);
+  
+  // State starts at zero (matches reference)
+  Eigen::Matrix<Scalar, 10, 1> x0 = Eigen::Matrix<Scalar, 10, 1>::Zero();
+  kernel.setState(x0);
+  
+  ENTO_DEBUG("=== OUR IMPLEMENTATION DEBUG ===");
+  ENTO_DEBUG("Initial Parameters:");
+  ENTO_DEBUG("Q diagonal: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f]",
+    Q(0,0), Q(1,1), Q(2,2), Q(3,3), Q(4,4), Q(5,5), Q(6,6), Q(7,7), Q(8,8), Q(9,9));
+  ENTO_DEBUG("R diagonal: [%.3f, %.3f, %.3f, %.3f]", R(0,0), R(1,1), R(2,2), R(3,3));
+  ENTO_DEBUG("P0 diagonal: [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f]",
+    P0(0,0), P0(1,1), P0(2,2), P0(3,3), P0(4,4), P0(5,5), P0(6,6), P0(7,7), P0(8,8), P0(9,9));
+  ENTO_DEBUG("x0: [%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f]",
+    x0(0), x0(1), x0(2), x0(3), x0(4), x0(5), x0(6), x0(7), x0(8), x0(9));
+  
+  EKFProblem<RoboBeeKernel, DynamicsModel, MeasurementModel, 0> problem(
+    std::move(kernel), std::move(dynamics), std::move(measurement));
+  
+  // Load corrected data (with proper unit conversions)
+  std::ifstream file("../../datasets/state-est/robobee_ekf_data_corrected.csv");
+  ENTO_TEST_CHECK_TRUE(file.is_open());
+  
+  std::string line;
+  std::getline(file, line); // Skip header
+  
+  int line_count = 0;
+  int max_lines = 5; // Focus on first 5 steps for detailed comparison
+  
+  while (std::getline(file, line) && line_count < max_lines) {
+    if (!line.empty()) {
+      ENTO_DEBUG("\n=== STEP %d ===", line_count);
+      
+      // Get state BEFORE processing this line
+      auto x_before = problem.getCurrentState();
+      auto P_before = problem.getCurrentCovariance();
+      ENTO_DEBUG("State BEFORE: [%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f]",
+        x_before(0), x_before(1), x_before(2), x_before(3), x_before(4),
+        x_before(5), x_before(6), x_before(7), x_before(8), x_before(9));
+      ENTO_DEBUG("Cov trace BEFORE: %.6f", P_before.trace());
+      
+      // Process the line
+      bool result = problem.deserialize_impl(line.c_str());
+      ENTO_TEST_CHECK_TRUE(result);
+      
+      // Get state AFTER processing this line
+      auto x_after = problem.getCurrentState();
+      auto P_after = problem.getCurrentCovariance();
+      
+      ENTO_DEBUG("State AFTER: [%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f]",
+        x_after(0), x_after(1), x_after(2), x_after(3), x_after(4),
+        x_after(5), x_after(6), x_after(7), x_after(8), x_after(9));
+      ENTO_DEBUG("Cov trace AFTER: %.6f", P_after.trace());
+      
+      // Show the change
+      auto state_change = x_after - x_before;
+      ENTO_DEBUG("State change: [%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f]",
+        state_change(0), state_change(1), state_change(2), state_change(3), state_change(4),
+        state_change(5), state_change(6), state_change(7), state_change(8), state_change(9));
+      ENTO_DEBUG("Cov trace change: %.6f", P_after.trace() - P_before.trace());
+      
+      line_count++;
+    }
+  }
+  file.close();
+  
+  ENTO_DEBUG("Processed %d lines with reference parameters", line_count);
+  
+  // Basic validation that the EKF ran
+  auto trajectory = problem.getStateTrajectory();
+  ENTO_TEST_CHECK_TRUE(trajectory.size() > 0);
+  ENTO_TEST_CHECK_INT_EQ(trajectory.size(), line_count);
+
+  ENTO_DEBUG("test_robobee_reference_alignment PASSED!");
+}
+
+//------------------------------------------------------------------------------
 // Main Test Runner  
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
@@ -279,6 +381,7 @@ int main(int argc, char** argv)
   if (__ento_test_num(__n, 1)) test_robobee_real_data_validation();
   if (__ento_test_num(__n, 2)) test_robobee_update_methods_comparison(); 
   if (__ento_test_num(__n, 3)) test_robobee_covariance_evolution();
+  if (__ento_test_num(__n, 4)) test_robobee_reference_alignment();
 
   ENTO_TEST_END();
 } 

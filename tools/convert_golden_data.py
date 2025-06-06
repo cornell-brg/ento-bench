@@ -70,17 +70,18 @@ def convert_golden_to_ekf_format(input_file, output_file, robot_type="robobee"):
     # Extract measurements based on robot type
     if robot_type == "robobee":
         # RoboBee: 4 measurements, 4 controls
+        # Match reference implementation unit conversions exactly
         measurements = pd.DataFrame({
             'timestamp': df['timestamp'],
             'dt': dt,
-            'meas_0': df['rx'],  # Gyro x (rad/s)
-            'meas_1': df['ry'],  # Gyro y (rad/s)  
-            'meas_2': df['rz'],  # Gyro z (rad/s)
-            'meas_3': df['tof'] / 100.0,  # ToF range (cm -> m)
-            'control_0': df['tx'],  # Torque x
-            'control_1': df['ty'],  # Torque y
-            'control_2': df['tz'],  # Torque z
-            'control_3': df['ft'],  # Thrust force
+            'meas_0': df['rx'] * (np.pi/180.0),  # Gyro x (deg -> rad/s)
+            'meas_1': df['ry'] * (np.pi/180.0),  # Gyro y (deg -> rad/s)  
+            'meas_2': df['rz'] * (np.pi/180.0),  # Gyro z (deg -> rad/s)
+            'meas_3': df['tof'] * 1e-3,          # ToF range (cm -> m)
+            'control_0': df['tx'],  # Torque x (unchanged)
+            'control_1': df['ty'],  # Torque y (unchanged)
+            'control_2': df['tz'],  # Torque z (unchanged)
+            'control_3': df['ft'],  # Thrust force (unchanged)
         })
         
         print("RoboBee control value ranges:")
@@ -94,10 +95,10 @@ def convert_golden_to_ekf_format(input_file, output_file, robot_type="robobee"):
         measurements = pd.DataFrame({
             'timestamp': df['timestamp'],
             'dt': dt,
-            'meas_0': df['rx'],  # Gyro x (rad/s)
-            'meas_1': df['ry'],  # Gyro y (rad/s)  
-            'meas_2': df['rz'],  # Gyro z (rad/s)
-            'meas_3': df['tof'] / 100.0,  # ToF range (cm -> m)
+            'meas_0': df['rx'] * (np.pi/180.0),  # Gyro x (deg -> rad/s)
+            'meas_1': df['ry'] * (np.pi/180.0),  # Gyro y (deg -> rad/s)  
+            'meas_2': df['rz'] * (np.pi/180.0),  # Gyro z (deg -> rad/s)
+            'meas_3': df['tof'] * 1e-3,          # ToF range (cm -> m)
             'control_0': 0.0,  # Placeholder for RoboFly control
         })
     

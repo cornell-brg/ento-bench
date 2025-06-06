@@ -26,6 +26,7 @@ set(TEST_FILES
   test_robobee_ekf_problem.cc
   test_robofly_ekf_problem.cc
   test_robobee_ekf_validation.cc
+  test_robofly_ekf_robognat_validation.cc
 )
 
 set(LIBRARIES_test_ekf
@@ -42,6 +43,13 @@ set(LIBRARIES_test_robofly_ekf_problem
 
 set(LIBRARIES_test_robobee_ekf_validation
   ento_util ento_math Eigen ento-state-est
+)
+
+set(LIBRARIES_test_robofly_ekf_robognat_validation
+  ento_util
+  ento_math
+  Eigen
+  ento-state-est
 )
 
 #set(LIBRARIES_test_saam

@@ -141,6 +141,24 @@ public:
     return timestamps_; 
   }
 
+  /// @brief Get initial state (for testing/debugging)
+  const StateVector& getInitialState() const { return initial_state_; }
+  
+  /// @brief Get initial covariance (for testing/debugging)  
+  const CovarianceMatrix& getInitialCovariance() const { return initial_covariance_; }
+  
+  /// @brief Get reference to EKF kernel (for debugging/testing)
+  EKFKernel& getKernel() { return ekf_; }
+  const EKFKernel& getKernel() const { return ekf_; }
+  
+  /// @brief Get reference to dynamics model (for debugging/testing)
+  DynamicsModel& getDynamicsModel() { return dynamics_model_; }
+  const DynamicsModel& getDynamicsModel() const { return dynamics_model_; }
+  
+  /// @brief Get reference to measurement model (for debugging/testing)
+  MeasurementModel& getMeasurementModel() { return measurement_model_; }
+  const MeasurementModel& getMeasurementModel() const { return measurement_model_; }
+
   //////// EntoBench Problem Interface ////////
 
 #ifdef NATIVE
@@ -190,6 +208,7 @@ public:
     has_current_data_ = false;
     
     // Initialize EKF with initial conditions
+    ekf_.setState(initial_state_);
     ekf_.setCovariance(initial_covariance_);
     
     while (std::getline(iss, line)) {
@@ -212,7 +231,7 @@ public:
     }
     
     return state_trajectory_.size() > 0;
-}
+  }
 #else
   const char* serialize_impl() const {
     // For MCU: simplified format or pre-allocated buffer
@@ -223,6 +242,12 @@ public:
 #endif
 
   bool deserialize_impl(const char* line) {
+    // Initialize EKF on first call
+    if (!has_current_data_ && state_trajectory_.empty()) {
+      ekf_.setState(initial_state_);
+      ekf_.setCovariance(initial_covariance_);
+    }
+    
     // Parse single CSV line and process immediately (MCU path)
     DataPoint point;
     
