@@ -108,15 +108,16 @@ Eigen::Quaternion<Scalar> mahoney_update_marg(
 
       // Rotate the normalized magnetometer reading into the inertial frame.
       const Eigen::Matrix<Scalar, 3, 1> h = R * m_normalized;
+      
       // Compute the horizontal (xy-plane) norm of h.
-      const Scalar h_xy_norm = std::sqrt(h.x() * h.x() + h.y() * h.y());
+      const Scalar h_xy2 = h.x() * h.x() + h.y() * h.y();
+      const Scalar h_xy_norm = (h_xy2 == Scalar(0)) ? Scalar(0) : std::sqrt(h_xy2);
 
       // Construct an artificial vector for magnetometer correction.
       Eigen::Matrix<Scalar, 3, 1> v_m = R.transpose() *
           Eigen::Matrix<Scalar, 3, 1>(Scalar(0), h_xy_norm, h.z());
 
-
-      // Normalize v_m if its norm is nonzero.
+      // Normalize v_m (like in fixed-point version)
       const Scalar v_m_norm = v_m.norm();
       if (v_m_norm > Scalar(0))
           v_m /= v_m_norm;
@@ -144,13 +145,13 @@ Eigen::Quaternion<Scalar> mahoney_update_marg(
 template <typename Scalar>
 Eigen::Quaternion<Scalar> mahoney_imu(
     const Eigen::Quaternion<Scalar>& q,
-    const MARGMeasurement<Scalar>& imu_meas,
+    const IMUMeasurement<Scalar>& imu_meas,
     Scalar dt,
     Scalar k_p,
     Scalar k_i,
     Eigen::Matrix<Scalar, 3, 1>& bias)
 {
-  mahoney_update_imu(q, imu_meas.gyr, imu_meas.acc, imu_meas.mag, dt, k_p, k_i, bias);
+  return mahoney_update_imu(q, imu_meas.gyr, imu_meas.acc, dt, k_p, k_i, bias);
 }
 
 template <typename Scalar>
@@ -162,7 +163,7 @@ Eigen::Quaternion<Scalar> mahoney_marg(
     Scalar k_i,
     Eigen::Matrix<Scalar, 3, 1>& bias)
 {
-  mahoney_update_marg(q, marg_meas.gyr, marg_meas.acc, marg_meas.mag, dt, k_p, k_i, bias);
+  return mahoney_update_marg(q, marg_meas.gyr, marg_meas.acc, marg_meas.mag, dt, k_p, k_i, bias);
 }
 
 
@@ -178,11 +179,11 @@ Eigen::Quaternion<Scalar> mahoney(const Eigen::Quaternion<Scalar>& q,
 {
   if constexpr (UseMag)
   {
-    return mahoney_update_marg(q, meas, dt, k_p, k_i, bias);
+    return mahoney_update_marg(q, meas.gyr, meas.acc, meas.mag, dt, k_p, k_i, bias);
   }
   else
   {
-    return mahoney_update_imu(q, meas, dt, k_p, k_i, bias);
+    return mahoney_update_imu(q, meas.gyr, meas.acc, dt, k_p, k_i, bias);
   }
 }
 
@@ -193,6 +194,9 @@ Eigen::Quaternion<Scalar> mahoney(const Eigen::Quaternion<Scalar>& q,
 template <typename Scalar, bool UseMag>
 struct FilterMahoney
 {
+  // No internal state - gains passed as parameters for flexibility
+  FilterMahoney() = default;
+
   inline Eigen::Quaternion<Scalar> 
   operator()(const Eigen::Quaternion<Scalar>& q,
              const AttitudeMeasurement<Scalar, UseMag>& meas,
@@ -203,11 +207,11 @@ struct FilterMahoney
   {
     if constexpr (UseMag)
     {
-      return mahoney_update_marg(q, meas, dt, k_p, k_i, bias);
+      return mahoney_update_marg(q, meas.gyr, meas.acc, meas.mag, dt, k_p, k_i, bias);
     }
     else
     {
-      return mahoney_update_imu(q, meas, dt, k_p, k_i, bias);
+      return mahoney_update_imu(q, meas.gyr, meas.acc, dt, k_p, k_i, bias);
     }
   }
 

@@ -6,6 +6,7 @@
 #include <ento-math/core.h>
 #include <ento-state-est/attitude-est/attitude_measurement.h>
 #include <math/FixedPoint.hh>
+#include <math/FixedPointMath.hh>
 #include <math/EigenFixedPoint.hh>
 #include <ento-util/debug.h>
 
@@ -27,72 +28,6 @@ using Q2_13 = FixedPoint<2, 13, int16_t>;   // 16-bit with higher precision than
 
 } // namespace EntoAttitude
 
-// ---------------------------------------------------------------------------
-// 2. Math functions for FixedPoint types (in global namespace for Eigen)
-// ---------------------------------------------------------------------------
-
-// sqrt function for FixedPoint types using Newton-Raphson method
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-sqrt(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  using FP = FixedPoint<IntegerBits, FractionalBits, UnderlyingType>;
-  
-  if (x == FP(0)) return FP(0);
-  
-  // Initial estimate via float
-  float fx = static_cast<float>(x);
-  FP y = FP(std::sqrt(fx));
-  
-  // Newton-Raphson iteration: y = 0.5 * (y + x/y)
-  const FP half = FP(0.5f);
-  for (int i = 0; i < 3; ++i) {  // 3 iterations should be enough
-    y = half * (y + x / y);
-  }
-  
-  return y;
-}
-
-// abs function for FixedPoint types
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-abs(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return (x < FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0)) ? -x : x;
-}
-
-// abs2 function for FixedPoint types (Eigen specific)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-abs2(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x * x;
-}
-
-// conj function for FixedPoint types (identity for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline const FixedPoint<IntegerBits, FractionalBits, UnderlyingType>& 
-conj(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x;
-}
-
-// real function for FixedPoint types (identity for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline const FixedPoint<IntegerBits, FractionalBits, UnderlyingType>& 
-real(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x;
-}
-
-// imag function for FixedPoint types (always zero for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-imag(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &)
-{
-  return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0);
-}
-
 namespace EntoAttitude
 {
 
@@ -108,17 +43,17 @@ Eigen::Quaternion<S> madgwick_update_imu_fixed(
     S gain)
 {
   // If no rotation is measured, return the current orientation.
-  if (gyr.norm() == S(0))
+  if (gyr.norm() == S(0.0f))
     return q;
 
   // Compute quaternion derivative from gyroscope measurements.
-  Eigen::Quaternion<S> omega(S(0), gyr.x(), gyr.y(), gyr.z());
+  Eigen::Quaternion<S> omega(S(0.0f), gyr.x(), gyr.y(), gyr.z());
   Eigen::Quaternion<S> q_dot = (q * omega);
   q_dot.coeffs() *= S(0.5f);
 
   // Only if accelerometer measurement is valid:
   S a_norm = acc.norm();
-  if (a_norm > S(0))
+  if (a_norm > S(0.0f))
   {
     // Normalize accelerometer reading.
     const Eigen::Matrix<S,3,1> a = acc / a_norm;
@@ -137,7 +72,7 @@ Eigen::Quaternion<S> madgwick_update_imu_fixed(
     f.data()[2] = S(2.0f) * (S(0.5f) - qx * qx - qy * qy) - a.data()[2];
 
     // If f is nonzero, compute the Jacobian J (3x4) and its gradient.
-    if (f.norm() > S(0))
+    if (f.norm() > S(0.0f))
     {
       // Build J, with columns in order: [qw, qx, qy, qz]
       Eigen::Matrix<S, 3, 4> J;
@@ -194,26 +129,26 @@ Eigen::Quaternion<S> madgwick_update_marg_fixed(
     S gain)
 {
   // If no rotation is measured, return the current orientation.
-  if (gyr.norm() == S(0))
+  if (gyr.norm() == S(0.0f))
     return q;
   // If magnetometer data is missing, fall back to the IMU update.
-  if (mag.norm() == S(0))
+  if (mag.norm() == S(0.0f))
     return madgwick_update_imu_fixed(q, gyr, acc, dt, gain);
 
   // Compute quaternion derivative from gyroscope measurements.
-  Eigen::Quaternion<S> omega(S(0), gyr.x(), gyr.y(), gyr.z());
+  Eigen::Quaternion<S> omega(S(0.0f), gyr.x(), gyr.y(), gyr.z());
   Eigen::Quaternion<S> q_dot = (q * omega);
   q_dot.coeffs() *= S(0.5f);
 
   S a_norm = acc.norm();
-  if (a_norm > S(0))
+  if (a_norm > S(0.0f))
   {
     // Normalize accelerometer and magnetometer measurements.
     const Eigen::Matrix<S,3,1> a = acc / a_norm;
     const Eigen::Matrix<S,3,1> m = mag / mag.norm();
 
     // Rotate the magnetometer measurement into the Earth frame.
-    Eigen::Quaternion<S> m_quat(S(0), m.x(), m.y(), m.z());
+    Eigen::Quaternion<S> m_quat(S(0.0f), m.x(), m.y(), m.z());
     Eigen::Quaternion<S> h = q * m_quat * q.conjugate();
     // Let bx = norm( h_x, h_y ) and bz = h_z.
     const S bx = sqrt(h.x() * h.x() + h.y() * h.y());
@@ -235,7 +170,7 @@ Eigen::Quaternion<S> madgwick_update_marg_fixed(
     f.data()[4] = S(2.0f) * bx * (qx * qy - qw * qz) + S(2.0f) * bz * (qw * qx + qy * qz) - m.data()[1];
     f.data()[5] = S(2.0f) * bx * (qw * qy + qx * qz) + S(2.0f) * bz * (S(0.5f) - qx * qx - qy * qy) - m.data()[2];
 
-    if (f.norm() > S(0))
+    if (f.norm() > S(0.0f))
     {
       // Build the Jacobian J (6x4)
       Eigen::Matrix<S, 6, 4> J;
@@ -315,6 +250,9 @@ inline Eigen::Quaternion<S> madgwick_fixed(const Eigen::Quaternion<S> &q,
 template<typename S,bool UseMag>
 struct FilterMadgwickFixed
 {
+  // Default constructor
+  FilterMadgwickFixed() = default;
+  
   // Compatible with existing interface - match FilterMadgwick signature
   inline Eigen::Quaternion<S> 
   operator()(const Eigen::Quaternion<S>& q,

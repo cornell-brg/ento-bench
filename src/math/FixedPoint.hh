@@ -70,8 +70,28 @@ class FixedPoint {
   UnderlyingType value;
 
 public:
-  // Constructors
+  // Default constructor
+  FixedPoint() : value(0) {}
+
+  // Constructors - ordered by priority to resolve ambiguity
+  
+  // Highest priority: literal zero (resolves Scalar(0) ambiguity)
+  FixedPoint(std::integral_constant<int, 0>) : value(0) {}
+  
+  // High priority: nullptr (for literal 0)
+  FixedPoint(decltype(nullptr)) : value(0) {}
+  
+  // Medium priority: integer literals (non-explicit for convenience)
+  template<typename T>
+  FixedPoint(T i) requires std::is_integral_v<T> && (!std::is_same_v<T, UnderlyingType>) 
+    : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
+  
+  // Lower priority: floating point (explicit to avoid accidental conversions)
   explicit FixedPoint(float f) : value(static_cast<UnderlyingType>(f * (1 << FractionalBits))) {}
+  explicit FixedPoint(double d) : value(static_cast<UnderlyingType>(d * (1 << FractionalBits))) {}
+  
+  // Lowest priority: raw value constructor (explicit)
+  explicit FixedPoint(UnderlyingType raw_value) : value(raw_value) {}
 
   // Constructor for int32_t (only when UnderlyingType is NOT int32_t and NOT int16_t)
   explicit FixedPoint(int32_t i) requires SignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
@@ -79,21 +99,11 @@ public:
   // Constructor for uint32_t (only when UnderlyingType is NOT uint32_t and NOT int16_t)
   explicit FixedPoint(uint32_t u) requires UnsignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, uint32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(u << FractionalBits)) {}
 
-  explicit FixedPoint(UnderlyingType raw_value) : value(raw_value) {}
-
-  // Special constructor for zero to resolve Eigen ambiguity
-  FixedPoint(std::integral_constant<int, 0>) : value(0) {}
-  
-  // Allow implicit conversion from literal 0
-  FixedPoint(decltype(nullptr)) : value(0) {}
-
   // Constructor for int (only when UnderlyingType is NOT int and NOT int32_t and NOT int16_t)
   FixedPoint(int i) requires (!std::is_same_v<UnderlyingType, int>) && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
 
   // Special constructor for int16_t underlying type to handle int literals
   FixedPoint(int i) requires std::is_same_v<UnderlyingType, int16_t> : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
-
-  FixedPoint() : value(0) {}  // Default constructor
 
   static inline FixedPoint from_raw(UnderlyingType raw_value) {
     FixedPoint fp;
@@ -146,6 +156,11 @@ public:
   // Casting to int
   explicit operator int64_t() const {
     return static_cast<int64_t>(value) / (1 << FractionalBits);
+  }
+
+  // Conversion operators
+  explicit operator double() const {
+    return static_cast<double>(value) / (1 << FractionalBits);
   }
 
   UnderlyingType raw() const {
@@ -221,9 +236,19 @@ public:
     return value >= other.raw();
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const FixedPoint& fp) {
-    os << fp.to_float();
-    return os;
+  // Stream operators for serialization
+  template<typename CharT, typename Traits>
+  friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, const FixedPoint& fp) {
+    return os << static_cast<double>(fp);
+  }
+
+  template<typename CharT, typename Traits>
+  friend std::basic_istream<CharT, Traits>& operator>>(std::basic_istream<CharT, Traits>& is, FixedPoint& fp) {
+    double temp;
+    if (is >> temp) {
+      fp = FixedPoint(static_cast<float>(temp));
+    }
+    return is;
   }
 };
 

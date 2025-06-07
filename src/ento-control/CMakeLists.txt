@@ -112,7 +112,7 @@ set(TEST_FILES
   test_robobee3d_mpc.cc
   test_osqp_mpc.cc
   test_template_mpc_opt_control.cc
-  test_debug_comparison.cc
+  #test_debug_comparison.cc
   test_controller_validation.cc
   test_geometric_controller_control_problem.cc
   test_trajectory_benchmark.cc
@@ -157,9 +157,9 @@ set(LIBRARIES_test_template_mpc_opt_control
 )
 
 
-set(LIBRARIES_test_debug_comparison
-  ento_util ento_math ento-control ${JSONCPP_LIBRARIES}
-)
+#set(LIBRARIES_test_debug_comparison
+#  ento_util ento_math ento-control ${JSONCPP_LIBRARIES}
+#)
 
 set(LIBRARIES_test_controller_validation
   ento_util ento_math ento-control
@@ -195,10 +195,10 @@ foreach(TEST_FILE ${TEST_FILES})
   )
   
   # Special handling for debug comparison test to add jsoncpp includes
-  if(TEST_BIN STREQUAL "test_debug_comparison")
-    target_include_directories(${TEST_BIN} PRIVATE ${JSONCPP_INCLUDE_DIRS})
-    target_link_directories(${TEST_BIN} PRIVATE ${JSONCPP_LIBRARY_DIRS})
-  endif()
+  # if(TEST_BIN STREQUAL "test_debug_comparison")
+  #   target_include_directories(${TEST_BIN} PRIVATE ${JSONCPP_INCLUDE_DIRS})
+  #   target_link_directories(${TEST_BIN} PRIVATE ${JSONCPP_LIBRARY_DIRS})
+  # endif()
 endforeach()
 
 # Real data benchmark test

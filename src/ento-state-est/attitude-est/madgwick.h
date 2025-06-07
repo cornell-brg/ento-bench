@@ -14,7 +14,7 @@ namespace EntoAttitude
 // Madgwick IMU-only update function
 //------------------------------------------------------------------------------
 // Computes an updated orientation quaternion from gyroscope and accelerometer
-// measurements using Madgwick’s gradient descent algorithm.
+// measurements using Madgwick's gradient descent algorithm.
 // The filter gain (gain) controls the convergence rate.
 template <typename Scalar>
 Eigen::Quaternion<Scalar> madgwick_update_imu(
@@ -49,7 +49,7 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
     const Scalar qy = q_norm.y();
     const Scalar qz = q_norm.z();
 
-    // Compute objective function f (a 3-vector) per Madgwick’s eq. (25):
+    // Compute objective function f (a 3-vector) per Madgwick's eq. (25):
     // f = [2*(qx*qz - qw*qy) - a_x,
     //      2*(qw*qx + qy*qz) - a_y,
     //      2*(0.5 - qx*qx - qy*qy) - a_z]
@@ -99,7 +99,7 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
 // Madgwick MARG update function
 //------------------------------------------------------------------------------
 // Computes an updated orientation quaternion from gyroscope, accelerometer,
-// and magnetometer measurements using Madgwick’s gradient descent algorithm.
+// and magnetometer measurements using Madgwick's gradient descent algorithm.
 template <typename Scalar>
 Eigen::Quaternion<Scalar> madgwick_update_marg(
     const Eigen::Quaternion<Scalar>& q,
@@ -243,6 +243,9 @@ Eigen::Quaternion<Scalar> madgwick(
 template <typename Scalar, bool UseMag>
 struct FilterMadgwick
 {
+  // No internal state - gain passed as parameter for flexibility
+  FilterMadgwick() = default;
+
   inline Eigen::Quaternion<Scalar>
   operator()(const Eigen::Quaternion<Scalar>& q,
              const AttitudeMeasurement<Scalar, UseMag>& meas,

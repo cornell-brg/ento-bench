@@ -15,29 +15,62 @@ struct NumTraits<FixedPoint<IntegerBits, FractionalBits, UnderlyingType>> : NumT
 
   enum {
     IsComplex = 0,
-    IsInteger = 1,
-    IsSigned = std::is_signed_v<UnderlyingType>,
-    RequireInitialization = 1,
+    IsInteger = 0,
+    IsSigned = 1,
+    RequireInitialization = 0,
     ReadCost = 1,
     AddCost = 1,
-    MulCost = 1,
-    DivCost = 12
+    MulCost = 1
   };
 
-  static Real epsilon() {
-    return Real::from_raw(1);
+  static inline Real epsilon() {
+    return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(
+      static_cast<double>(1) / (1 << FractionalBits)
+    );
   }
-  static Real dummy_precision() {
-    return Real::from_raw(1);
+  static inline Real dummy_precision() {
+    return epsilon();
   }
-  static Real highest() {
-    return Real::from_raw(NumTraits<UnderlyingType>::highest());
+  static inline Real highest() {
+    return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>::max();
   }
-  static Real lowest() {
-    return Real::from_raw(NumTraits<UnderlyingType>::lowest());
+  static inline Real lowest() {
+    return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>::min();
+  }
+
+  static inline int digits10() {
+    return static_cast<int>(FractionalBits * 0.30103); // log10(2) ≈ 0.30103
   }
 };
 
+namespace internal {
+
+// Specialize scalar_zero_op to avoid constructor ambiguity
+template<int IntegerBits, int FractionalBits, typename UnderlyingType>
+struct scalar_zero_op<FixedPoint<IntegerBits, FractionalBits, UnderlyingType>> {
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE scalar_zero_op() = default;
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE 
+  const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> operator()() const { 
+    return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0.0); 
+  }
+  template <typename PacketType>
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE const PacketType packetOp() const {
+    return internal::pzero<PacketType>(PacketType());
+  }
+};
+
+// Specialize scalar_identity_op to avoid constructor ambiguity  
+template<int IntegerBits, int FractionalBits, typename UnderlyingType>
+struct scalar_identity_op<FixedPoint<IntegerBits, FractionalBits, UnderlyingType>> {
+  template <typename IndexType>
+  EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE 
+  const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> operator()(IndexType row, IndexType col) const {
+    return row == col ? FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(1.0) 
+                      : FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0.0);
+  }
+};
+
+} // namespace internal
 } // namespace Eigen
 
 #endif // EIGEN_FIXED_POINT_HPP

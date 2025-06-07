@@ -6,6 +6,7 @@
 #include <ento-math/core.h>
 #include <ento-state-est/attitude-est/attitude_measurement.h>
 #include <math/FixedPoint.hh>
+#include <math/FixedPointMath.hh>
 #include <math/EigenFixedPoint.hh>
 #include <ento-util/debug.h>
 
@@ -31,72 +32,6 @@ using Q1_15_t = FixedPoint<1, 15, uint16_t>;   // 16-bit Eigen compatible
 using Q1_31_t = FixedPoint<1, 31, uint32_t>;   // 32-bit Eigen compatible
 
 } // namespace EntoAttitude
-
-// ---------------------------------------------------------------------------
-// 2. Math functions for FixedPoint types (in global namespace for Eigen)
-// ---------------------------------------------------------------------------
-
-// sqrt function for FixedPoint types using Newton-Raphson method
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-sqrt(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  using FP = FixedPoint<IntegerBits, FractionalBits, UnderlyingType>;
-  
-  if (x == FP(0)) return FP(0);
-  
-  // Initial estimate via float
-  float fx = static_cast<float>(x);
-  FP y = FP(std::sqrt(fx));
-  
-  // Newton-Raphson iteration: y = 0.5 * (y + x/y)
-  const FP half = FP(0.5f);
-  for (int i = 0; i < 3; ++i) {  // 3 iterations should be enough
-    y = half * (y + x / y);
-  }
-  
-  return y;
-}
-
-// abs function for FixedPoint types
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-abs(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return (x < FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0)) ? -x : x;
-}
-
-// abs2 function for FixedPoint types (Eigen specific)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-abs2(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x * x;
-}
-
-// conj function for FixedPoint types (identity for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline const FixedPoint<IntegerBits, FractionalBits, UnderlyingType>& 
-conj(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x;
-}
-
-// real function for FixedPoint types (identity for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline const FixedPoint<IntegerBits, FractionalBits, UnderlyingType>& 
-real(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &x)
-{
-  return x;
-}
-
-// imag function for FixedPoint types (always zero for real numbers)
-template<int IntegerBits, int FractionalBits, typename UnderlyingType>
-inline FixedPoint<IntegerBits, FractionalBits, UnderlyingType> 
-imag(const FixedPoint<IntegerBits, FractionalBits, UnderlyingType> &)
-{
-  return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(0);
-}
 
 namespace EntoAttitude
 {
@@ -135,7 +70,7 @@ inline Derived vec_normalise(const Eigen::MatrixBase<Derived> &v)
 {
   using S = typename Derived::Scalar;
   S n2 = v.squaredNorm();
-  if ( n2 == S(0) )
+  if ( n2 == S(0.0f) )
     return v.derived();
   S invn = detail::inv_sqrt(n2);
   return (v * invn).eval();
@@ -161,7 +96,7 @@ Eigen::Quaternion<S> mahony_update_imu_fixed(
   S gyr_norm2 = gyr.squaredNorm();
   ENTO_DEBUG("MAHONY DEBUG: gyr_norm2=%f", static_cast<float>(gyr_norm2));
   
-  if ( gyr_norm2 == S(0) )
+  if ( gyr_norm2 == S(0.0f) )
   {
     ENTO_DEBUG("MAHONY DEBUG: Gyro norm is zero - returning unchanged quaternion");
     return q_in;
@@ -174,13 +109,13 @@ Eigen::Quaternion<S> mahony_update_imu_fixed(
   S a_norm2 = acc.squaredNorm();
   ENTO_DEBUG("MAHONY DEBUG: acc_norm2=%f", static_cast<float>(a_norm2));
   
-  if ( a_norm2 > S(0) )
+  if ( a_norm2 > S(0.0f) )
   {
     ENTO_DEBUG("MAHONY DEBUG: Processing accelerometer data");
     // Expected gravity from attitude (body-frame z)
     auto a_hat = vec_normalise(acc);
     const auto R  = q.toRotationMatrix();
-    Eigen::Matrix<S,3,1> v_a = R.transpose() * Eigen::Matrix<S,3,1>(S(0), S(0), S(1));
+    Eigen::Matrix<S,3,1> v_a = R.transpose() * Eigen::Matrix<S,3,1>(S(0.0f), S(0.0f), S(1.0f));
 
     // Error term
     Eigen::Matrix<S,3,1> omega_mes = a_hat.cross( v_a );
@@ -194,7 +129,7 @@ Eigen::Quaternion<S> mahony_update_imu_fixed(
       static_cast<float>(omega.x()), static_cast<float>(omega.y()), static_cast<float>(omega.z()));
 
     // Quaternion integration (first-order)
-    Eigen::Quaternion<S> p(S(0), omega.x(), omega.y(), omega.z());
+    Eigen::Quaternion<S> p(S(0.0f), omega.x(), omega.y(), omega.z());
     Eigen::Quaternion<S> q_dot = q * p;
     q_dot.coeffs() *= S(0.5f);
     q.coeffs() += q_dot.coeffs() * dt;
@@ -225,31 +160,31 @@ Eigen::Quaternion<S> mahony_update_marg_fixed(
     S                                 k_i,
     Eigen::Matrix<S,3,1>             &bias)
 {
-  if ( gyr.squaredNorm() == S(0) )
+  if ( gyr.squaredNorm() == S(0.0f) )
     return q_in;
 
   Eigen::Quaternion<S> q = q_in;
   S a_norm2 = acc.squaredNorm();
-  if ( a_norm2 == S(0) )
+  if ( a_norm2 == S(0.0f) )
     return q;
 
   S m_norm2 = mag.squaredNorm();
-  if ( m_norm2 == S(0) )
+  if ( m_norm2 == S(0.0f) )
     return mahony_update_imu_fixed(q_in, gyr, acc, dt, k_p, k_i, bias);
 
   auto a_hat = vec_normalise(acc);
   auto m_hat = vec_normalise(mag);
 
   const auto R  = q.toRotationMatrix();
-  Eigen::Matrix<S,3,1> v_a = R.transpose() * Eigen::Matrix<S,3,1>(S(0), S(0), S(1));
+  Eigen::Matrix<S,3,1> v_a = R.transpose() * Eigen::Matrix<S,3,1>(S(0.0f), S(0.0f), S(1.0f));
 
   // Magnetic correction
   Eigen::Matrix<S,3,1> h = R * m_hat;
   S h_xy2 = h.x()*h.x() + h.y()*h.y();
-  auto inv_hxy = ( h_xy2 == S(0) ) ? S(0) : detail::inv_sqrt(h_xy2);
-  S h_xy = h_xy2 == S(0) ? S(0) : inv_hxy * Eigen::Matrix<S,2,1>(h.x(), h.y()).norm();
+  auto inv_hxy = ( h_xy2 == S(0.0f) ) ? S(0.0f) : detail::inv_sqrt(h_xy2);
+  S h_xy = h_xy2 == S(0.0f) ? S(0.0f) : inv_hxy * Eigen::Matrix<S,2,1>(h.x(), h.y()).norm();
 
-  Eigen::Matrix<S,3,1> v_m = R.transpose() * Eigen::Matrix<S,3,1>(S(0), h_xy, h.z());
+  Eigen::Matrix<S,3,1> v_m = R.transpose() * Eigen::Matrix<S,3,1>(S(0.0f), h_xy, h.z());
   v_m = vec_normalise( v_m );
 
   Eigen::Matrix<S,3,1> omega_mes = a_hat.cross( v_a ) + m_hat.cross( v_m );
@@ -257,7 +192,7 @@ Eigen::Quaternion<S> mahony_update_marg_fixed(
   bias += ( -k_i * omega_mes ) * dt;
   Eigen::Matrix<S,3,1> omega = gyr - bias + k_p * omega_mes;
 
-  Eigen::Quaternion<S> p(S(0), omega.x(), omega.y(), omega.z());
+  Eigen::Quaternion<S> p(S(0.0f), omega.x(), omega.y(), omega.z());
   Eigen::Quaternion<S> q_dot = q * p;
   q_dot.coeffs() *= S(0.5f);
   q.coeffs() += q_dot.coeffs() * dt;
@@ -284,15 +219,15 @@ inline Eigen::Quaternion<S> mahony_fixed(const Eigen::Quaternion<S> &q,
 }
 
 // ---------------------------------------------------------------------------
-// 8. Functor wrapper owning gains & bias (compatible with existing interface)
+// 8. Functor wrapper conforming to THE RULE (no internal state, external parameters only)
 // ---------------------------------------------------------------------------
 template<typename S,bool UseMag>
 struct FilterMahonyFixed
 {
-  constexpr FilterMahonyFixed(S kp, S ki)
-    : kp_{kp}, ki_{ki}, bias_{S(0),S(0),S(0)} {}
+  // Default constructor - no internal state
+  constexpr FilterMahonyFixed() = default;
 
-  // Compatible with existing interface - match FilterMahony signature
+  // Compatible with existing interface - external parameters only
   inline Eigen::Quaternion<S> 
   operator()(const Eigen::Quaternion<S>& q,
              const AttitudeMeasurement<S, UseMag>& meas,
@@ -307,21 +242,6 @@ struct FilterMahonyFixed
       return mahony_update_imu_fixed(q, meas.gyr, meas.acc, dt, k_p, k_i, bias);
   }
 
-  // Alternative interface using internal state
-  Eigen::Quaternion<S> operator()(const Eigen::Quaternion<S>          &q_prev,
-                                  const AttitudeMeasurement<S,UseMag> &meas,
-                                  S                                    dt,
-                                  Eigen::Quaternion<S>               *q_out)
-  {
-    if constexpr (UseMag)
-      *q_out = mahony_update_marg_fixed(q_prev, meas.gyr, meas.acc, meas.mag,
-                                        dt, kp_, ki_, bias_);
-    else
-      *q_out = mahony_update_imu_fixed(q_prev, meas.gyr, meas.acc,
-                                       dt, kp_, ki_, bias_);
-    return *q_out;
-  }
-
   static constexpr const char *name()
   {
     if constexpr (UseMag)
@@ -329,11 +249,6 @@ struct FilterMahonyFixed
     else
       return "Mahony IMU Fixed (Q-fxp)";
   }
-
- private:
-  S               kp_;
-  S               ki_;
-  Eigen::Matrix<S,3,1> bias_;
 };
 
 // ---------------------------------------------------------------------------
