@@ -69,3 +69,6 @@ external/eigen_old
 datasets/rel-pose
 datasets/abs-pose
 datasets/homography
+
+tools/*.csv
+tools/*.png

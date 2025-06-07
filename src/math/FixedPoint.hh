@@ -73,13 +73,25 @@ public:
   // Constructors
   explicit FixedPoint(float f) : value(static_cast<UnderlyingType>(f * (1 << FractionalBits))) {}
 
-  explicit FixedPoint(int32_t i) requires SignedIntegral<UnderlyingType> : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
+  // Constructor for int32_t (only when UnderlyingType is NOT int32_t and NOT int16_t)
+  explicit FixedPoint(int32_t i) requires SignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
 
-  explicit FixedPoint(uint32_t u) requires UnsignedIntegral<UnderlyingType> : value(static_cast<UnderlyingType>(u << FractionalBits)) {}
+  // Constructor for uint32_t (only when UnderlyingType is NOT uint32_t and NOT int16_t)
+  explicit FixedPoint(uint32_t u) requires UnsignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, uint32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(u << FractionalBits)) {}
 
   explicit FixedPoint(UnderlyingType raw_value) : value(raw_value) {}
 
-  FixedPoint(int i) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}  // Constructor for int
+  // Special constructor for zero to resolve Eigen ambiguity
+  FixedPoint(std::integral_constant<int, 0>) : value(0) {}
+  
+  // Allow implicit conversion from literal 0
+  FixedPoint(decltype(nullptr)) : value(0) {}
+
+  // Constructor for int (only when UnderlyingType is NOT int and NOT int32_t and NOT int16_t)
+  FixedPoint(int i) requires (!std::is_same_v<UnderlyingType, int>) && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
+
+  // Special constructor for int16_t underlying type to handle int literals
+  FixedPoint(int i) requires std::is_same_v<UnderlyingType, int16_t> : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
 
   FixedPoint() : value(0) {}  // Default constructor
 
