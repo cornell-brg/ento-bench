@@ -19,6 +19,37 @@ target_link_libraries(ento-rel-pose
 )
 
 #=========================================
+# Data Generation
+#=========================================
+
+add_executable(generate_minimal_solver_data_rel
+  test/generate_minimal_solver_data.cc
+)
+
+target_include_directories(generate_minimal_solver_data_rel
+  PRIVATE
+  ${EIGEN_DIR}
+)
+
+target_link_libraries(generate_minimal_solver_data_rel
+  ento_util ento-rel-pose ento-pose
+)
+
+# Enhanced data generation tool with comprehensive statistics and unified noise model
+add_executable(generate_minimal_solver_data_rel_enhanced
+  test/generate_minimal_solver_data_enhanced.cc
+)
+
+target_include_directories(generate_minimal_solver_data_rel_enhanced
+  PRIVATE
+  ${EIGEN_DIR}
+)
+
+target_link_libraries(generate_minimal_solver_data_rel_enhanced
+  ento_util ento-rel-pose ento-pose
+)
+
+#=========================================
 # Testing
 #=========================================
 
