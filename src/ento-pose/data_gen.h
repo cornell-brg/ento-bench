@@ -574,7 +574,7 @@ struct SolverDLT {
                          EntoContainer<Vec3<Scalar>, N>& X,
                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return dlt(x, X, solutions);
+    return dlt<Scalar, N>(x, X, solutions);
   }
 
   typedef CalibratedAbsolutePoseValidator<Scalar> validator;

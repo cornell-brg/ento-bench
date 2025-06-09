@@ -2,6 +2,7 @@
 #define POSE_EST_UTIL_HH
 
 #include <Eigen/Dense>
+#include <type_traits>
 #include <ento-math/core.h>
 #include <ento-math/quaternion.h>
 #include <ento-util/containers.h>
@@ -109,18 +110,100 @@ struct CameraPose
 
   // Extract rotation and translation from a projection matrix
   inline void from_projection(const Eigen::Matrix<Scalar, 3, 4>& P) {
-    // Extract rotation matrix from first 3x3 block
-    Matrix3x3<Scalar> R = P.template block<3, 3>(0, 0);
+    // Robust DLT pose extraction for NORMALIZED coordinates (K = I)
+    // For normalized coordinates, the first two rows of P = [R|t] should have equal norm
+    // This is the key constraint for robust scale estimation
     
-    // Normalize the rotation matrix to ensure it's orthogonal
-    Eigen::JacobiSVD<Matrix3x3<Scalar>> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);
-    R = svd.matrixU() * svd.matrixV().transpose();
+    ENTO_DEBUG("[from_projection] Input projection matrix P:");
+    ENTO_DEBUG("  [%f %f %f %f]", P(0,0), P(0,1), P(0,2), P(0,3));
+    ENTO_DEBUG("  [%f %f %f %f]", P(1,0), P(1,1), P(1,2), P(1,3));
+    ENTO_DEBUG("  [%f %f %f %f]", P(2,0), P(2,1), P(2,2), P(2,3));
+    
+    // Extract the 3x3 rotation part and translation
+    Matrix3x3<Scalar> M = P.template block<3,3>(0,0);
+    Vec3<Scalar> p4 = P.col(3);
+    
+    // Method 1: Use equal-norm constraint for first two rows (Hartley & Zisserman)
+    // For normalized coordinates: ||P_row1|| = ||P_row2|| = scale
+    Scalar norm1 = P.row(0).template head<3>().norm();  // ||[r11 r12 r13]||
+    Scalar norm2 = P.row(1).template head<3>().norm();  // ||[r21 r22 r23]||
+    Scalar scale_hn = (norm1 + norm2) / Scalar(2);      // Average of first two row norms
+    
+    ENTO_DEBUG("[from_projection] Row norms: norm1=%f, norm2=%f, scale_hn=%f", 
+               norm1, norm2, scale_hn);
+    
+    // Method 2: Use SVD for comparison
+    Eigen::JacobiSVD<Matrix3x3<Scalar>> svd(M, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::Matrix<Scalar, 3, 1> singular_values = svd.singularValues();
+    Scalar scale_svd = singular_values(1);  // Middle singular value
+    
+    ENTO_DEBUG("[from_projection] SVD singular values: [%f, %f, %f], scale_svd=%f", 
+               singular_values(0), singular_values(1), singular_values(2), scale_svd);
+    
+    // Choose the more reliable scale estimate
+    // If row norms are very different, use SVD; otherwise use H&Z method
+    Scalar norm_diff = std::abs(norm1 - norm2) / std::max(norm1, norm2);
+    Scalar scale;
+    if (norm_diff > Scalar(0.1)) {
+        // Row norms too different - not ideal normalized coordinates, use SVD
+        scale = scale_svd;
+        ENTO_DEBUG("[from_projection] Using SVD scale (norm_diff=%f > 0.1)", norm_diff);
+    } else {
+        // Row norms similar - good normalized coordinates, use H&Z method
+        scale = scale_hn;
+        ENTO_DEBUG("[from_projection] Using H&Z scale (norm_diff=%f <= 0.1)", norm_diff);
+    }
+    
+    // Extract rotation matrix using the chosen scale
+    Matrix3x3<Scalar> R_candidate = M / scale;
+    
+    ENTO_DEBUG("[from_projection] R_candidate determinant: %f", R_candidate.determinant());
+    
+    // Make R orthogonal using polar decomposition (more robust than flipping columns)
+    Eigen::JacobiSVD<Matrix3x3<Scalar>> svd_polar(R_candidate, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Matrix3x3<Scalar> R = svd_polar.matrixU() * svd_polar.matrixV().transpose();
+    
+    // Handle reflection case properly
+    if (R.determinant() < 0) {
+        // Try flipping the last column of V (standard approach)
+        Matrix3x3<Scalar> V_corrected = svd_polar.matrixV();
+        V_corrected.col(2) *= -1;
+        Matrix3x3<Scalar> R_flipped = svd_polar.matrixU() * V_corrected.transpose();
+        
+        // Check which gives better reconstruction
+        Scalar error_original = (scale * R - M).norm();
+        Scalar error_flipped = (scale * R_flipped - M).norm();
+        
+        if (error_flipped < error_original) {
+            R = R_flipped;
+            ENTO_DEBUG("[from_projection] Used flipped rotation (error: %f vs %f)", error_flipped, error_original);
+        } else {
+            // If flipping doesn't help, try negating the entire solution
+            R = -R;
+            scale = -scale;
+            ENTO_DEBUG("[from_projection] Used negated solution (error: %f vs %f)", (scale * R - M).norm(), error_original);
+        }
+    }
+    
+    ENTO_DEBUG("[from_projection] Final rotation determinant: %f (should be 1.0)", R.determinant());
     
     // Convert rotation matrix to quaternion
     q = rotmat_to_quat<Scalar>(R);
     
-    // Extract translation vector
-    t = P.col(3);
+    // Extract translation with consistent scaling
+    t = p4 / scale;
+    
+    ENTO_DEBUG("[from_projection] Final scale=%f, t=[%f,%f,%f]", 
+               scale, t(0), t(1), t(2));
+    
+    // Verify reconstruction
+    Scalar recon_error = (scale * R - M).norm();
+    ENTO_DEBUG("[from_projection] Final reconstruction error ||scale*R - M||_F = %f", recon_error);
+    
+    // Sanity check: if reconstruction error is too high, something is wrong
+    if (recon_error > Scalar(0.01)) {
+        ENTO_DEBUG("[from_projection] WARNING: High reconstruction error %f suggests pose extraction failed", recon_error);
+    }
   }
 };
 
@@ -376,11 +459,20 @@ bool solve_cubic_single_real(Scalar c2,
                              Scalar c0,
                              Scalar &root)
 {
+  // Precision-aware epsilon tolerance
+  Scalar EPSILON;
+  if constexpr (std::is_same_v<Scalar, float>) {
+    EPSILON = Scalar(1e-6);   // Appropriate for float precision (~7 digits)
+  } else {
+    EPSILON = Scalar(1e-12);  // Appropriate for double precision (~15 digits)
+  }
+
   Scalar a = c1 - c2 * c2 / Scalar(3);
-  Scalar b = (2 * c2 * c2 * c2 - Scalar(9) * c2 * c1) / Scalar(27) + c0;
+  Scalar b = (Scalar(2) * c2 * c2 * c2 - Scalar(9) * c2 * c1) / Scalar(27) + c0;
   Scalar c = b * b / Scalar(4) + a * a * a / Scalar(27);
 
-  if (c > Scalar(0))
+  // Use precision-aware epsilon instead of exact zero comparison
+  if (c > EPSILON)
   {
     c = std::sqrt(c);
     b *= Scalar(-0.5);
@@ -401,12 +493,21 @@ int solve_cubic_real(Scalar c2,
                      Scalar c1,
                      Scalar c0,
                      Scalar roots[3]) {
+  // Precision-aware epsilon tolerance
+  Scalar EPSILON;
+  if constexpr (std::is_same_v<Scalar, float>) {
+    EPSILON = Scalar(1e-6);   // Appropriate for float precision (~7 digits)
+  } else {
+    EPSILON = Scalar(1e-12);  // Appropriate for double precision (~15 digits)
+  }
+
   Scalar a = c1 - c2 * c2 / Scalar(3);
   Scalar b = (Scalar(2) * c2 * c2 * c2 - Scalar(9) * c2 * c1) / Scalar(27) + c0;
   Scalar c = b * b / Scalar(4) + a * a * a / Scalar(27);
 
   int n_roots;
-  if (c > Scalar(0))
+  // Use precision-aware epsilon instead of exact zero comparison
+  if (c > EPSILON)
   {
     c = std::sqrt(c);
     b *= Scalar(-0.5);
@@ -437,18 +538,25 @@ int solve_cubic_real(Scalar c2,
 }
 
 
-template <typename Scalar> 
+template <typename Scalar>
 inline bool root2real(Scalar b,
                       Scalar c,
                       Scalar &r1,
                       Scalar &r2)
 {
-  Scalar THRESHOLD = Scalar(-1.0e-12);
-  Scalar v = b * b - 4.0 * c;
+  // Precision-aware threshold: adjust based on floating-point precision
+  Scalar THRESHOLD;
+  if constexpr (std::is_same_v<Scalar, float>) {
+    THRESHOLD = Scalar(-1.0e-6);   // More appropriate for float precision (~7 digits)
+  } else {
+    THRESHOLD = Scalar(-1.0e-12);  // Keep existing for double precision (~15 digits)
+  }
+  
+  Scalar v = b * b - Scalar(4.0) * c;
   if (v < THRESHOLD)
   {
     r1 = r2 = Scalar(-0.5) * b;
-    return v >= 0;
+    return v >= Scalar(0);
   }
   if (v > THRESHOLD && v < Scalar(0.0))
   {
@@ -458,7 +566,7 @@ inline bool root2real(Scalar b,
   }
 
   Scalar y = std::sqrt(v);
-  if (b < 0)
+  if (b < Scalar(0))
   {
     r1 = Scalar(0.5) * (-b + y);
     r2 = Scalar(0.5) * (-b - y);

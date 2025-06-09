@@ -34,6 +34,21 @@ target_link_libraries(generate_minimal_solver_data_abs
   ento_util ento-abs-pose ento-pose
 )
 
+# Enhanced version with parameterized noise levels and realistic camera parameters
+add_executable(generate_minimal_solver_data_abs_enhanced
+  test/generate_minimal_solver_data_enhanced.cc
+)
+
+target_include_directories(generate_minimal_solver_data_abs_enhanced
+  PRIVATE
+  ${EIGEN_DIR}
+  
+)
+
+target_link_libraries(generate_minimal_solver_data_abs_enhanced
+  ento_util ento-abs-pose ento-pose
+)
+
 #=========================================
 # Testing
 #=========================================
@@ -44,7 +59,7 @@ set(TEST_FILES
   test_p3p.cc
   #test_up2p.cc
   #test_p4p.cc
-  #test_dlt.cc
+  test_dlt.cc
 )
 
 set(LIBRARIES_test_p4p

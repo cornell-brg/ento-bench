@@ -255,10 +255,10 @@ void linear_refine_dlt(
         return;
     }
     
-    // Normalize so that last entry is 1 (if possible)
-    if (std::abs(P(2,3)) > Scalar(1e-8)) {
-        P /= P(2,3);
-    }
+    //// Normalize so that last entry is 1 (if possible)
+    //if (std::abs(P(2,3)) > Scalar(1e-8)) {
+    //    P /= P(2,3);
+    //}
     
     if constexpr (UseIsoNormalization) {
         // Unnormalize P: P_original = T1^-1 * P_normalized * T2
@@ -346,10 +346,9 @@ void linear_refine_dlt_weighted(
         return;
     }
     
-    // Normalize so that last entry is 1 (if possible)
-    if (std::abs(P(2,3)) > Scalar(1e-8)) {
-        P /= P(2,3);
-    }
+    // FIXED: Use H&Z standard normalization constraint ||p|| = 1 (from SVD)
+    // DO NOT normalize by P(2,3) as this imposes incorrect K matrix constraints!
+    ENTO_DEBUG("linear_refine_dlt_weighted: Using H&Z standard: ||p|| = 1 constraint (from SVD), norm = %f", p.norm());
     
     if constexpr (UseIsoNormalization) {
         // Unnormalize P: P_original = T1^-1 * P_normalized * T2
