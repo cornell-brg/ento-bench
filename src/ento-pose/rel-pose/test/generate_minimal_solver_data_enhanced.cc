@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 #include <algorithm>
+#include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <random>
@@ -19,6 +20,7 @@
 #include <ento-pose/camera_models.h>
 #include <ento-pose/data_gen.h>
 #include <ento-pose/prob_gen.h>
+
 
 // Include the solver interfaces from data_gen.h
 #include <ento-pose/data_gen.h>
@@ -85,6 +87,7 @@ Options parse_args(int argc, char** argv) {
             opts.num_points = std::atoi(argv[++i]);
         } else if (strcmp(argv[i], "--noise-levels") == 0 && i + 1 < argc) {
             std::string noise_str = argv[++i];
+            opts.noise_levels.clear();
             std::stringstream ss(noise_str);
             std::string item;
             while (std::getline(ss, item, ',')) {
@@ -154,96 +157,173 @@ Options parse_args(int argc, char** argv) {
     return opts;
 }
 
-// Helper structure to hold both rotation and translation errors
+// Enhanced pose error computation with separate rotation and translation tracking
 template<typename Scalar>
 struct PoseErrors {
     Scalar rotation_error_deg;
-    Scalar translation_error_deg;
+    Scalar translation_error_deg;    // Translation direction error (degrees)
+    Scalar reprojection_error;       // Sampson distance to fundamental matrix
     
-    PoseErrors(Scalar rot_err, Scalar trans_err) 
-        : rotation_error_deg(rot_err), translation_error_deg(trans_err) {}
+    // Default constructor for no-solution cases
+    PoseErrors() : rotation_error_deg(std::numeric_limits<Scalar>::max()),
+                   translation_error_deg(std::numeric_limits<Scalar>::max()),
+                   reprojection_error(std::numeric_limits<Scalar>::max()) {}
     
-    // Get the maximum error for backward compatibility
+    // Constructor with values
+    PoseErrors(Scalar rot_err, Scalar trans_err, Scalar reproj_err)
+        : rotation_error_deg(rot_err), translation_error_deg(trans_err), reprojection_error(reproj_err) {}
+    
     Scalar max_error() const {
         return std::max(rotation_error_deg, translation_error_deg);
     }
 };
 
-// Helper function to compute pose error for relative pose
-template<typename Scalar>
-PoseErrors<Scalar> compute_pose_error(const CameraPose<Scalar>& true_pose, const CameraPose<Scalar>& estimated_pose)
+// Compute Sampson distance (reprojection error for relative pose)
+template<typename Scalar, size_t N>
+Scalar compute_sampson_distance(
+    const CameraPose<Scalar>& pose,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x1,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x2)
 {
-    // Rotation error (angular difference between rotation matrices)
-    Eigen::Matrix<Scalar,3,3> R_diff = estimated_pose.R().transpose() * true_pose.R();
-    Scalar trace_val = R_diff.trace();
-    Scalar angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
-    Scalar rotation_error_deg = angle_rad * Scalar(180.0 / M_PI);
+    using Vec3 = Eigen::Matrix<Scalar,3,1>;
+    using Mat3 = Eigen::Matrix<Scalar,3,3>;
     
-    // Translation direction error (angular difference between translation directions)
-    Vec3<Scalar> t_est = estimated_pose.t.normalized();
-    Vec3<Scalar> t_true = true_pose.t.normalized();
+    // Build fundamental matrix from pose: F = [t]_× * R
+    Mat3 t_skew;
+    t_skew << 0, -pose.t(2), pose.t(1),
+              pose.t(2), 0, -pose.t(0),
+              -pose.t(1), pose.t(0), 0;
+    Mat3 F = t_skew * pose.R();
     
-    // Handle both +t and -t directions (relative pose translation is up to scale)
-    Scalar dot_pos = std::clamp(t_est.dot(t_true), Scalar(-1), Scalar(1));
-    Scalar dot_neg = std::clamp(t_est.dot(-t_true), Scalar(-1), Scalar(1));
-    Scalar abs_dot = std::max(std::abs(dot_pos), std::abs(dot_neg));
-    Scalar translation_error_deg = std::acos(abs_dot) * Scalar(180.0 / M_PI);
+    Scalar total_error = 0.0;
+    size_t valid_points = 0;
     
-    return PoseErrors<Scalar>(rotation_error_deg, translation_error_deg);
+    for (size_t i = 0; i < x1.size(); ++i) {
+        const Vec3& p1 = x1[i];
+        const Vec3& p2 = x2[i];
+        
+        // Sampson distance: (p2^T F p1)^2 / (||F^T p2||^2 + ||F p1||^2)
+        Scalar numerator = p2.transpose() * F * p1;
+        numerator = numerator * numerator;
+        
+        Vec3 Fp1 = F * p1;
+        Vec3 FTp2 = F.transpose() * p2;
+        Scalar denominator = Fp1.squaredNorm() + FTp2.squaredNorm();
+        
+        if (denominator > Scalar(1e-12)) {
+            Scalar sampson_dist = numerator / denominator;
+            total_error += sampson_dist;
+            valid_points++;
+        }
+    }
+    
+    if (valid_points == 0) return std::numeric_limits<Scalar>::max();
+    
+    // Return RMS Sampson distance
+    return std::sqrt(total_error / valid_points);
 }
 
-// Statistics tracking structure with separate rotation/translation errors
+template<typename Scalar, size_t N>
+PoseErrors<Scalar> compute_pose_errors(
+    const CameraPose<Scalar>& true_pose, 
+    const CameraPose<Scalar>& estimated_pose,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x1,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x2)
+{
+    PoseErrors<Scalar> errors;
+    
+    // FIXED: Always use double precision for error computation to get true accuracy metrics
+    // Cast poses to double precision for error computation
+    CameraPose<double> true_pose_double;
+    true_pose_double.q(0) = static_cast<double>(true_pose.q(0));
+    true_pose_double.q(1) = static_cast<double>(true_pose.q(1));
+    true_pose_double.q(2) = static_cast<double>(true_pose.q(2));
+    true_pose_double.q(3) = static_cast<double>(true_pose.q(3));
+    true_pose_double.t(0) = static_cast<double>(true_pose.t(0));
+    true_pose_double.t(1) = static_cast<double>(true_pose.t(1));
+    true_pose_double.t(2) = static_cast<double>(true_pose.t(2));
+    
+    CameraPose<double> estimated_pose_double;
+    estimated_pose_double.q(0) = static_cast<double>(estimated_pose.q(0));
+    estimated_pose_double.q(1) = static_cast<double>(estimated_pose.q(1));
+    estimated_pose_double.q(2) = static_cast<double>(estimated_pose.q(2));
+    estimated_pose_double.q(3) = static_cast<double>(estimated_pose.q(3));
+    estimated_pose_double.t(0) = static_cast<double>(estimated_pose.t(0));
+    estimated_pose_double.t(1) = static_cast<double>(estimated_pose.t(1));
+    estimated_pose_double.t(2) = static_cast<double>(estimated_pose.t(2));
+    
+    // Rotation error (angular difference between rotation matrices) - ALWAYS use double precision
+    double trace_val = (estimated_pose_double.R().transpose() * true_pose_double.R()).trace();
+    double angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+    errors.rotation_error_deg = static_cast<Scalar>(angle_rad * 180.0 / M_PI);
+    
+    // Translation direction error (angular difference between translation directions) - ALWAYS use double precision
+    Eigen::Matrix<double,3,1> t_est = estimated_pose_double.t.normalized();
+    Eigen::Matrix<double,3,1> t_true = true_pose_double.t.normalized();
+    
+    // Handle both +t and -t directions (relative pose translation is up to scale)
+    double dot_pos = std::clamp(t_est.dot(t_true), -1.0, 1.0);
+    double dot_neg = std::clamp(t_est.dot(-t_true), -1.0, 1.0);
+    double abs_dot = std::max(std::abs(dot_pos), std::abs(dot_neg));
+    errors.translation_error_deg = static_cast<Scalar>(std::acos(abs_dot) * 180.0 / M_PI);
+    
+    // Reprojection error (Sampson distance) - cast bearing vectors to double for accurate computation
+    EntoUtil::EntoContainer<Eigen::Matrix<double,3,1>, N> x1_double, x2_double;
+    for (size_t i = 0; i < x1.size(); ++i) {
+        Eigen::Matrix<double,3,1> x1_d(static_cast<double>(x1[i](0)), 
+                                       static_cast<double>(x1[i](1)), 
+                                       static_cast<double>(x1[i](2)));
+        Eigen::Matrix<double,3,1> x2_d(static_cast<double>(x2[i](0)), 
+                                       static_cast<double>(x2[i](1)), 
+                                       static_cast<double>(x2[i](2)));
+        x1_double.push_back(x1_d);
+        x2_double.push_back(x2_d);
+    }
+    
+    double reprojection_error_double = compute_sampson_distance<double, N>(estimated_pose_double, x1_double, x2_double);
+    errors.reprojection_error = static_cast<Scalar>(reprojection_error_double);
+    
+    return errors;
+}
+
+// Enhanced statistics tracking with separate rotation/translation errors and standard deviations
 template<typename Scalar>
 struct SolverStats {
     int total_problems = 0;
     int successful_solves = 0;
     int failed_solves = 0;
     
-    // Rotation error statistics
-    Scalar total_rotation_error = 0.0;
-    Scalar min_rotation_error = std::numeric_limits<Scalar>::max();
-    Scalar max_rotation_error = 0.0;
-    std::vector<Scalar> rotation_errors; // Store all values for std dev
+    // Error tracking - SUCCESSFUL CASES ONLY (for threshold-based analysis)
+    std::vector<Scalar> successful_rotation_errors;
+    std::vector<Scalar> successful_translation_errors;
+    std::vector<Scalar> successful_reprojection_errors;
+    std::vector<Scalar> successful_combined_errors;
     
-    // Translation error statistics  
-    Scalar total_translation_error = 0.0;
-    Scalar min_translation_error = std::numeric_limits<Scalar>::max();
-    Scalar max_translation_error = 0.0;
-    std::vector<Scalar> translation_errors; // Store all values for std dev
+    // Error tracking - ALL SOLUTIONS (regardless of success threshold)
+    std::vector<Scalar> all_rotation_errors;
+    std::vector<Scalar> all_translation_errors;
+    std::vector<Scalar> all_reprojection_errors;
+    std::vector<Scalar> all_combined_errors;
     
-    // Combined error statistics
-    Scalar total_combined_error = 0.0;
-    Scalar min_combined_error = std::numeric_limits<Scalar>::max();
-    Scalar max_combined_error = 0.0;
-    std::vector<Scalar> combined_errors; // Store all values for std dev
-    
-    // Solution count statistics
+    // Solution tracking
     int total_solutions_found = 0;
     int problems_with_multiple_solutions = 0;
     
     void add_success(const PoseErrors<Scalar>& errors, int num_solutions) {
         successful_solves++;
         
-        // Rotation errors
-        total_rotation_error += errors.rotation_error_deg;
-        min_rotation_error = std::min(min_rotation_error, errors.rotation_error_deg);
-        max_rotation_error = std::max(max_rotation_error, errors.rotation_error_deg);
-        rotation_errors.push_back(errors.rotation_error_deg);
+        // Add to successful-only statistics
+        successful_rotation_errors.push_back(errors.rotation_error_deg);
+        successful_translation_errors.push_back(errors.translation_error_deg);
+        successful_reprojection_errors.push_back(errors.reprojection_error);
+        successful_combined_errors.push_back(errors.max_error());
         
-        // Translation errors
-        total_translation_error += errors.translation_error_deg;
-        min_translation_error = std::min(min_translation_error, errors.translation_error_deg);
-        max_translation_error = std::max(max_translation_error, errors.translation_error_deg);
-        translation_errors.push_back(errors.translation_error_deg);
+        // Also add to all-solutions statistics
+        all_rotation_errors.push_back(errors.rotation_error_deg);
+        all_translation_errors.push_back(errors.translation_error_deg);
+        all_reprojection_errors.push_back(errors.reprojection_error);
+        all_combined_errors.push_back(errors.max_error());
         
-        // Combined errors
-        Scalar combined = errors.max_error();
-        total_combined_error += combined;
-        min_combined_error = std::min(min_combined_error, combined);
-        max_combined_error = std::max(max_combined_error, combined);
-        combined_errors.push_back(combined);
-        
-        // Solution count
         total_solutions_found += num_solutions;
         if (num_solutions > 1) {
             problems_with_multiple_solutions++;
@@ -254,24 +334,88 @@ struct SolverStats {
         failed_solves++;
     }
     
+    void add_failure_with_solution(const PoseErrors<Scalar>& errors) {
+        failed_solves++;
+        
+        // Failed cases still go into all-solutions statistics
+        all_rotation_errors.push_back(errors.rotation_error_deg);
+        all_translation_errors.push_back(errors.translation_error_deg);
+        all_reprojection_errors.push_back(errors.reprojection_error);
+        all_combined_errors.push_back(errors.max_error());
+    }
+    
     void add_problem() {
         total_problems++;
     }
     
-    // Helper function to compute standard deviation
-    Scalar compute_std_dev(const std::vector<Scalar>& values, Scalar mean) const {
-        if (values.size() <= 1) return 0.0;
-        
-        Scalar sum_sq_diff = 0.0;
-        for (Scalar val : values) {
-            Scalar diff = val - mean;
-            sum_sq_diff += diff * diff;
-        }
-        return std::sqrt(sum_sq_diff / (values.size() - 1)); // Sample std dev
+    // Traditional statistics
+    Scalar mean(const std::vector<Scalar>& values) const {
+        if (values.empty()) return Scalar(0);
+        return std::accumulate(values.begin(), values.end(), Scalar(0)) / values.size();
     }
     
-    void print_stats(const std::string& solver_name) const {
-        std::cout << "\n=== " << solver_name << " Statistics ===" << std::endl;
+    Scalar stddev(const std::vector<Scalar>& values) const {
+        if (values.size() < 2) return Scalar(0);
+        Scalar m = mean(values);
+        Scalar sum_sq_diff = 0;
+        for (const auto& val : values) {
+            Scalar diff = val - m;
+            sum_sq_diff += diff * diff;
+        }
+        return std::sqrt(sum_sq_diff / (values.size() - 1));
+    }
+    
+    // NEW: Robust statistics
+    Scalar median(const std::vector<Scalar>& values) const {
+        if (values.empty()) return Scalar(0);
+        
+        std::vector<Scalar> sorted_values = values;
+        std::sort(sorted_values.begin(), sorted_values.end());
+        
+        size_t n = sorted_values.size();
+        if (n % 2 == 0) {
+            return (sorted_values[n/2-1] + sorted_values[n/2]) / Scalar(2);
+        } else {
+            return sorted_values[n/2];
+        }
+    }
+    
+    Scalar percentile(const std::vector<Scalar>& values, Scalar p) const {
+        if (values.empty()) return Scalar(0);
+        
+        std::vector<Scalar> sorted_values = values;
+        std::sort(sorted_values.begin(), sorted_values.end());
+        
+        size_t n = sorted_values.size();
+        Scalar index = p * (n - 1);
+        size_t lower = static_cast<size_t>(std::floor(index));
+        size_t upper = static_cast<size_t>(std::ceil(index));
+        
+        if (lower == upper) {
+            return sorted_values[lower];
+        } else {
+            Scalar weight = index - lower;
+            return sorted_values[lower] * (1 - weight) + sorted_values[upper] * weight;
+        }
+    }
+    
+    Scalar q1(const std::vector<Scalar>& values) const { return percentile(values, 0.25); }
+    Scalar q3(const std::vector<Scalar>& values) const { return percentile(values, 0.75); }
+    Scalar iqr(const std::vector<Scalar>& values) const { return q3(values) - q1(values); }
+    
+    // NEW: Additional percentiles for better distribution understanding
+    Scalar p5(const std::vector<Scalar>& values) const { return percentile(values, 0.05); }
+    Scalar p10(const std::vector<Scalar>& values) const { return percentile(values, 0.10); }
+    Scalar p90(const std::vector<Scalar>& values) const { return percentile(values, 0.90); }
+    Scalar p95(const std::vector<Scalar>& values) const { return percentile(values, 0.95); }
+    
+    // Helper function to count zeros
+    int count_zeros(const std::vector<Scalar>& values) const {
+        return std::count_if(values.begin(), values.end(), [](Scalar val) { return std::abs(val) < 1e-10; });
+    }
+    
+    void print_stats(const std::string& solver_name, double noise_level) const {
+        std::cout << "\n=== " << solver_name << " Statistics (noise=" << noise_level << ") ===" << std::endl;
         std::cout << "  Total problems: " << total_problems << std::endl;
         std::cout << "  Successful solves: " << successful_solves << " (" 
                   << (100.0 * successful_solves / total_problems) << "%)" << std::endl;
@@ -279,39 +423,110 @@ struct SolverStats {
                   << (100.0 * failed_solves / total_problems) << "%)" << std::endl;
         
         if (successful_solves > 0) {
-            // Rotation error statistics
-            Scalar avg_rot = total_rotation_error / successful_solves;
-            Scalar std_rot = compute_std_dev(rotation_errors, avg_rot);
-            std::cout << "  --- Rotation Errors ---" << std::endl;
-            std::cout << "    Average: " << avg_rot << " degrees" << std::endl;
-            std::cout << "    Std Dev: " << std_rot << " degrees" << std::endl;
-            std::cout << "    Min: " << min_rotation_error << " degrees" << std::endl;
-            std::cout << "    Max: " << max_rotation_error << " degrees" << std::endl;
+            std::cout << "  \n=== SUCCESSFUL CASES ONLY (threshold-based) ===" << std::endl;
             
-            // Translation error statistics
-            Scalar avg_trans = total_translation_error / successful_solves;
-            Scalar std_trans = compute_std_dev(translation_errors, avg_trans);
-            std::cout << "  --- Translation Errors ---" << std::endl;
-            std::cout << "    Average: " << avg_trans << " degrees" << std::endl;
-            std::cout << "    Std Dev: " << std_trans << " degrees" << std::endl;
-            std::cout << "    Min: " << min_translation_error << " degrees" << std::endl;
-            std::cout << "    Max: " << max_translation_error << " degrees" << std::endl;
+            // Rotation Error Statistics
+            std::cout << "  Rotation Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(successful_rotation_errors) << " ± " << stddev(successful_rotation_errors) << " degrees" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(successful_rotation_errors) 
+                      << " [" << q1(successful_rotation_errors) << ", " << q3(successful_rotation_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(successful_rotation_errors) << ", P10=" << p10(successful_rotation_errors) 
+                      << ", P90=" << p90(successful_rotation_errors) << ", P95=" << p95(successful_rotation_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_rotation_errors.begin(), successful_rotation_errors.end()) 
+                      << ", " << *std::max_element(successful_rotation_errors.begin(), successful_rotation_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(successful_rotation_errors) << "/" << successful_rotation_errors.size() 
+                      << " (" << (100.0 * count_zeros(successful_rotation_errors) / successful_rotation_errors.size()) << "%)" << std::endl;
             
-            // Combined error statistics
-            Scalar avg_combined = total_combined_error / successful_solves;
-            Scalar std_combined = compute_std_dev(combined_errors, avg_combined);
-            std::cout << "  --- Combined Errors (max of rot/trans) ---" << std::endl;
-            std::cout << "    Average: " << avg_combined << " degrees" << std::endl;
-            std::cout << "    Std Dev: " << std_combined << " degrees" << std::endl;
-            std::cout << "    Min: " << min_combined_error << " degrees" << std::endl;
-            std::cout << "    Max: " << max_combined_error << " degrees" << std::endl;
+            // Translation Direction Error Statistics
+            std::cout << "  \nTranslation Direction Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(successful_translation_errors) << " ± " << stddev(successful_translation_errors) << " degrees" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(successful_translation_errors) 
+                      << " [" << q1(successful_translation_errors) << ", " << q3(successful_translation_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(successful_translation_errors) << ", P10=" << p10(successful_translation_errors) 
+                      << ", P90=" << p90(successful_translation_errors) << ", P95=" << p95(successful_translation_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_translation_errors.begin(), successful_translation_errors.end()) 
+                      << ", " << *std::max_element(successful_translation_errors.begin(), successful_translation_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(successful_translation_errors) << "/" << successful_translation_errors.size() 
+                      << " (" << (100.0 * count_zeros(successful_translation_errors) / successful_translation_errors.size()) << "%)" << std::endl;
             
-            // Solution count statistics
-            std::cout << "  --- Solution Statistics ---" << std::endl;
+            // Reprojection Error Statistics
+            std::cout << "  \nReprojection Error Statistics (Sampson distance):" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(successful_reprojection_errors) << " ± " << stddev(successful_reprojection_errors) << " (normalized)" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(successful_reprojection_errors) 
+                      << " [" << q1(successful_reprojection_errors) << ", " << q3(successful_reprojection_errors) << "] (normalized)" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(successful_reprojection_errors) << ", P10=" << p10(successful_reprojection_errors) 
+                      << ", P90=" << p90(successful_reprojection_errors) << ", P95=" << p95(successful_reprojection_errors) << " (normalized)" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_reprojection_errors.begin(), successful_reprojection_errors.end()) 
+                      << ", " << *std::max_element(successful_reprojection_errors.begin(), successful_reprojection_errors.end()) << "] (normalized)" << std::endl;
+            
+            // Combined Error Statistics
+            std::cout << "  \nCombined Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(successful_combined_errors) << " ± " << stddev(successful_combined_errors) << " degrees (max of rot and trans direction)" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(successful_combined_errors) 
+                      << " [" << q1(successful_combined_errors) << ", " << q3(successful_combined_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(successful_combined_errors) << ", P10=" << p10(successful_combined_errors) 
+                      << ", P90=" << p90(successful_combined_errors) << ", P95=" << p95(successful_combined_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_combined_errors.begin(), successful_combined_errors.end()) 
+                      << ", " << *std::max_element(successful_combined_errors.begin(), successful_combined_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(successful_combined_errors) << "/" << successful_combined_errors.size() 
+                      << " (" << (100.0 * count_zeros(successful_combined_errors) / successful_combined_errors.size()) << "%)" << std::endl;
+            
+            std::cout << "  \nSolution Statistics:" << std::endl;
             std::cout << "    Average solutions per problem: " 
                       << (float(total_solutions_found) / successful_solves) << std::endl;
             std::cout << "    Problems with multiple solutions: " << problems_with_multiple_solutions 
                       << " (" << (100.0 * problems_with_multiple_solutions / successful_solves) << "%)" << std::endl;
+        }
+        
+        // NEW: All-solutions statistics (complete performance picture)
+        if (!all_rotation_errors.empty()) {
+            std::cout << "  \n=== ALL SOLUTIONS (complete performance) ===" << std::endl;
+            
+            // Rotation Error Statistics
+            std::cout << "  Rotation Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(all_rotation_errors) << " ± " << stddev(all_rotation_errors) << " degrees" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(all_rotation_errors) 
+                      << " [" << q1(all_rotation_errors) << ", " << q3(all_rotation_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(all_rotation_errors) << ", P10=" << p10(all_rotation_errors) 
+                      << ", P90=" << p90(all_rotation_errors) << ", P95=" << p95(all_rotation_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(all_rotation_errors.begin(), all_rotation_errors.end()) 
+                      << ", " << *std::max_element(all_rotation_errors.begin(), all_rotation_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(all_rotation_errors) << "/" << all_rotation_errors.size() 
+                      << " (" << (100.0 * count_zeros(all_rotation_errors) / all_rotation_errors.size()) << "%)" << std::endl;
+            
+            // Translation Direction Error Statistics
+            std::cout << "  \nTranslation Direction Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(all_translation_errors) << " ± " << stddev(all_translation_errors) << " degrees" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(all_translation_errors) 
+                      << " [" << q1(all_translation_errors) << ", " << q3(all_translation_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(all_translation_errors) << ", P10=" << p10(all_translation_errors) 
+                      << ", P90=" << p90(all_translation_errors) << ", P95=" << p95(all_translation_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(all_translation_errors.begin(), all_translation_errors.end()) 
+                      << ", " << *std::max_element(all_translation_errors.begin(), all_translation_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(all_translation_errors) << "/" << all_translation_errors.size() 
+                      << " (" << (100.0 * count_zeros(all_translation_errors) / all_translation_errors.size()) << "%)" << std::endl;
+            
+            // Reprojection Error Statistics
+            std::cout << "  \nReprojection Error Statistics (Sampson distance):" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(all_reprojection_errors) << " ± " << stddev(all_reprojection_errors) << " (normalized)" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(all_reprojection_errors) 
+                      << " [" << q1(all_reprojection_errors) << ", " << q3(all_reprojection_errors) << "] (normalized)" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(all_reprojection_errors) << ", P10=" << p10(all_reprojection_errors) 
+                      << ", P90=" << p90(all_reprojection_errors) << ", P95=" << p95(all_reprojection_errors) << " (normalized)" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(all_reprojection_errors.begin(), all_reprojection_errors.end()) 
+                      << ", " << *std::max_element(all_reprojection_errors.begin(), all_reprojection_errors.end()) << "] (normalized)" << std::endl;
+            
+            // Combined Error Statistics
+            std::cout << "  \nCombined Error Statistics:" << std::endl;
+            std::cout << "    Traditional: Mean ± Std Dev: " << mean(all_combined_errors) << " ± " << stddev(all_combined_errors) << " degrees (max of rot and trans direction)" << std::endl;
+            std::cout << "    Robust: Median [Q1, Q3]: " << median(all_combined_errors) 
+                      << " [" << q1(all_combined_errors) << ", " << q3(all_combined_errors) << "] degrees" << std::endl;
+            std::cout << "    Percentiles: P5=" << p5(all_combined_errors) << ", P10=" << p10(all_combined_errors) 
+                      << ", P90=" << p90(all_combined_errors) << ", P95=" << p95(all_combined_errors) << " degrees" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(all_combined_errors.begin(), all_combined_errors.end()) 
+                      << ", " << *std::max_element(all_combined_errors.begin(), all_combined_errors.end()) << "] degrees" << std::endl;
+            std::cout << "    Zero values: " << count_zeros(all_combined_errors) << "/" << all_combined_errors.size() 
+                      << " (" << (100.0 * count_zeros(all_combined_errors) / all_combined_errors.size()) << "%)" << std::endl;
         }
         std::cout << "================================" << std::endl;
     }
@@ -362,7 +577,9 @@ std::string make_csv_line_relative_pose(
     return oss.str();
 }
 
-// Unified data generation with pixel noise for fair comparison
+// Generate unified relative pose data with realistic camera model and degeneracy checks
+// N can be 0 (dynamic) or >0 (fixed size)
+// noise_level: standard deviation of Gaussian pixel noise added to image coordinates
 template<typename Scalar, size_t N>
 void generate_unified_relpose_data(
     EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x1_bear,
@@ -374,130 +591,234 @@ void generate_unified_relpose_data(
     bool upright_only = false,
     bool planar_only = false)
 {
+    using Vec2 = Eigen::Matrix<Scalar,2,1>;
     using Vec3 = Eigen::Matrix<Scalar,3,1>;
     using Quaternion = Eigen::Quaternion<Scalar>;
     
-    // Use different seed for each problem to avoid problematic poses
+    // Use different seed for each problem
     std::default_random_engine rng(42 + problem_id);
-    
-    // Set random true pose
-    if (upright_only) {
-        // Set random upright pose (only y-axis rotation)
-        Scalar yaw = static_cast<Scalar>(rand()) / RAND_MAX * 2 * M_PI;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        if (planar_only) {
-            // Planar motion: only x and z translation
-            true_pose.t = Vec3(
-                static_cast<Scalar>(rand()) / RAND_MAX * 4 - 2,  // x: [-2, 2]
-                0,  // y: 0 (planar)
-                static_cast<Scalar>(rand()) / RAND_MAX * 4 - 2   // z: [-2, 2]
-            );
-        } else {
-            true_pose.t.setRandom();
-            true_pose.t *= Scalar(2.0);
-        }
-    } else {
-        // General pose
-        true_pose.q = Quaternion::UnitRandom().coeffs();
-        true_pose.t.setRandom();
-        true_pose.t *= Scalar(2.0); // Scale translation
-    }
-    
     std::uniform_real_distribution<Scalar> coord_gen(-1.0, 1.0);
     std::uniform_real_distribution<Scalar> depth_gen(1.0, 5.0);
-    std::normal_distribution<Scalar> noise_gen(0.0, noise_level);
+    std::normal_distribution<Scalar> pixel_noise_gen(0.0, noise_level);  // PIXEL noise, not radians!
     
-    if constexpr (N == 0) {
-        x1_bear.clear();
-        x2_bear.clear();
-        x1_bear.reserve(num_points);
-        x2_bear.reserve(num_points);
-    }
+    // Add proper nested retry logic like abs-pose
+    int max_pose_attempts = 100;  // Try different poses
+    int max_point_attempts = 1000; // Try generating points for each pose
     
-    size_t valid_points = 0;
-    while (valid_points < num_points) {
-        Vec3 X, x1_cam, x2_cam;
-        
-        // Add safety counter to prevent infinite loops (same as working version)
-        int attempts = 0;
-        const int max_attempts = 10000;
-        while (true) {
-            // Generate 3D point
-            X = Vec3(coord_gen(rng), coord_gen(rng), depth_gen(rng));
+    for (int pose_attempt = 0; pose_attempt < max_pose_attempts; ++pose_attempt) {
+        // FIXED: Generate controlled realistic poses (not pathological random poses)
+        if (upright_only) {
+            // Controlled yaw rotation like realistic mode (not random 0-360°)
+            Scalar yaw_deg = 15.0 * coord_gen(rng);  // ±16° controlled rotation
+            Scalar yaw_rad = yaw_deg * M_PI / 180.0;
+            Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
+            true_pose.q(0) = q.w();
+            true_pose.q(1) = q.x();
+            true_pose.q(2) = q.y();
+            true_pose.q(3) = q.z();
             
-            // Project to first camera (identity)
-            x1_cam = X;
-            // Project to second camera
-            x2_cam = true_pose.R() * X + true_pose.t;
-            
-            if (x1_cam(2) > Scalar(0.1) && x2_cam(2) > Scalar(0.1)) break; // Accept only if in front of both cameras
-            
-            ++attempts;
-            if (attempts >= max_attempts) {
-                std::cout << "    Warning: Could not find point in front of both cameras after " << max_attempts << " attempts for problem " << problem_id << std::endl;
-                std::cout << "    Regenerating pose..." << std::endl;
-                // Regenerate pose and try again (same as working version)
-                if (upright_only) {
-                    Scalar yaw = static_cast<Scalar>(rand()) / RAND_MAX * 2 * M_PI;
-                    Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw, Vec3::UnitY()));
-                    true_pose.q(0) = q.w();
-                    true_pose.q(1) = q.x();
-                    true_pose.q(2) = q.y();
-                    true_pose.q(3) = q.z();
-                    
-                    if (planar_only) {
-                        true_pose.t = Vec3(
-                            static_cast<Scalar>(rand()) / RAND_MAX * 4 - 2,  // x: [-2, 2]
-                            0,  // y: 0 (planar)
-                            static_cast<Scalar>(rand()) / RAND_MAX * 4 - 2   // z: [-2, 2]
-                        );
-                    } else {
-                        true_pose.t.setRandom();
-                        true_pose.t *= Scalar(2.0);
-                    }
-                } else {
-                    true_pose.q = Quaternion::UnitRandom().coeffs();
-                    true_pose.t.setRandom();
-                    true_pose.t *= Scalar(2.0);
-                }
-                attempts = 0;
+            if (planar_only) {
+                // Controlled baseline in XZ plane with fixed magnitude
+                Scalar tx = coord_gen(rng);  // ±1 normalized direction
+                Scalar tz = coord_gen(rng);
+                Vec3 t_dir = Vec3(tx, 0, tz).normalized();
+                true_pose.t = t_dir;  // Fixed baseline magnitude = 1.0
+            } else {
+                // Controlled 3D translation with fixed magnitude
+                Vec3 t_dir = Vec3::Random().normalized();
+                true_pose.t = t_dir;  // Fixed baseline magnitude = 1.0
             }
-        }
-        
-        // Bearing vectors (unit vectors in camera frames)
-        Vec3 f1 = x1_cam.normalized();
-        Vec3 f2 = x2_cam.normalized();
-        
-        // Add noise in tangent space (small angle approx)
-        if (noise_level > Scalar(0.0)) {
-            // Add noise to f1
-            Vec3 n1 = Vec3::Random().normalized();
-            n1 -= n1.dot(f1) * f1;
-            n1.normalize();
-            Vec3 n2 = f1.cross(n1).normalized();
-            Scalar theta = noise_gen(rng);
-            Scalar phi = noise_gen(rng);
-            f1 = (f1 + theta * n1 + phi * n2).normalized();
+        } else {
+            // FIXED: Controlled 6-DoF pose (not completely random)
+            // Rotation: controlled magnitude around random axis (like realistic mode)
+            Vec3 rot_axis = Vec3::Random().normalized();
+            Scalar rot_angle_deg = 16.0 * coord_gen(rng);  // ±16° controlled rotation
+            Scalar rot_angle_rad = rot_angle_deg * M_PI / 180.0;
+            Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(rot_angle_rad, rot_axis));
+            true_pose.q(0) = q.w();
+            true_pose.q(1) = q.x();
+            true_pose.q(2) = q.y();
+            true_pose.q(3) = q.z();
             
-            // Add noise to f2
-            n1 = Vec3::Random().normalized();
-            n1 -= n1.dot(f2) * f2;
-            n1.normalize();
-            n2 = f2.cross(n1).normalized();
-            theta = noise_gen(rng);
-            phi = noise_gen(rng);
-            f2 = (f2 + theta * n1 + phi * n2).normalized();
+            // Translation: fixed baseline magnitude (not random [0-4])
+            Vec3 t_dir = Vec3::Random().normalized();
+            true_pose.t = t_dir;  // Fixed baseline magnitude = 1.0
         }
         
-        x1_bear.push_back(f1);
-        x2_bear.push_back(f2);
-        ++valid_points;
-    }
+        // Try to generate points with this pose using degeneracy checks
+        for (int point_attempt = 0; point_attempt < max_point_attempts; ++point_attempt) {
+            // Clear containers for this attempt
+            if constexpr (N == 0) {
+                x1_bear.clear();
+                x2_bear.clear();
+                x1_bear.reserve(num_points);
+                x2_bear.reserve(num_points);
+            } else {
+                x1_bear.clear();
+                x2_bear.clear();
+            }
+            
+            // Temporary storage for degeneracy checks
+            std::vector<Vec3> points3D_temp;
+            std::vector<Vec2> points2D_cam1_temp, points2D_cam2_temp;
+            points3D_temp.reserve(num_points);
+            points2D_cam1_temp.reserve(num_points);
+            points2D_cam2_temp.reserve(num_points);
+            
+            // Generate points
+            size_t valid_points = 0;
+            int safety_counter = 0;
+            const int max_safety = 10000;
+            
+            while (valid_points < num_points && safety_counter < max_safety) {
+                Vec3 X = Vec3(coord_gen(rng), coord_gen(rng), depth_gen(rng));
+                Vec3 x1_cam = X;
+                Vec3 x2_cam = true_pose.R() * X + true_pose.t;
+                
+                if (x1_cam(2) > Scalar(0.1) && x2_cam(2) > Scalar(0.1)) {
+                    points3D_temp.push_back(X);
+                    points2D_cam1_temp.push_back(Vec2(x1_cam(0) / x1_cam(2), x1_cam(1) / x1_cam(2)));
+                    points2D_cam2_temp.push_back(Vec2(x2_cam(0) / x2_cam(2), x2_cam(1) / x2_cam(2)));
+                    
+                    // FIXED: Use proper image point projection and pixel noise (like abs-pose)
+                    const Scalar focal_length = Scalar(500.0);
+                    
+                    // Project to image coordinates (pinhole camera model)
+                    Vec2 x1_img(focal_length * x1_cam(0) / x1_cam(2), focal_length * x1_cam(1) / x1_cam(2));
+                    Vec2 x2_img(focal_length * x2_cam(0) / x2_cam(2), focal_length * x2_cam(1) / x2_cam(2));
+                    
+                    // Add pixel noise (NOT tangent space noise!)
+                    if (noise_level > Scalar(0.0)) {
+                        std::normal_distribution<Scalar> pixel_noise_gen(0.0, noise_level * focal_length);
+                        x1_img(0) += pixel_noise_gen(rng);
+                        x1_img(1) += pixel_noise_gen(rng);
+                        x2_img(0) += pixel_noise_gen(rng);
+                        x2_img(1) += pixel_noise_gen(rng);
+                    }
+                    
+                    // Convert back to bearing vectors
+                    Vec3 f1 = Vec3(x1_img(0) / focal_length, x1_img(1) / focal_length, Scalar(1.0)).normalized();
+                    Vec3 f2 = Vec3(x2_img(0) / focal_length, x2_img(1) / focal_length, Scalar(1.0)).normalized();
+                    
+                    // Degeneracy checks (like abs-pose)
+                    Scalar dot_product = std::abs(f1.dot(f2));
+                    if (dot_product > Scalar(0.999)) {  // Skip near-parallel rays
+                        continue;
+                    }
+                    
+                    x1_bear.push_back(f1);
+                    x2_bear.push_back(f2);
+                    ++valid_points;
+                }
+                safety_counter++;
+            }
+            
+            if (safety_counter >= max_safety) continue; // Try again with same pose
+            
+            // DEGENERACY CHECKS
+            bool is_degenerate = false;
+            
+            // Check 1: Collinearity test for 3D points
+            if (num_points >= 3) {
+                Vec3 v1 = points3D_temp[1] - points3D_temp[0];
+                Vec3 v2 = points3D_temp[2] - points3D_temp[0];
+                Vec3 cross = v1.cross(v2);
+                if (cross.norm() < Scalar(1e-6)) {
+                    is_degenerate = true;
+                }
+            }
+            
+            // Check 2: Coplanarity test for 4+ points
+            if (num_points >= 4 && !is_degenerate) {
+                Vec3 v1 = points3D_temp[1] - points3D_temp[0];
+                Vec3 v2 = points3D_temp[2] - points3D_temp[0];
+                Vec3 v3 = points3D_temp[3] - points3D_temp[0];
+                Vec3 normal = v1.cross(v2);
+                if (normal.norm() > Scalar(1e-8)) {
+                    Scalar distance = std::abs(normal.dot(v3)) / normal.norm();
+                    if (distance < Scalar(1e-4)) {
+                        is_degenerate = true;
+                    }
+                }
+            }
+            
+            // Check 3: Depth variation test
+            if (!is_degenerate) {
+                Scalar min_depth1 = std::numeric_limits<Scalar>::max();
+                Scalar max_depth1 = std::numeric_limits<Scalar>::lowest();
+                Scalar min_depth2 = std::numeric_limits<Scalar>::max();
+                Scalar max_depth2 = std::numeric_limits<Scalar>::lowest();
+                
+                for (size_t i = 0; i < num_points; ++i) {
+                    Vec3 x1_cam = points3D_temp[i];
+                    Vec3 x2_cam = true_pose.R() * points3D_temp[i] + true_pose.t;
+                    
+                    min_depth1 = std::min(min_depth1, x1_cam(2));
+                    max_depth1 = std::max(max_depth1, x1_cam(2));
+                    min_depth2 = std::min(min_depth2, x2_cam(2));
+                    max_depth2 = std::max(max_depth2, x2_cam(2));
+                }
+                
+                Scalar depth_ratio1 = max_depth1 / min_depth1;
+                Scalar depth_ratio2 = max_depth2 / min_depth2;
+                if (depth_ratio1 < Scalar(1.5) || depth_ratio2 < Scalar(1.5)) {
+                    is_degenerate = true;
+                }
+            }
+            
+            // Check 4: 2D point spread test
+            if (!is_degenerate) {
+                Scalar min_x1 = std::numeric_limits<Scalar>::max(), max_x1 = std::numeric_limits<Scalar>::lowest();
+                Scalar min_y1 = std::numeric_limits<Scalar>::max(), max_y1 = std::numeric_limits<Scalar>::lowest();
+                Scalar min_x2 = std::numeric_limits<Scalar>::max(), max_x2 = std::numeric_limits<Scalar>::lowest();
+                Scalar min_y2 = std::numeric_limits<Scalar>::max(), max_y2 = std::numeric_limits<Scalar>::lowest();
+                
+                for (size_t i = 0; i < num_points; ++i) {
+                    min_x1 = std::min(min_x1, points2D_cam1_temp[i](0));
+                    max_x1 = std::max(max_x1, points2D_cam1_temp[i](0));
+                    min_y1 = std::min(min_y1, points2D_cam1_temp[i](1));
+                    max_y1 = std::max(max_y1, points2D_cam1_temp[i](1));
+                    
+                    min_x2 = std::min(min_x2, points2D_cam2_temp[i](0));
+                    max_x2 = std::max(max_x2, points2D_cam2_temp[i](0));
+                    min_y2 = std::min(min_y2, points2D_cam2_temp[i](1));
+                    max_y2 = std::max(max_y2, points2D_cam2_temp[i](1));
+                }
+                
+                Scalar x_spread1 = max_x1 - min_x1, y_spread1 = max_y1 - min_y1;
+                Scalar x_spread2 = max_x2 - min_x2, y_spread2 = max_y2 - min_y2;
+                
+                if (x_spread1 < Scalar(0.5) || y_spread1 < Scalar(0.5) || 
+                    x_spread2 < Scalar(0.5) || y_spread2 < Scalar(0.5)) {
+                    is_degenerate = true;
+                }
+            }
+            
+            // Check 5: Baseline and rotation magnitude
+            if (!is_degenerate) {
+                Scalar baseline_length = true_pose.t.norm();
+                if (baseline_length < Scalar(0.1)) {
+                    is_degenerate = true;
+                }
+                
+                Scalar trace_val = true_pose.R().trace();
+                Scalar angle_rad = std::acos(std::clamp((trace_val - 1.0) / 2.0, -1.0, 1.0));
+                Scalar angle_deg = angle_rad * 180.0 / M_PI;
+                if (angle_deg < Scalar(2.0)) {
+                    is_degenerate = true;
+                }
+            }
+            
+            if (!is_degenerate) {
+                return; // SUCCESS! We found good data
+            }
+        } // end point_attempts loop
+    } // end pose_attempts loop
+    
+    // If we get here, we couldn't generate a good configuration - REJECT this experiment
+    std::cerr << "ERROR: Could not generate well-conditioned relative pose data after " << max_pose_attempts 
+              << " pose attempts for problem " << problem_id << ". This experiment should be discarded!" << std::endl;
+    throw std::runtime_error("Failed to generate valid relative pose data - experiment should be discarded");
 }
 
 // Realistic data generation based on research paper methodology
@@ -527,8 +848,26 @@ void generate_realistic_relpose_data(
     
     // Generate controlled pose (similar to paper methodology)
     if (upright_only) {
-        // Upright pose: only y-axis rotation with controlled magnitude
-        Scalar yaw_deg = rotation_magnitude_deg * uniform_gen(rng); // ±rotation_magnitude
+        // ROBOTICS: More realistic yaw rotation variation
+        // Mix small challenging rotations with larger easier ones
+        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
+        Scalar rot_selector = rot_scenario(rng);
+        
+        Scalar yaw_deg;
+        if (rot_selector < 0.3) {
+            // Small challenging rotations: ±2°
+            std::uniform_real_distribution<Scalar> small_rot(-2.0, 2.0);
+            yaw_deg = small_rot(rng);
+        } else if (rot_selector < 0.7) {
+            // Medium typical rotations: ±10°  
+            std::uniform_real_distribution<Scalar> medium_rot(-10.0, 10.0);
+            yaw_deg = medium_rot(rng);
+        } else {
+            // Large easier rotations: ±45°
+            std::uniform_real_distribution<Scalar> large_rot(-45.0, 45.0);
+            yaw_deg = large_rot(rng);
+        }
+        
         Scalar yaw_rad = yaw_deg * M_PI / 180.0;
         Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
         true_pose.q(0) = q.w();
@@ -537,20 +876,50 @@ void generate_realistic_relpose_data(
         true_pose.q(3) = q.z();
         
         if (planar_only) {
-            // Planar motion: controlled baseline in XZ plane
-            Scalar tx = baseline_magnitude * uniform_gen(rng);
-            Scalar tz = baseline_magnitude * uniform_gen(rng);
-            true_pose.t = Vec3(tx, 0, tz);
+            // ROBOTICS: Realistic baseline variation for planar motion
+            // Generate baselines from 5cm to 5m to cover robotics scenarios:
+            // - 5-20cm: Close-up manipulation, very challenging
+            // - 20cm-1m: Typical robot arm/mobile robot motion  
+            // - 1-5m: Larger robot motion, easier for algorithms
+            std::uniform_real_distribution<Scalar> baseline_gen(0.05, 5.0);  // 5cm to 5m
+            Scalar baseline_length = baseline_gen(rng);
+            
+            // Random direction in XZ plane
+            Scalar tx = uniform_gen(rng);  // ±1 normalized direction
+            Scalar tz = uniform_gen(rng);
+            Vec3 t_dir = Vec3(tx, 0, tz).normalized();
+            true_pose.t = baseline_length * t_dir;
         } else {
-            // Controlled 3D translation with fixed magnitude
+            // ROBOTICS: Realistic 3D baseline variation
+            std::uniform_real_distribution<Scalar> baseline_gen(0.05, 5.0);  // 5cm to 5m
+            Scalar baseline_length = baseline_gen(rng);
+            
             Vec3 t_dir = Vec3::Random().normalized();
-            true_pose.t = baseline_magnitude * t_dir;
+            true_pose.t = baseline_length * t_dir;
         }
     } else {
-        // General 6-DoF pose with controlled magnitudes
+        // ROBOTICS: More realistic 6-DoF rotation variation
+        // Mix small challenging rotations with larger easier ones
+        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
+        Scalar rot_selector = rot_scenario(rng);
+        
         // Rotation: controlled magnitude around random axis
         Vec3 rot_axis = Vec3::Random().normalized();
-        Scalar rot_angle_deg = rotation_magnitude_deg * uniform_gen(rng);
+        Scalar rot_angle_deg;
+        if (rot_selector < 0.3) {
+            // Small challenging rotations: ±2°
+            std::uniform_real_distribution<Scalar> small_rot(-2.0, 2.0);
+            rot_angle_deg = small_rot(rng);
+        } else if (rot_selector < 0.7) {
+            // Medium typical rotations: ±15°  
+            std::uniform_real_distribution<Scalar> medium_rot(-15.0, 15.0);
+            rot_angle_deg = medium_rot(rng);
+        } else {
+            // Large easier rotations: ±60°
+            std::uniform_real_distribution<Scalar> large_rot(-60.0, 60.0);
+            rot_angle_deg = large_rot(rng);
+        }
+        
         Scalar rot_angle_rad = rot_angle_deg * M_PI / 180.0;
         Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(rot_angle_rad, rot_axis));
         true_pose.q(0) = q.w();
@@ -558,9 +927,12 @@ void generate_realistic_relpose_data(
         true_pose.q(2) = q.y();
         true_pose.q(3) = q.z();
         
-        // Translation: fixed baseline magnitude
+        // ROBOTICS: Realistic 3D baseline variation (same as above)
+        std::uniform_real_distribution<Scalar> baseline_gen(0.05, 5.0);  // 5cm to 5m  
+        Scalar baseline_length = baseline_gen(rng);
+        
         Vec3 t_dir = Vec3::Random().normalized();
-        true_pose.t = baseline_magnitude * t_dir;
+        true_pose.t = baseline_length * t_dir;
     }
     
     if constexpr (N == 0) {
@@ -577,12 +949,28 @@ void generate_realistic_relpose_data(
     while (valid_points < num_points && safety_counter < max_safety_attempts) {
         safety_counter++;
         
-        // Generate 3D point in realistic world coordinates
-        Vec3 X = Vec3(
-            uniform_gen(rng) * 5.0,  // ±5m world coordinates
-            uniform_gen(rng) * 5.0,
-            depth_gen(rng)           // 2-10m depth
-        );
+        // ROBOTICS: More realistic world coordinates and depth variation
+        // Mix of scenarios: close manipulation (0.2-2m), mid-range (1-10m), far-field (5-50m)
+        std::uniform_real_distribution<Scalar> scenario_selector(0.0, 1.0);
+        Scalar scenario = scenario_selector(rng);
+        
+        Vec3 X;
+        if (scenario < 0.4) {
+            // Close manipulation: 0.2-2m depth, tight lateral spread (challenging)
+            std::uniform_real_distribution<Scalar> close_lateral(-0.5, 0.5);  // ±50cm
+            std::uniform_real_distribution<Scalar> close_depth(0.2, 2.0);     // 20cm-2m
+            X = Vec3(close_lateral(rng), close_lateral(rng), close_depth(rng));
+        } else if (scenario < 0.8) {
+            // Mid-range robotics: 1-10m depth, moderate spread (typical)
+            std::uniform_real_distribution<Scalar> mid_lateral(-2.0, 2.0);    // ±2m  
+            std::uniform_real_distribution<Scalar> mid_depth(1.0, 10.0);      // 1-10m
+            X = Vec3(mid_lateral(rng), mid_lateral(rng), mid_depth(rng));
+        } else {
+            // Far-field navigation: 5-50m depth, wide spread (easier)
+            std::uniform_real_distribution<Scalar> far_lateral(-10.0, 10.0);  // ±10m
+            std::uniform_real_distribution<Scalar> far_depth(5.0, 50.0);      // 5-50m  
+            X = Vec3(far_lateral(rng), far_lateral(rng), far_depth(rng));
+        }
         
         // Project to first camera (identity pose)
         Vec3 x1_cam = X;
@@ -629,13 +1017,13 @@ auto make_8pt_solver() {
               const EntoContainer<Vec3<Scalar>, N>& x2,
               std::vector<CameraPose<Scalar>>* solutions) -> int {
         // Use first 8 points for 8pt solver
-        EntoContainer<Vec3<Scalar>, 0> x1_8pt, x2_8pt;
-        for (int j = 0; j < 8; ++j) {
+        EntoContainer<Vec3<Scalar>, N> x1_8pt, x2_8pt;
+        for (size_t j = 0; j < N; ++j) {
             x1_8pt.push_back(x1[j]);
             x2_8pt.push_back(x2[j]);
         }
         
-        return SolverRel8pt<Scalar>::solve(x1_8pt, x2_8pt, solutions);
+        return SolverRel8pt<Scalar>::template solve<N>(x1_8pt, x2_8pt, solutions);
     };
 }
 
@@ -646,7 +1034,7 @@ auto make_5pt_solver() {
               std::vector<CameraPose<Scalar>>* solutions) -> int {
         // Use first 5 points for 5pt solver
         EntoContainer<Vec3<Scalar>, 5> x1_5pt, x2_5pt;
-        for (int j = 0; j < 5; ++j) {
+        for (size_t j = 0; j < 5; ++j) {
             x1_5pt.push_back(x1[j]);
             x2_5pt.push_back(x2[j]);
         }
@@ -670,14 +1058,14 @@ auto make_upright_3pt_solver() {
               const EntoContainer<Vec3<Scalar>, N>& x2,
               std::vector<CameraPose<Scalar>>* solutions) -> int {
         // Use first 3 points for upright 3pt solver
-        EntoContainer<Vec3<Scalar>, 3> x1_3pt, x2_3pt;
-        for (int j = 0; j < 3; ++j) {
+        EntoContainer<Vec3<Scalar>, N> x1_3pt, x2_3pt;
+        for (size_t j = 0; j < N; ++j) {
             x1_3pt.push_back(x1[j]);
             x2_3pt.push_back(x2[j]);
         }
         
         EntoUtil::EntoArray<CameraPose<Scalar>, 4> solutions_array;
-        int num_solutions = SolverRelUpright3pt<Scalar>::template solve<3>(x1_3pt, x2_3pt, &solutions_array);
+        int num_solutions = SolverRelUpright3pt<Scalar>::template solve<N>(x1_3pt, x2_3pt, &solutions_array);
         
         // Convert to vector
         solutions->clear();
@@ -695,14 +1083,14 @@ auto make_upright_planar_3pt_solver() {
               const EntoContainer<Vec3<Scalar>, N>& x2,
               std::vector<CameraPose<Scalar>>* solutions) -> int {
         // Use first 3 points for upright planar 3pt solver
-        EntoContainer<Vec3<Scalar>, 3> x1_3pt, x2_3pt;
-        for (int j = 0; j < 3; ++j) {
+        EntoContainer<Vec3<Scalar>, N> x1_3pt, x2_3pt;
+        for (size_t j = 0; j < N; ++j) {
             x1_3pt.push_back(x1[j]);
             x2_3pt.push_back(x2[j]);
         }
         
         EntoUtil::EntoArray<CameraPose<Scalar>, 2> solutions_array;
-        int num_solutions = SolverRelUprightPlanar3pt<Scalar>::template solve<3>(x1_3pt, x2_3pt, &solutions_array);
+        int num_solutions = SolverRelUprightPlanar3pt<Scalar>::template solve<N>(x1_3pt, x2_3pt, &solutions_array);
         
         // Convert to vector
         solutions->clear();
@@ -721,7 +1109,7 @@ auto make_upright_planar_2pt_solver() {
               std::vector<CameraPose<Scalar>>* solutions) -> int {
         // Use first 2 points for upright planar 2pt solver
         EntoContainer<Vec3<Scalar>, 2> x1_2pt, x2_2pt;
-        for (int j = 0; j < 2; ++j) {
+        for (size_t j = 0; j < 2; ++j) {
             x1_2pt.push_back(x1[j]);
             x2_2pt.push_back(x2[j]);
         }
@@ -805,9 +1193,9 @@ void generate_solver_data_for_noise_level(
         
         if (num_solutions > 0) {
             // Find best solution (closest to ground truth)
-            PoseErrors<Scalar> best_error = compute_pose_error(true_pose, solutions[0]);
+            PoseErrors<Scalar> best_error = compute_pose_errors<Scalar, N>(true_pose, solutions[0], x1_bear, x2_bear);
             for (size_t s = 1; s < solutions.size(); ++s) {
-                PoseErrors<Scalar> error = compute_pose_error(true_pose, solutions[s]);
+                PoseErrors<Scalar> error = compute_pose_errors<Scalar, N>(true_pose, solutions[s], x1_bear, x2_bear);
                 if (error.max_error() < best_error.max_error()) {
                     best_error = error;
                 }
@@ -830,7 +1218,7 @@ void generate_solver_data_for_noise_level(
                           << "°, trans:" << best_error.translation_error_deg 
                           << "°), Solutions: " << num_solutions << std::endl;
             } else {
-                stats.add_failure();
+                stats.add_failure_with_solution(best_error);
                 std::cout << "      " << solver_name << " solution too inaccurate: " 
                           << best_error.max_error() << "°" << std::endl;
             }
@@ -851,8 +1239,8 @@ void generate_solver_data_for_noise_level(
     
     // Print statistics for this noise level
     std::string stats_name = solver_name + " (noise=" + std::to_string(noise_level) + 
-                            (opts.use_realistic_generation ? " pixels)" : " radians)");
-    stats.print_stats(stats_name);
+                             " pixels)";
+    stats.print_stats(stats_name, noise_level);
 }
 
 // Generic function to generate data for any solver across all noise levels (parameterized)
