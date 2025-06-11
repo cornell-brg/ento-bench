@@ -1,6 +1,7 @@
 import argparse as ap
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
 import ahrs
 import matplotlib.pyplot as plt
 from itertools import product
@@ -81,16 +82,67 @@ def plot_euler_errors(gt_quats, Q_madgwick, Q_mahony, Q_fourati, time):
     plt.tight_layout()
     plt.show()
 
+def print_sensor_ranges(gyros, accels, mags):
+    """Print sensor value ranges in the format matching real robot data analysis"""
+    
+    # Convert magnetometer from nT to µT for analysis
+    mags_ut = mags / 1000.0
+    
+    print("\n=== SENSOR VALUE RANGES ===")
+    print("Format: ax, ay, az, gx, gy, gz, mx, my, mz")
+    print("Units: accel=m/s², gyro=rad/s, mag=µT")
+    print()
+    
+    # Print minimums
+    min_vals = [
+        accels[:, 0].min(), accels[:, 1].min(), accels[:, 2].min(),  # accel x,y,z
+        gyros[:, 0].min(), gyros[:, 1].min(), gyros[:, 2].min(),     # gyro x,y,z
+        mags_ut[:, 0].min(), mags_ut[:, 1].min(), mags_ut[:, 2].min() # mag x,y,z
+    ]
+    
+    # Print maximums
+    max_vals = [
+        accels[:, 0].max(), accels[:, 1].max(), accels[:, 2].max(),  # accel x,y,z
+        gyros[:, 0].max(), gyros[:, 1].max(), gyros[:, 2].max(),     # gyro x,y,z
+        mags_ut[:, 0].max(), mags_ut[:, 1].max(), mags_ut[:, 2].max() # mag x,y,z
+    ]
+    
+    print("Minimums:")
+    print("\t".join([f"{val:.6f}" for val in min_vals]))
+    print("Maximums:")
+    print("\t".join([f"{val:.6f}" for val in max_vals]))
+    
+    print("\nIndividual sensor ranges:")
+    print(f"Accelerometer X: [{accels[:, 0].min():.6f}, {accels[:, 0].max():.6f}] m/s²")
+    print(f"Accelerometer Y: [{accels[:, 1].min():.6f}, {accels[:, 1].max():.6f}] m/s²")
+    print(f"Accelerometer Z: [{accels[:, 2].min():.6f}, {accels[:, 2].max():.6f}] m/s²")
+    print(f"Gyroscope X:     [{gyros[:, 0].min():.6f}, {gyros[:, 0].max():.6f}] rad/s")
+    print(f"Gyroscope Y:     [{gyros[:, 1].min():.6f}, {gyros[:, 1].max():.6f}] rad/s")
+    print(f"Gyroscope Z:     [{gyros[:, 2].min():.6f}, {gyros[:, 2].max():.6f}] rad/s")
+    print(f"Magnetometer X:  [{mags_ut[:, 0].min():.6f}, {mags_ut[:, 0].max():.6f}] µT")
+    print(f"Magnetometer Y:  [{mags_ut[:, 1].min():.6f}, {mags_ut[:, 1].max():.6f}] µT")
+    print(f"Magnetometer Z:  [{mags_ut[:, 2].min():.6f}, {mags_ut[:, 2].max():.6f}] µT")
+    
+    # Calculate and print ranges (max - min)
+    print("\nValue ranges (max - min):")
+    print(f"Accelerometer: [{accels.max() - accels.min():.6f}] m/s² span")
+    print(f"Gyroscope:     [{gyros.max() - gyros.min():.6f}] rad/s span")
+    print(f"Magnetometer:  [{mags_ut.max() - mags_ut.min():.6f}] µT span")
+
 def save_quaternions(filename, time, quats):
     data = np.column_stack((time, quats))
-    header = "timestamp,qw,qx,qy,qz"
-    np.savetxt(filename, data, delimiter=",", header=header, comments="")
+    header = "Attitude Estimation Problem\ntimestamp,qw,qx,qy,qz"
+    # Use fixed decimal notation, not scientific
+    np.savetxt(filename, data, delimiter=",", header=header, comments="", fmt='%.6f')
 
 def save_sensor_data(filename, time, gyros, accels, mags):
-    # Keep magnetometer in µT - our C++ algorithms expect µT, not nT
-    data = np.hstack((time[:, None], gyros, accels, mags))  # Use original magnetometer data in µT
-    header = "timestamp,gyr_x,gyr_y,gyr_z,acc_x,acc_y,acc_z,mag_x,mag_y,mag_z"
-    np.savetxt(filename, data, delimiter=",", header=header, comments="")
+    # Convert magnetometer from nT (AHRS output) to µT (C++ algorithms expect µT)
+    # 1 µT = 1000 nT, so divide by 1000
+    mags_ut = mags / 1000.0  # Convert from nT to µT
+    data = np.hstack((time[:, None], gyros, accels, mags_ut))
+    header = "Attitude Estimation Problem\ntimestamp,gyr_x,gyr_y,gyr_z,acc_x,acc_y,acc_z,mag_x,mag_y,mag_z"
+    # Use fixed decimal notation, not scientific
+    np.savetxt(filename, data, delimiter=",", header=header, comments="", fmt='%.6f')
 
 def main():
     parser = ap.ArgumentParser(description='Generate realistic MARG sensor data from golden ground truth')
@@ -100,14 +152,27 @@ def main():
     parser.add_argument('--step-kp', type=float, default=0.1, help='Step size for Mahony kp parameter')
     parser.add_argument('--step-ki', type=float, default=0.05, help='Step size for Mahony ki parameter')
     
-    # Noise parameters (realistic MEMS IMU values)
-    parser.add_argument('--gyr-noise', type=float, default=0.002, help='Gyroscope noise RMS (rad/s) - typical MEMS: 0.002')
-    parser.add_argument('--acc-noise', type=float, default=0.02, help='Accelerometer noise RMS (m/s²) - typical MEMS: 0.02')
+    # Sensor model selection
+    parser.add_argument('--sensor-model', type=str, default='ICM-42688-P', 
+                       choices=['ICM-20948', 'ICM-42688-P'], 
+                       help='IMU sensor model to simulate')
+    
+    # Sampling rate and noise parameters (sensor-specific defaults)
+    parser.add_argument('--sample-rate', type=float, default=1000.0, help='IMU sampling rate (Hz) - affects noise calculation')
+    parser.add_argument('--interpolate', action='store_true', help='Interpolate golden.csv data to match sample rate (required for >250Hz)')
+    
+    # Sensor-specific noise density parameters (will be set based on sensor model)
+    parser.add_argument('--gyr-noise-density', type=float, default=None, help='Gyroscope noise density (mdps/√Hz) - auto-set by sensor model')
+    parser.add_argument('--acc-noise-density', type=float, default=None, help='Accelerometer noise density (µg/√Hz) - auto-set by sensor model')
     parser.add_argument('--mag-noise', type=float, default=0.1, help='Magnetometer noise RMS (µT) - typical MEMS: 0.1')
     
-    # Bias parameters
-    parser.add_argument('--gyr-bias', type=float, default=0.01, help='Gyroscope bias drift (rad/s) - typical MEMS: 0.01')
-    parser.add_argument('--acc-bias', type=float, default=0.1, help='Accelerometer bias (m/s²) - typical MEMS: 0.1')
+    # Bias parameters (ICM-42688-P: gyro ±5mdps/°C, assume ±20°C temp variation)
+    parser.add_argument('--gyr-bias', type=float, default=0.00175, help='Gyroscope bias drift (rad/s) - ICM-42688-P: 0.00175 (±5mdps/°C * ±20°C)')
+    parser.add_argument('--acc-bias', type=float, default=0.05, help='Accelerometer bias (m/s²) - typical MEMS: 0.05')
+    
+    # Legacy parameters (calculated from density if not specified)
+    parser.add_argument('--gyr-noise', type=float, default=None, help='Gyroscope noise RMS (rad/s) - auto-calculated from density if not specified')
+    parser.add_argument('--acc-noise', type=float, default=None, help='Accelerometer noise RMS (m/s²) - auto-calculated from density if not specified')
     
     # Parameter ranges (can be customized)
     parser.add_argument('--madgwick-gain-min', type=float, default=0.001, help='Minimum Madgwick gain')
@@ -126,21 +191,112 @@ def main():
     parser.add_argument('--output-prefix', type=str, default='', help='Prefix for output files')
     
     args = parser.parse_args()
+    
+    # Set sensor-specific noise density defaults if not specified
+    if args.gyr_noise_density is None or args.acc_noise_density is None:
+        if args.sensor_model == 'ICM-20948':
+            # ICM-20948 specifications from transition guide Table 1
+            if args.gyr_noise_density is None:
+                args.gyr_noise_density = 15.0  # mdps/√Hz
+            if args.acc_noise_density is None:
+                args.acc_noise_density = 230.0  # µg/√Hz
+        elif args.sensor_model == 'ICM-42688-P':
+            # ICM-42688-P specifications 
+            if args.gyr_noise_density is None:
+                args.gyr_noise_density = 2.8  # mdps/√Hz
+            if args.acc_noise_density is None:
+                args.acc_noise_density = 65.0  # µg/√Hz (XY: 65, Z: 70, using average)
+    
+    # Calculate noise levels from datasheet specifications
+    if args.gyr_noise is None:
+        # Convert: mdps/√Hz -> rad/s RMS at given sample rate
+        # 2.8 mdps/√Hz * √(sample_rate) * (π/180/1000) = rad/s RMS
+        sqrt_sample_rate = np.sqrt(args.sample_rate)
+        gyr_noise_mdps = args.gyr_noise_density * sqrt_sample_rate  # mdps RMS
+        gyr_noise_rads = gyr_noise_mdps * np.pi / 180.0 / 1000.0    # convert to rad/s
+        args.gyr_noise = gyr_noise_rads
+    
+    if args.acc_noise is None:
+        # Convert: µg/√Hz -> m/s² RMS at given sample rate  
+        # 65 µg/√Hz * √(sample_rate) * 9.81e-6 = m/s² RMS
+        sqrt_sample_rate = np.sqrt(args.sample_rate)
+        acc_noise_ug = args.acc_noise_density * sqrt_sample_rate     # µg RMS
+        acc_noise_ms2 = acc_noise_ug * 9.81e-6                      # convert to m/s²
+        args.acc_noise = acc_noise_ms2
+    
+    print(f"Using {args.sensor_model} noise model at {args.sample_rate}Hz:")
+    print(f"  Gyro noise: {args.gyr_noise:.6f} rad/s RMS ({args.gyr_noise*180/np.pi*1000:.1f} mdps RMS)")
+    print(f"  Accel noise: {args.acc_noise:.6f} m/s² RMS ({args.acc_noise/9.81e-6:.0f} µg RMS)")
+    print(f"  Mag noise: {args.mag_noise:.3f} µT RMS")
 
     gt, time = gt_from_golden()
     gt_quats = quats_from_gt(gt)
 
     print(f'First quat: {gt_quats[1]}')
+    
+    # Handle data length and interpolation
     if args.debug:
         time = time[1:100]  # Use more samples for debug (was only 3)
         gt_quats = gt_quats[1:100]
     else:
         time = time[1:]
         gt_quats = gt_quats[1:]
-
-    dt = time[1] - time[0]
-    print(f"Time step: {dt}")
-    print(f"Noise parameters: gyr={args.gyr_noise}, acc={args.acc_noise}, mag={args.mag_noise}")
+    
+    # Check if interpolation is needed
+    original_dt = np.mean(np.diff(time))
+    target_dt = 1.0 / args.sample_rate
+    original_rate = 1.0 / original_dt
+    
+    print(f"Original sampling rate: {original_rate:.1f} Hz (dt = {original_dt:.6f}s)")
+    print(f"Target sampling rate: {args.sample_rate:.1f} Hz (dt = {target_dt:.6f}s)")
+    
+    if target_dt < original_dt and not args.interpolate:
+        print(f"WARNING: Target rate ({args.sample_rate:.1f}Hz) is higher than original rate ({original_rate:.1f}Hz)")
+        print("Consider using --interpolate flag to upsample the data")
+    
+    # Interpolate if requested and needed
+    if args.interpolate and target_dt < original_dt:
+        print(f"Interpolating data from {original_rate:.1f}Hz to {args.sample_rate:.1f}Hz...")
+        
+        # Ensure strictly increasing time for interpolation
+        # Remove duplicate timestamps and ensure monotonic increase
+        unique_indices = []
+        last_time = -np.inf
+        for i, t in enumerate(time):
+            if t > last_time:
+                unique_indices.append(i)
+                last_time = t
+        
+        if len(unique_indices) < len(time):
+            print(f"Removed {len(time) - len(unique_indices)} duplicate/non-monotonic timestamps")
+            time = time[unique_indices]
+            gt_quats = gt_quats[unique_indices]
+        
+        # Create new time vector at target sampling rate
+        time_start = time[0] 
+        time_end = time[-1]
+        time_new = np.arange(time_start, time_end, target_dt)
+        
+        # Ensure we don't go past the end
+        time_new = time_new[time_new <= time_end]
+        
+        # Interpolate quaternions using SLERP (spherical linear interpolation)
+        r_original = R.from_quat(gt_quats, scalar_first=True)
+        
+        # Perform SLERP interpolation
+        slerp = Slerp(time, r_original)
+        r_new = slerp(time_new)
+        
+        # Update data
+        old_length = len(time)
+        time = time_new
+        gt_quats = r_new.as_quat(scalar_first=True)
+        
+        print(f"Interpolated from {old_length} to {len(time_new)} samples")
+    
+    dt = target_dt if args.interpolate else np.mean(np.diff(time))
+    print(f"Using time step: {dt:.6f}s ({1.0/dt:.1f}Hz)")
+    print(f"Noise parameters: gyr={args.gyr_noise:.6f}, acc={args.acc_noise:.6f}, mag={args.mag_noise}")
     
     # Generate realistic sensor data with proper noise levels
     simulated_sensor_data = ahrs.Sensors(
@@ -170,7 +326,11 @@ def main():
     
     print(f"Gyro range: [{gyros.min():.6f}, {gyros.max():.6f}] rad/s")
     print(f"Accel range: [{accels.min():.6f}, {accels.max():.6f}] m/s²")
-    print(f"Mag range: [{mags.min():.6f}, {mags.max():.6f}] µT")
+    print(f"Mag range: [{mags.min():.6f}, {mags.max():.6f}] nT (will be converted to µT for C++)")
+    print(f"Mag range (converted): [{mags.min()/1000.0:.6f}, {mags.max()/1000.0:.6f}] µT")
+    
+    # Print detailed sensor ranges in format matching real robot data
+    print_sensor_ranges(gyros, accels, mags)
     
     num_samples = len(gt_quats)
     

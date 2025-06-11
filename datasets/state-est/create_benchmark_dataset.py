@@ -11,6 +11,7 @@ ax ay az gx gy gz qw qx qy qz dt
 
 import pandas as pd
 import numpy as np
+import argparse
 
 def create_benchmark_dataset(sensor_file, gt_file, output_file, use_mag=True):
     """
@@ -24,8 +25,8 @@ def create_benchmark_dataset(sensor_file, gt_file, output_file, use_mag=True):
     """
     
     # Read sensor data
-    sensor_data = pd.read_csv(sensor_file)
-    gt_data = pd.read_csv(gt_file)
+    sensor_data = pd.read_csv(sensor_file, skiprows=1)  # Skip the "Attitude Estimation Problem" header
+    gt_data = pd.read_csv(gt_file, skiprows=1)  # Skip the "Attitude Estimation Problem" header
     
     print(f"Sensor data shape: {sensor_data.shape}")
     print(f"Ground truth shape: {gt_data.shape}")
@@ -80,29 +81,45 @@ def create_benchmark_dataset(sensor_file, gt_file, output_file, use_mag=True):
     
     # Save to file (no header, space-separated)
     combined_array = np.array(combined_data)
-    np.savetxt(output_file, combined_array, fmt='%.12e', delimiter=' ')
+    
+    # Add header as first line, then save data with fixed decimal notation
+    with open(output_file, 'w') as f:
+        f.write("Attitude Estimation Problem\n")
+        np.savetxt(f, combined_array, fmt='%.6f', delimiter=' ')
     
     print(f"Created {output_file} with {len(combined_data)} samples")
     print(f"Format: {'MARG' if use_mag else 'IMU'}")
     print(f"Columns: {combined_array.shape[1]}")
 
 if __name__ == "__main__":
-    # Create both MARG and IMU datasets
-    create_benchmark_dataset(
-        'benchmark_sensor_data.csv',
-        'benchmark_gt_quats.csv', 
-        'benchmark_marg_dataset.txt',
-        use_mag=True
-    )
+    parser = argparse.ArgumentParser(description='Create benchmark datasets from sensor and ground truth files')
+    parser.add_argument('--sensor-file', required=True, help='CSV file with sensor data')
+    parser.add_argument('--gt-file', required=True, help='CSV file with ground truth quaternions')
+    parser.add_argument('--output-prefix', default='benchmark', help='Output file prefix')
+    parser.add_argument('--marg-only', action='store_true', help='Create only MARG dataset')
+    parser.add_argument('--imu-only', action='store_true', help='Create only IMU dataset')
     
-    create_benchmark_dataset(
-        'benchmark_sensor_data.csv',
-        'benchmark_gt_quats.csv',
-        'benchmark_imu_dataset.txt', 
-        use_mag=False
-    )
+    args = parser.parse_args()
+    
+    # Create datasets based on flags
+    if not args.imu_only:
+        create_benchmark_dataset(
+            args.sensor_file,
+            args.gt_file, 
+            f'{args.output_prefix}_marg_dataset.txt',
+            use_mag=True
+        )
+    
+    if not args.marg_only:
+        create_benchmark_dataset(
+            args.sensor_file,
+            args.gt_file,
+            f'{args.output_prefix}_imu_dataset.txt', 
+            use_mag=False
+        )
     
     print("\nDataset creation complete!")
-    print("Files created:")
-    print("  benchmark_marg_dataset.txt - For MARG filters (with magnetometer)")
-    print("  benchmark_imu_dataset.txt  - For IMU filters (without magnetometer)") 
+    if not args.imu_only:
+        print(f"  {args.output_prefix}_marg_dataset.txt - For MARG filters (with magnetometer)")
+    if not args.marg_only:
+        print(f"  {args.output_prefix}_imu_dataset.txt  - For IMU filters (without magnetometer)") 

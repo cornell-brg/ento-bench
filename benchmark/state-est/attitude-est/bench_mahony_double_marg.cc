@@ -18,13 +18,15 @@ using namespace EntoAttitude;
 int main()
 {
   using Scalar = double;
-  using Filter = FilterMahony<Scalar, true>; // MARG (with magnetometer)
+  using Filter = FilterMahoney<Scalar, true>; // MARG (with magnetometer)
   using Problem = AttitudeProblem<Scalar, Filter, true>;
   
   initialise_monitor_handles();
 
   // Configure max clock rate and set flash latency
   sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
 
   // Turn on caches if applicable
   enable_instruction_cache();
@@ -32,7 +34,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "state-est/benchmark_marg_dataset.txt";
+  const char* rel_path = "state-est/tuned_icm42688_1khz_marg_dataset.txt";
   char dataset_path[512];
   char output_path[256];
 

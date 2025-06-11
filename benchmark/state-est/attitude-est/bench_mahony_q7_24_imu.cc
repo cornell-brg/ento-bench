@@ -25,6 +25,8 @@ int main()
 
   // Configure max clock rate and set flash latency
   sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
 
   // Turn on caches if applicable
   enable_instruction_cache();
@@ -32,20 +34,20 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "state-est/benchmark_imu_dataset.txt";
+  const char* rel_path = "state-est/tuned_icm42688_1khz_imu_dataset.txt";
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for bench_mahony_q7_24_imu!");
+    ENTO_DEBUG("ERROR! Could not build file path for bench_bench_mahony_q7_24_imu!");
   }
 
   // Create filter with default constructor
   Filter filter;
-  // Create problem with filter and gains (passed to solve() method)
-  Problem problem(filter, Scalar(1.0f), Scalar(0.1f)); // kp=1.0, ki=0.1
+  // Create problem with filter and tuned gains: kp=0.01, ki=0.001
+  Problem problem(filter, Scalar(0.01f), Scalar(0.001f));
 
   printf("File path: %s", dataset_path);
   EntoBench::Harness harness(problem, "Bench Mahony Q7.24 IMU",

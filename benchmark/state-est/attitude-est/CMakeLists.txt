@@ -177,9 +177,34 @@ add_benchmark(bench-madgwick-q3-12-marg
 list(APPEND BENCH_TARGETS bench-madgwick-q3-12-marg)
 
 # =============================================================================
+# Fourati Float MARG
+# =============================================================================
+
+add_benchmark(bench-fourati-float-marg
+  SOURCES bench_fourati_float_marg.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati-float-marg)
+
+# =============================================================================
+# Fourati Double MARG
+# =============================================================================
+
+add_benchmark(bench-fourati-double-marg
+  SOURCES bench_fourati_double_marg.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati-double-marg)
+
+# =============================================================================
 # Add stm32 targets
 # =============================================================================
 message(STATUS "Attitude Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
+
+# =============================================================================
+# Create benchmark group target: bench-attitude-est
+# =============================================================================
+add_benchmark_group_target("attitude-est" ${BENCH_TARGETS})
 
 endif() 

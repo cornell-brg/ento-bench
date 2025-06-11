@@ -25,6 +25,8 @@ int main()
 
   // Configure max clock rate and set flash latency
   sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
 
   // Turn on caches if applicable
   enable_instruction_cache();
@@ -32,20 +34,19 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "state-est/benchmark_marg_dataset.txt";
+  const char* rel_path = "state-est/tuned_icm42688_1khz_marg_dataset.txt";
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for bench_bench_madgwick_q7_24_marg!");
+    ENTO_DEBUG("ERROR! Could not build file path for bench_madgwick_q7_24_marg!");
   }
 
-  // Create filter with default constructor
-  Filter filter;
-  // Create problem with filter and gain
-  Problem problem(filter, Scalar(0.1f)); // beta=0.1
+  // Create filter and problem with tuned gain (0.001)
+  Filter filter;  // Default constructor - no internal state
+  Problem problem(filter, Scalar(0.001f));  // Pass tuned gain to AttitudeProblem
 
   printf("File path: %s", dataset_path);
   EntoBench::Harness harness(problem, "Bench Madgwick Q7_24 MARG",
