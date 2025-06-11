@@ -49,7 +49,8 @@ int main()
   Problem problem(filter, 0.001f);  // Pass tuned gain to AttitudeProblem
 
   printf("File path: %s", dataset_path);
-  EntoBench::Harness harness(problem, "Bench Madgwick Float MARG",
+  using Harness = Harness<Problem, false, 1, 10, 100>;
+  Harness harness(problem, "Bench Madgwick Float MARG",
                              dataset_path,
                              output_path);
 

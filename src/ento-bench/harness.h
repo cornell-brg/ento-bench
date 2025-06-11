@@ -92,7 +92,12 @@ MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
 // a single experiment, then the Harness will use Problem::deserialize in
 // conjunction with ExperimentIO object that Harness holds. 
 
-template<typename Problem, bool DoWarmup = false, size_t Reps=1, int Verbosity = 1>
+template<typename Problem,
+         bool DoWarmup = false,
+         size_t Reps = 1,
+         size_t InnerReps = 1,
+         size_t MaxProblems = 0,
+         int Verbosity = 1>
 class Harness {
 public:
   // Public Members
@@ -296,7 +301,13 @@ public:
         Delay::ms(10);
 #endif
         start_roi();
-        problem_.solve();
+
+        // @TODO: Ensure loop unroll 
+        for (size_t j = 0; j < InnerReps; ++j)
+        {
+          problem_.solve();
+        }
+
         end_roi();
         // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -369,7 +380,7 @@ public:
     else
     {
       size_t i = 0;
-      while (experiment_io_.read_next(problem_))
+      while (experiment_io_.read_next(problem_) && (MaxProblems == 0 || i < MaxProblems))
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(50);
@@ -387,10 +398,16 @@ public:
           update_aggregate(cold_metrics_);
         }
         // Benchmark kernel (algorithm implementation, callable) that Problem Specification holds.
-        for (size_t i = 0; i < Reps; i++)
+        size_t k;
+        for (k = 0; k < Reps; k++)
         {
           start_roi();
-          problem_.solve();
+
+          for (size_t j = 0; j < InnerReps; ++j)
+          {
+            problem_.solve();
+          }
+
           end_roi();
           // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -405,14 +422,14 @@ public:
 
           if constexpr (Reps > 1 && Verbosity == 1)
           {
-            print_rep_metrics(rep_metrics_, i); 
+            print_rep_metrics(rep_metrics_, k); 
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
             Delay::ms(50);
 #endif
           }
           else if constexpr (Reps > 1 && Verbosity == 2)
           {
-            print_rep_metrics_verbose(rep_metrics_, i);
+            print_rep_metrics_verbose(rep_metrics_, k);
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
             Delay::ms(50);
 #endif
@@ -481,7 +498,11 @@ public:
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
       }
       iters_ = i; // Number of experiments for full dataset. We do not figure this out until after processing all.
-      ENTO_DEBUG("Finished running %i experiments!", iters_);
+      if constexpr (MaxProblems > 0) {
+        ENTO_DEBUG("Finished running %i experiments (limited by MaxProblems=%zu)!", iters_, MaxProblems);
+      } else {
+        ENTO_DEBUG("Finished running %i experiments!", iters_);
+      }
     }
 
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -655,16 +676,16 @@ private:
 
 // Deduction guide for the basic constructor (without a warmup flag):
 template<typename Problem>
-Harness(Problem, const char*) -> Harness<Problem, false, 1, 1>;
+Harness(Problem, const char*) -> Harness<Problem, false, 1, 1, 0>;
 
 #ifdef NATIVE
 template<typename Problem>
 Harness(Problem, const std::string&, const std::string&, const std::string&, const std::string&)
-  -> Harness<Problem, false, 1>;
+  -> Harness<Problem, false, 1, 1, 0, 1>;
 #else
 template<typename Problem>
 Harness(Problem, const char*, const char*, const char*)
-  -> Harness<Problem, false, 1, 1>;
+  -> Harness<Problem, false, 1, 1, 0>;
 #endif
 
 // Deduction guide without explicit Mode (defaults to ProfileMode::Full)

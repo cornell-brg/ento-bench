@@ -20,6 +20,7 @@ int main()
   using Scalar = Q7_24;
   using Filter = FilterMadgwickFixed<Scalar, true>; // MARG (with magnetometer)
   using Problem = AttitudeProblem<Scalar, Filter, true>;
+  using Harness = Harness<Problem, false, 1, 10, 100>;
   
   initialise_monitor_handles();
 
@@ -49,7 +50,7 @@ int main()
   Problem problem(filter, Scalar(0.001f));  // Pass tuned gain to AttitudeProblem
 
   printf("File path: %s", dataset_path);
-  EntoBench::Harness harness(problem, "Bench Madgwick Q7_24 MARG",
+  Harness harness(problem, "Bench Madgwick Q7_24 MARG",
                              dataset_path,
                              output_path);
 

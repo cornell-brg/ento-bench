@@ -50,7 +50,8 @@ int main()
   Problem problem(filter, Scalar(0.1f)); // beta=0.1
 
   printf("File path: %s", dataset_path);
-  EntoBench::Harness harness(problem, "Bench Madgwick Q3_12 MARG",
+  using Harness = Harness<Problem, false, 1, 10, 100>;
+  Harness harness(problem, "Bench Madgwick Q3_12 MARG",
                              dataset_path,
                              output_path);
 

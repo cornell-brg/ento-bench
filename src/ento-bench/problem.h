@@ -26,11 +26,9 @@ public:
 #ifdef NATIVE
   std::string serialize() const;
   bool deserialize(const std::string& line);
-#else
-  const char* serialize() const;
-  bool deserialize(const char* line);
 #endif
 
+  bool deserialize(const char* line);
 
   template <typename... Args>
   auto operator()(Args&&... args);
@@ -57,11 +55,9 @@ concept ProblemConcept = requires(T t)
 #ifdef NATIVE
   { t.serialize() } -> std::convertible_to<std::string>;
   { t.deserialize(std::declval<const std::string&>()) } -> std::convertible_to<bool>;
-#else
-  { t.serialize() } -> std::convertible_to<const char*>;
-  { t.deserialize(std::declval<const char*>()) } -> std::convertible_to<bool>;
 #endif
 
+  { t.deserialize(std::declval<const char*>()) } -> std::convertible_to<bool>;
 
   { T::header() } -> std::convertible_to<const char*>;
 };
@@ -84,20 +80,14 @@ bool EntoProblem<Derived>::deserialize(const std::string& line)
 {
   return static_cast<Derived*>(this)->deserialize_impl(line);
 }
-#else
-template <typename Derived>
-const char* EntoProblem<Derived>::serialize() const
-{
-  return static_cast<const Derived*>(this)->serialize_impl();
-}
 
+#endif
 // Deserialize the problem instance from a line of a file.
 template <typename Derived>
 bool EntoProblem<Derived>::deserialize(const char* line)
 {
   return static_cast<Derived*>(this)->deserialize_impl(line);
 }
-#endif
 
 template <typename Derived>
 template <typename... Args>

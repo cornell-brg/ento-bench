@@ -50,7 +50,8 @@ int main()
   Problem problem(filter, Scalar(0.01f), Scalar(0.001f));
 
   printf("File path: %s", dataset_path);
-  EntoBench::Harness harness(problem, "Bench Mahony Q7.24 IMU",
+  using Harness = Harness<Problem, false, 1, 10, 100>;
+  Harness harness(problem, "Bench Mahony Q7.24 IMU",
                              dataset_path,
                              output_path);
 
