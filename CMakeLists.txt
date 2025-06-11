@@ -204,6 +204,7 @@ if(STM32_BUILD)
   find_file(OPENOCD_INTERFACE
     NAMES stlink.cfg
     PATHS ${OPENOCD_ROOT}/interface
+          ~/research/openocd/tcl/interface
           /usr/share/openocd/scripts/interface
           /opt/local/share/openocd/scripts/interface
           /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface
