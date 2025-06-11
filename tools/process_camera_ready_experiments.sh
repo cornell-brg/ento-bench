@@ -13,9 +13,10 @@ datasets="$2"
 
 # List of datasets (previously called directories)
 # datasets=("dlt-osj-optim-2Nx3")
-# datasets=("energy-ubench")
+# datasets=("curr_data")
 
 # Base command
+# Field order 0 if trigger on top of latency curve
 base_command="python sync_current_logic_traces.py --traverse_subdirs True --field_order=0"
 
 # Iterate over each dataset and run the command

@@ -83,12 +83,20 @@ def analyze_power_consumption(dataset_parent_dir, dataset_name, window_size, ris
         idx2 = selected_indices[i + 1]
 
         duration = data['time'].iloc[idx2] - data['time'].iloc[idx1]
+
+        # @TODO: Perhaps direction should be deprecated now that we always search forward in time
+        #  from idx2 (LA measured end time)
+
+        # Adjust search start using window.
         search_start_time = (data['time'].iloc[idx2] - window_size * duration) if direction == 0 else (data['time'].iloc[idx1] + window_size * duration)
         search_start_time = max(search_start_time, data['time'].iloc[0])  # Ensure valid range
 
         # Convert search start time to index
         search_start = (data['time'] >= search_start_time).idxmax()
-        search_end = idx2
+
+        # Adjust search end using window
+        search_end_time = min(data['time'].iloc[idx1] + window_size * duration, data['time'].iloc[-1])
+        search_end = (data['time'] >= search_end_time).idxmax()
 
         # Extract current values in the window
         current_window = data.loc[search_start:search_end, 'current_mA']
