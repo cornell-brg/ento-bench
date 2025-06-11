@@ -278,5 +278,86 @@ function(print_target_properties tgt)
     endforeach(prop)
 endfunction(print_target_properties)
 
+# Helper function to build all benchmarks in a specific subfolder with build counting
+function(add_subfolder_benchmark_target SUBFOLDER_NAME TARGET_LIST)
+  set(SUBFOLDER_TARGET "build-${SUBFOLDER_NAME}-benchmarks")
+  
+  # Create a custom target that builds all benchmarks in the subfolder
+  add_custom_target(${SUBFOLDER_TARGET}
+    COMMAND ${CMAKE_COMMAND} -E echo "Building ${SUBFOLDER_NAME} benchmarks..."
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${TARGET_LIST} 2>&1 | 
+            ${CMAKE_COMMAND} -E env bash -c "
+              tee build_log.tmp | 
+              grep -E '(\\[[ 0-9]*%\\]|Built target|Error:|Warning:)' |
+              tee filtered_output.tmp &&
+              BUILT_COUNT=\$$(grep 'Built target' filtered_output.tmp | wc -l) &&
+              ERROR_COUNT=\$$(grep 'Error:' filtered_output.tmp | wc -l) &&
+              WARNING_COUNT=\$$(grep 'Warning:' filtered_output.tmp | wc -l) &&
+              echo '' &&
+              echo '=== BUILD SUMMARY FOR ${SUBFOLDER_NAME} ===' &&
+              echo \"Successfully built: \$$BUILT_COUNT targets\" &&
+              echo \"Errors: \$$ERROR_COUNT\" &&
+              echo \"Warnings: \$$WARNING_COUNT\" &&
+              rm -f build_log.tmp filtered_output.tmp
+            "
+    COMMENT "Building all ${SUBFOLDER_NAME} benchmarks with summary"
+    VERBATIM
+  )
+  
+  # Make the subfolder target depend on all the individual benchmark targets
+  foreach(target IN LISTS TARGET_LIST)
+    if(TARGET ${target})
+      add_dependencies(${SUBFOLDER_TARGET} ${target})
+    endif()
+  endforeach()
+endfunction()
+
+# Generic function to create benchmark group targets
+# Usage: add_benchmark_group_target("attitude-est" LIST_OF_TARGETS)
+# Creates target: bench-attitude-est
+function(add_benchmark_group_target GROUP_NAME)
+  # Parse the remaining arguments as the target list
+  set(TARGET_LIST ${ARGN})
+  
+  # Create the benchmark group target name
+  set(GROUP_TARGET "bench-${GROUP_NAME}")
+  
+  # Convert target list to space-separated string
+  string(REPLACE ";" " " TARGET_LIST_STR "${TARGET_LIST}")
+  
+  # Path to the build progress script
+  set(PROGRESS_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/build_with_progress.sh")
+  
+  # Check if script exists
+  if(NOT EXISTS ${PROGRESS_SCRIPT})
+    message(WARNING "Build progress script not found at: ${PROGRESS_SCRIPT}")
+    message(WARNING "Falling back to simple build target")
+    
+    # Fallback to simple target
+    add_custom_target(${GROUP_TARGET}
+      COMMAND ${CMAKE_COMMAND} -E echo "🔨 Building ${GROUP_NAME} benchmarks..."
+      COMMENT "Building all ${GROUP_NAME} benchmarks"
+    )
+  else()
+    # Create a custom target that uses the external script for colored progress
+    add_custom_target(${GROUP_TARGET}
+      COMMAND bash ${PROGRESS_SCRIPT} "${GROUP_NAME}" "${TARGET_LIST_STR}" "${CMAKE_BINARY_DIR}"
+      COMMENT "Building all ${GROUP_NAME} benchmarks with progress"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      USES_TERMINAL
+    )
+  endif()
+  
+  # DON'T add dependencies - let the script handle building the targets
+  # This allows 'make bench-attitude-est' to work properly
+  
+  # Print summary
+  list(LENGTH TARGET_LIST TARGET_COUNT)
+  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  if(EXISTS ${PROGRESS_SCRIPT})
+    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
+  endif()
+endfunction()
+
 
 

@@ -39,7 +39,7 @@ Eigen::Quaternion<S> madgwick_update_imu_fixed(
     const Eigen::Quaternion<S>& q,
     const Eigen::Matrix<S,3,1>& gyr,
     const Eigen::Matrix<S,3,1>& acc,
-    S dt,
+    S dt,    // Changed to Scalar type
     S gain)
 {
   // If no rotation is measured, return the current orientation.
@@ -98,18 +98,21 @@ Eigen::Quaternion<S> madgwick_update_imu_fixed(
     }
   }
 
-  // Integrate to obtain the new quaternion: q_new = q + q_dot * dt
+  // Integrate: q_new = q + q_dot * dt
+  // Use fixed-point arithmetic throughout
   Eigen::Matrix<S, 4, 1> q_vec;
   q_vec.data()[0] = q.w(); 
   q_vec.data()[1] = q.x(); 
   q_vec.data()[2] = q.y(); 
   q_vec.data()[3] = q.z();
-  Eigen::Matrix<S, 4, 1> q_dot_vec;
-  q_dot_vec.data()[0] = q_dot.w(); 
-  q_dot_vec.data()[1] = q_dot.x(); 
-  q_dot_vec.data()[2] = q_dot.y(); 
-  q_dot_vec.data()[3] = q_dot.z();
-  Eigen::Matrix<S, 4, 1> q_new_vec = q_vec + q_dot_vec * dt;
+  
+  // Fixed-point integration
+  Eigen::Matrix<S, 4, 1> q_new_vec;
+  q_new_vec.data()[0] = q_vec.data()[0] + q_dot.w() * dt;
+  q_new_vec.data()[1] = q_vec.data()[1] + q_dot.x() * dt;
+  q_new_vec.data()[2] = q_vec.data()[2] + q_dot.y() * dt;
+  q_new_vec.data()[3] = q_vec.data()[3] + q_dot.z() * dt;
+  
   // Normalize the updated quaternion.
   q_new_vec = q_new_vec / q_new_vec.norm();
   Eigen::Quaternion<S> q_new(q_new_vec.data()[0], q_new_vec.data()[1], q_new_vec.data()[2], q_new_vec.data()[3]);
@@ -125,7 +128,7 @@ Eigen::Quaternion<S> madgwick_update_marg_fixed(
     const Eigen::Matrix<S,3,1>& gyr,
     const Eigen::Matrix<S,3,1>& acc,
     const Eigen::Matrix<S,3,1>& mag,
-    S dt,
+    S dt,    // Changed to Scalar type
     S gain)
 {
   // If no rotation is measured, return the current orientation.
@@ -213,17 +216,20 @@ Eigen::Quaternion<S> madgwick_update_marg_fixed(
   }
 
   // Integrate: q_new = q + q_dot * dt
+  // Use fixed-point arithmetic throughout
   Eigen::Matrix<S, 4, 1> q_vec;
   q_vec.data()[0] = q.w(); 
   q_vec.data()[1] = q.x(); 
   q_vec.data()[2] = q.y(); 
   q_vec.data()[3] = q.z();
-  Eigen::Matrix<S, 4, 1> q_dot_vec;
-  q_dot_vec.data()[0] = q_dot.w(); 
-  q_dot_vec.data()[1] = q_dot.x(); 
-  q_dot_vec.data()[2] = q_dot.y(); 
-  q_dot_vec.data()[3] = q_dot.z();
-  Eigen::Matrix<S, 4, 1> q_new_vec = q_vec + q_dot_vec * dt;
+  
+  // Fixed-point integration
+  Eigen::Matrix<S, 4, 1> q_new_vec;
+  q_new_vec.data()[0] = q_vec.data()[0] + q_dot.w() * dt;
+  q_new_vec.data()[1] = q_vec.data()[1] + q_dot.x() * dt;
+  q_new_vec.data()[2] = q_vec.data()[2] + q_dot.y() * dt;
+  q_new_vec.data()[3] = q_vec.data()[3] + q_dot.z() * dt;
+  
   q_new_vec.normalize();
   Eigen::Quaternion<S> q_new(q_new_vec.data()[0], q_new_vec.data()[1], q_new_vec.data()[2], q_new_vec.data()[3]);
   return q_new;
@@ -235,7 +241,7 @@ Eigen::Quaternion<S> madgwick_update_marg_fixed(
 template<typename S,bool UseMag>
 inline Eigen::Quaternion<S> madgwick_fixed(const Eigen::Quaternion<S> &q,
                                            const AttitudeMeasurement<S,UseMag> &meas,
-                                           S dt,
+                                           S dt,    // Changed to Scalar type
                                            S gain)
 {
   if constexpr (UseMag)
@@ -257,7 +263,7 @@ struct FilterMadgwickFixed
   inline Eigen::Quaternion<S> 
   operator()(const Eigen::Quaternion<S>& q,
              const AttitudeMeasurement<S, UseMag>& meas,
-             S dt,
+             S dt,    // Changed to Scalar type
              S gain)
   {
     if constexpr (UseMag)

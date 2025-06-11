@@ -25,7 +25,7 @@ struct NumTraits<FixedPoint<IntegerBits, FractionalBits, UnderlyingType>> : NumT
 
   static inline Real epsilon() {
     return FixedPoint<IntegerBits, FractionalBits, UnderlyingType>(
-      static_cast<double>(1) / (1 << FractionalBits)
+      static_cast<float>(1) / (1 << FractionalBits)
     );
   }
   static inline Real dummy_precision() {

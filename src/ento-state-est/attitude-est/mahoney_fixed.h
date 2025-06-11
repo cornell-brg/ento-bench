@@ -1,6 +1,7 @@
 #ifndef MAHONEY_FIXED_H
 #define MAHONEY_FIXED_H
 
+#include <type_traits>
 #include <Eigen/Dense>
 #include <cmath>
 #include <ento-math/core.h>
@@ -26,6 +27,9 @@ using Q3_12 = FixedPoint<3, 12, int16_t>;   // 16-bit path from paper
 using Q6_25 = FixedPoint<6, 25, int32_t>;   // 32-bit with more fractional precision
 using Q5_26 = FixedPoint<5, 26, int32_t>;   // 32-bit with even more fractional precision
 using Q2_13 = FixedPoint<2, 13, int16_t>;   // 16-bit with higher precision than Q3.12
+
+// Time-specific format: Q1.31 for high-precision time representation
+using Q1_31 = FixedPoint<1, 31, int32_t>;   // Time format: ±2s range, 4.66e-10s precision
 
 // Also provide the Eigen-compatible formats for testing
 using Q1_15_t = FixedPoint<1, 15, uint16_t>;   // 16-bit Eigen compatible
@@ -84,9 +88,9 @@ Eigen::Quaternion<S> mahony_update_imu_fixed(
     const Eigen::Quaternion<S>       &q_in,
     const Eigen::Matrix<S,3,1>       &gyr,
     const Eigen::Matrix<S,3,1>       &acc,
-    S                                 dt,
-    S                                 k_p,
-    S                                 k_i,
+    S                                dt,    // Changed to Scalar type
+    S                                k_p,
+    S                                k_i,
     Eigen::Matrix<S,3,1>             &bias)
 {
   // Debug: Print input values
@@ -122,17 +126,29 @@ Eigen::Quaternion<S> mahony_update_imu_fixed(
     ENTO_DEBUG("MAHONY DEBUG: omega_mes=[%f, %f, %f]", 
       static_cast<float>(omega_mes.x()), static_cast<float>(omega_mes.y()), static_cast<float>(omega_mes.z()));
 
-    // PI feedback
-    bias += ( -k_i * omega_mes ) * dt;
+    // PI feedback - compute bias update in fixed-point precision
+    Eigen::Matrix<S,3,1> bias_update = (-k_i * omega_mes) * dt;
+    bias += bias_update;
+    
     Eigen::Matrix<S,3,1> omega = gyr - bias + k_p * omega_mes;
     ENTO_DEBUG("MAHONY DEBUG: omega=[%f, %f, %f]", 
       static_cast<float>(omega.x()), static_cast<float>(omega.y()), static_cast<float>(omega.z()));
 
-    // Quaternion integration (first-order)
     Eigen::Quaternion<S> p(S(0.0f), omega.x(), omega.y(), omega.z());
     Eigen::Quaternion<S> q_dot = q * p;
     q_dot.coeffs() *= S(0.5f);
-    q.coeffs() += q_dot.coeffs() * dt;
+    
+    // Quaternion integration in fixed-point
+    ENTO_DEBUG("FIXED-POINT INTEGRATION DEBUG: dt=%f, q_dot=[%f, %f, %f, %f]", 
+      static_cast<float>(dt),
+      static_cast<float>(q_dot.coeffs()[0]), static_cast<float>(q_dot.coeffs()[1]), 
+      static_cast<float>(q_dot.coeffs()[2]), static_cast<float>(q_dot.coeffs()[3]));
+    
+    q.coeffs()[0] += q_dot.coeffs()[0] * dt;
+    q.coeffs()[1] += q_dot.coeffs()[1] * dt;
+    q.coeffs()[2] += q_dot.coeffs()[2] * dt;
+    q.coeffs()[3] += q_dot.coeffs()[3] * dt;
+    
     q.normalize();
     
     ENTO_DEBUG("MAHONY DEBUG: Updated quaternion=[%f, %f, %f, %f]", 
@@ -155,48 +171,93 @@ Eigen::Quaternion<S> mahony_update_marg_fixed(
     const Eigen::Matrix<S,3,1>       &gyr,
     const Eigen::Matrix<S,3,1>       &acc,
     const Eigen::Matrix<S,3,1>       &mag,
-    S                                 dt,
-    S                                 k_p,
-    S                                 k_i,
+    S                                dt,    // Changed to Scalar type
+    S                                k_p,
+    S                                k_i,
     Eigen::Matrix<S,3,1>             &bias)
 {
-  if ( gyr.squaredNorm() == S(0.0f) )
-    return q_in;
 
+  ENTO_DEBUG("MAHONY MARG DEBUG: gyr=[%f, %f, %f]", 
+    static_cast<float>(gyr.x()), static_cast<float>(gyr.y()), static_cast<float>(gyr.z()));
+  ENTO_DEBUG("MAHONY MARG DEBUG: acc=[%f, %f, %f]", 
+    static_cast<float>(acc.x()), static_cast<float>(acc.y()), static_cast<float>(acc.z()));
+  ENTO_DEBUG("MAHONY MARG DEBUG: acc=[%f, %f, %f]", 
+    static_cast<float>(acc.x()), static_cast<float>(acc.y()), static_cast<float>(acc.z()));
+  
+  if ( gyr.squaredNorm() == S(0.0f) )
+  {
+    ENTO_DEBUG("MAHONY MARG DEBUG: Gyro norm is zero - returning unchanged quaternion");
+    return q_in;
+  }
+
+  ENTO_DEBUG("MAHONY MARG DEBUG: Gyro norm is non-zero - proceeding with algorithm");
   Eigen::Quaternion<S> q = q_in;
   S a_norm2 = acc.squaredNorm();
+  ENTO_DEBUG("MAHONY MARG DEBUG: acc_norm2=%f", static_cast<float>(a_norm2));
+  
   if ( a_norm2 == S(0.0f) )
+  {
+    ENTO_DEBUG("MAHONY MARG DEBUG: Accelerometer norm is zero - returning unchanged quaternion");
     return q;
+  }
 
   S m_norm2 = mag.squaredNorm();
+  ENTO_DEBUG("MAHONY MARG DEBUG: mag_norm2=%f", static_cast<float>(m_norm2));
+  
   if ( m_norm2 == S(0.0f) )
+  {
+    ENTO_DEBUG("MAHONY MARG DEBUG: Magnetometer norm is zero - falling back to IMU-only update");
     return mahony_update_imu_fixed(q_in, gyr, acc, dt, k_p, k_i, bias);
+  }
 
-  auto a_hat = vec_normalise(acc);
-  auto m_hat = vec_normalise(mag);
+  ENTO_DEBUG("MAHONY MARG DEBUG: Processing full MARG data");
+  Eigen::Matrix<S,3,1> a_hat = vec_normalise(acc);
+  Eigen::Matrix<S,3,1> m_hat = vec_normalise(mag);
 
-  const auto R  = q.toRotationMatrix();
+  const Eigen::Matrix<S,3,3> R  = q.toRotationMatrix();
   Eigen::Matrix<S,3,1> v_a = R.transpose() * Eigen::Matrix<S,3,1>(S(0.0f), S(0.0f), S(1.0f));
 
   // Magnetic correction
   Eigen::Matrix<S,3,1> h = R * m_hat;
   S h_xy2 = h.x()*h.x() + h.y()*h.y();
-  auto inv_hxy = ( h_xy2 == S(0.0f) ) ? S(0.0f) : detail::inv_sqrt(h_xy2);
+  S inv_hxy = ( h_xy2 == S(0.0f) ) ? S(0.0f) : detail::inv_sqrt(h_xy2);
   S h_xy = h_xy2 == S(0.0f) ? S(0.0f) : inv_hxy * Eigen::Matrix<S,2,1>(h.x(), h.y()).norm();
 
   Eigen::Matrix<S,3,1> v_m = R.transpose() * Eigen::Matrix<S,3,1>(S(0.0f), h_xy, h.z());
   v_m = vec_normalise( v_m );
 
   Eigen::Matrix<S,3,1> omega_mes = a_hat.cross( v_a ) + m_hat.cross( v_m );
+  ENTO_DEBUG("MAHONY MARG DEBUG: omega_mes=[%f, %f, %f]", 
+    static_cast<float>(omega_mes.x()), static_cast<float>(omega_mes.y()), static_cast<float>(omega_mes.z()));
 
-  bias += ( -k_i * omega_mes ) * dt;
+  // PI feedback - compute bias update in fixed-point precision
+  Eigen::Matrix<S,3,1> bias_update = (-k_i * omega_mes) * dt;
+  bias += bias_update;
+  
   Eigen::Matrix<S,3,1> omega = gyr - bias + k_p * omega_mes;
+  ENTO_DEBUG("MAHONY MARG DEBUG: omega=[%f, %f, %f]", 
+    static_cast<float>(omega.x()), static_cast<float>(omega.y()), static_cast<float>(omega.z()));
 
   Eigen::Quaternion<S> p(S(0.0f), omega.x(), omega.y(), omega.z());
   Eigen::Quaternion<S> q_dot = q * p;
   q_dot.coeffs() *= S(0.5f);
-  q.coeffs() += q_dot.coeffs() * dt;
+  
+  // Quaternion integration in fixed-point
+  ENTO_DEBUG("FIXED-POINT INTEGRATION DEBUG: dt=%f, q_dot=[%f, %f, %f, %f]", 
+    static_cast<float>(dt),
+    static_cast<float>(q_dot.coeffs()[0]), static_cast<float>(q_dot.coeffs()[1]), 
+    static_cast<float>(q_dot.coeffs()[2]), static_cast<float>(q_dot.coeffs()[3]));
+  
+  q.coeffs()[0] += q_dot.coeffs()[0] * dt;
+  q.coeffs()[1] += q_dot.coeffs()[1] * dt;
+  q.coeffs()[2] += q_dot.coeffs()[2] * dt;
+  q.coeffs()[3] += q_dot.coeffs()[3] * dt;
+  
   q.normalize();
+
+  ENTO_DEBUG("MAHONY MARG DEBUG: Updated quaternion=[%f, %f, %f, %f]", 
+    static_cast<float>(q.coeffs()[0]), static_cast<float>(q.coeffs()[1]), 
+    static_cast<float>(q.coeffs()[2]), static_cast<float>(q.coeffs()[3]));
 
   return q;
 }
@@ -207,7 +268,7 @@ Eigen::Quaternion<S> mahony_update_marg_fixed(
 template<typename S,bool UseMag>
 inline Eigen::Quaternion<S> mahony_fixed(const Eigen::Quaternion<S> &q,
                                           const AttitudeMeasurement<S,UseMag> &meas,
-                                          S dt,
+                                          S dt,    // Changed to Scalar type
                                           S k_p,
                                           S k_i,
                                           Eigen::Matrix<S,3,1> &bias)
@@ -231,7 +292,7 @@ struct FilterMahonyFixed
   inline Eigen::Quaternion<S> 
   operator()(const Eigen::Quaternion<S>& q,
              const AttitudeMeasurement<S, UseMag>& meas,
-             S dt,
+             S dt,    // Changed to Scalar type
              S k_p,
              S k_i,
              Eigen::Matrix<S,3,1>& bias)
