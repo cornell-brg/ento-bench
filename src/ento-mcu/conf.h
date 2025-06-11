@@ -114,6 +114,35 @@
 #define   gpio_port_e_rcc RCC_IOPENR_GPIOEEN
 #define   gpio_port_f_rcc RCC_IOPENR_GPIOFEN
                             
+#elif defined(STM32C0)
+
+#include <stm32c0xx.h>
+#include <stm32c0xx_ll_bus.h>
+#include <stm32c0xx_ll_gpio.h>
+#include <stm32c0xx_ll_rcc.h>
+#include <stm32c0xx_ll_system.h>
+#include <stm32c0xx_ll_cortex.h>
+#include <stm32c0xx_ll_utils.h>
+#include <stm32c0xx_ll_pwr.h>
+
+#include <core_cm0plus.h>
+
+// GPIO pin definitions for Nucleo-64 STM32C09RC
+// Using similar pins to G0 Nucleo for consistency
+#define latency_gpio_port GPIOB
+#define  latency_gpio_pin LL_GPIO_PIN_5
+
+#define trigger_gpio_port GPIOA
+#define  trigger_gpio_pin LL_GPIO_PIN_8
+
+// C0 family RCC enable bits (similar to G0)
+#define   gpio_port_a_rcc RCC_IOPENR_GPIOAEN
+#define   gpio_port_b_rcc RCC_IOPENR_GPIOBEN
+#define   gpio_port_c_rcc RCC_IOPENR_GPIOCEN
+#define   gpio_port_d_rcc RCC_IOPENR_GPIODEN
+#define   gpio_port_e_rcc RCC_IOPENR_GPIOEEN
+#define   gpio_port_f_rcc RCC_IOPENR_GPIOFEN
+
 #elif defined(STM32U5)      
                             
 #include <stm32u5xx.h>      

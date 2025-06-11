@@ -41,6 +41,25 @@ uint32_t get_sys_clk_freq(void)
   uint32_t sysclk_freq = rcc_clocks.SYSCLK_Frequency;
   return sysclk_freq;
 
+#elif defined(STM32C0)
+
+  /* STM32C0 clock configuration - 48MHz system clock */
+  // TODO: Implement STM32C0 specific clock configuration
+  // C0 family typically runs at 48MHz max with internal RC oscillator
+  // Configure PLL from HSI16 (16MHz) to get 48MHz system clock
+  
+  // For now, use default HSI16 clock (16MHz)
+  // This stub maintains compatibility while requiring proper implementation
+  
+  // Configure flash latency for target frequency
+  // LL_FLASH_SetLatency(LL_FLASH_LATENCY_1); // For 48MHz operation
+  
+  // Configure PLL: HSI16 / 1 * 3 = 48MHz (typical for C0)
+  // Configure system clock source to PLL
+  // Update SystemCoreClock variable
+  
+  SystemCoreClockUpdate();
+
 #else
 
   return 0;
@@ -337,6 +356,25 @@ void sys_clk_cfg()
 
   /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
   LL_SetSystemCoreClock(160000000);
+
+#elif defined(STM32C0)
+
+  /* STM32C0 clock configuration - 48MHz system clock */
+  // TODO: Implement STM32C0 specific clock configuration
+  // C0 family typically runs at 48MHz max with internal RC oscillator
+  // Configure PLL from HSI16 (16MHz) to get 48MHz system clock
+  
+  // For now, use default HSI16 clock (16MHz)
+  // This stub maintains compatibility while requiring proper implementation
+  
+  // Configure flash latency for target frequency
+  // LL_FLASH_SetLatency(LL_FLASH_LATENCY_1); // For 48MHz operation
+  
+  // Configure PLL: HSI16 / 1 * 3 = 48MHz (typical for C0)
+  // Configure system clock source to PLL
+  // Update SystemCoreClock variable
+  
+  SystemCoreClockUpdate();
 
 #endif
 
