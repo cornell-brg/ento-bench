@@ -272,13 +272,15 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         # Update legend to include the green prealigned search window
         plt.legend(['Data', 'Latency Indices', 'Search Window', 'Prealigned Window', 'Adjusted Indices'])
         plt.savefig(os.path.join(plot_dir, 'full_plot.png'))
-        plt.show()
+        #plt.show()
         #plt.close()
 
     average_energy = np.mean(energy_segments)
     average_current = np.mean(currents)
     average_tdiff = np.mean(tdiffs) * 1e3
     average_latency = np.mean(latencies) * 1e3
+    peak_current = np.max(currents)
+    peak_power = peak_current * voltage  # mW
     
     print("============================================================")
     print(f'Total energy consumed: {total_energy:.8f} mJ')
@@ -287,7 +289,8 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
     print(f'Latency stats (avg, max, min): {np.mean(latencies)*1e3:.6f} µs, {np.max(latencies)*1e3:.6f} µs, {np.min(latencies)*1e3:.6f} µs')
     print(f'Average cycles: {(average_latency/1e6)/(1/170e6):.6f}')
     print(f'Average time difference error (t_meas - t_adj): {average_tdiff:.6f} µs')
-    print(f'Average time difference percentage: {100 * (average_tdiff / average_latency):.6f}%\n')
+    print(f'Average time difference percentage: {100 * (average_tdiff / average_latency):.6f}%')
+    print(f'Peak power: {peak_power:.3f} mW')
 
     return tdiffs, energy_segments, latencies, adjusted_latencies, success
 
