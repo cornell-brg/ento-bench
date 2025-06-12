@@ -9,6 +9,9 @@
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/madgwick.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
@@ -28,10 +31,8 @@ int main()
   SysTick_Setup();
   __enable_irq();
 
-  // Turn on caches if applicable
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
 
   const char* base_path = DATASET_PATH;
   const char* rel_path = "state-est/tuned_icm42688_1khz_imu_dataset.txt";
@@ -49,10 +50,12 @@ int main()
   Problem problem(filter, 0.001f);  // Pass tuned gain to AttitudeProblem
 
   printf("File path: %s", dataset_path);
-  using Harness = Harness<Problem, false, 1, 10, 100>;
-  Harness harness(problem, "Bench Madgwick Float IMU",
-                             dataset_path,
-                             output_path);
+
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench Madgwick Float IMU",
+                      dataset_path,
+                      output_path);
 
   harness.run();
 

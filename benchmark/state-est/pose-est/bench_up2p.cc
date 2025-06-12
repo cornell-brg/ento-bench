@@ -33,7 +33,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "abs-pose/up2p_float_1000.csv";
+  const char* rel_path = "abs-pose/up2p_float_noise0.01.csv";
   char dataset_path[512];
   char output_path[256];
 

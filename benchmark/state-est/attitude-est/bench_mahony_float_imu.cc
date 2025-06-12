@@ -9,6 +9,9 @@
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
@@ -28,10 +31,8 @@ int main()
   SysTick_Setup();
   __enable_irq();
 
-  // Turn on caches if applicable
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
 
   const char* base_path = DATASET_PATH;
   const char* rel_path = "state-est/tuned_icm42688_1khz_imu_dataset.txt";
@@ -44,16 +45,17 @@ int main()
     ENTO_DEBUG("ERROR! Could not build file path for bench_mahony_float_imu!");
   }
 
-  // Create filter with default constructor
-  Filter filter;
-  // Create problem with filter and tuned gains: kp=0.01, ki=0.001
-  Problem problem(filter, Scalar(0.01f), Scalar(0.001f));
+  // Create filter and problem with tuned gains (Kp=0.1, Ki=0.01)
+  Filter filter;  // Default constructor - no internal state
+  Problem problem(filter, 0.1f, 0.01f);  // Pass tuned gains to AttitudeProblem
 
   printf("File path: %s", dataset_path);
-  using Harness = Harness<Problem, false, 1, 10, 100>;
-  Harness harness(problem, "Bench Mahony Float IMU",
-                             dataset_path,
-                             output_path);
+
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench Mahony Float IMU",
+                      dataset_path,
+                      output_path);
 
   harness.run();
 

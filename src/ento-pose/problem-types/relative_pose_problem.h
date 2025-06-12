@@ -112,7 +112,8 @@ auto makeRelativePoseProblem(Solver solver)
 template <typename Scalar, typename Solver, size_t NumPts>
 void RelativePoseProblem<Scalar, Solver, NumPts>::solve_impl()
 {
-  num_solns_ = solver_.solve(*this, &solns_);
+  //num_solns_ = solver_.solve(*this, &solns_);
+  num_solns_ = solver_.template solve<NumPts>(x1_, x2_, &solns_);
 }
 
 

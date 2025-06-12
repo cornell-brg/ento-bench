@@ -36,7 +36,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/rel_5pt_float_100.csv";
+  const char* rel_path = "rel-pose/5pt_float_noise1.0.csv";
   char dataset_path[512];
   char output_path[256];
 

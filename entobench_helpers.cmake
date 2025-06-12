@@ -2,6 +2,256 @@
 
 include(CMakeParseArguments)
 
+# =============================================================================
+# CONFIG FILE PARSING FUNCTIONS
+# =============================================================================
+
+# Function to parse benchmark configuration from JSON file
+# Usage: parse_benchmark_config_file("configs/benchmarks.json" "performance-group" OUTPUT_VAR)
+function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
+  if(NOT EXISTS ${CONFIG_FILE})
+    message(WARNING "Benchmark config file not found: ${CONFIG_FILE}")
+    return()
+  endif()
+  
+  # Read the JSON file
+  file(READ ${CONFIG_FILE} JSON_CONTENT)
+  
+  # Check if group exists in JSON
+  string(JSON GROUP_EXISTS ERROR_VARIABLE json_error GET ${JSON_CONTENT} ${GROUP_NAME})
+  if(json_error)
+    message(WARNING "Group '${GROUP_NAME}' not found in config file: ${CONFIG_FILE}")
+    return()
+  endif()
+  
+  # Parse group configuration
+  set(CONFIG_ARGS "")
+  
+  # Helper macro to extract JSON values
+  macro(extract_json_value PARAM_NAME CMAKE_VAR JSON_KEY)
+    string(JSON ${CMAKE_VAR} ERROR_VARIABLE json_error GET ${JSON_CONTENT} ${GROUP_NAME} ${JSON_KEY})
+    if(NOT json_error AND DEFINED ${CMAKE_VAR})
+      list(APPEND CONFIG_ARGS ${PARAM_NAME} ${${CMAKE_VAR}})
+    endif()
+  endmacro()
+  
+  # Helper macro for boolean flags
+  macro(extract_json_bool_flag FLAG_NAME JSON_KEY)
+    string(JSON BOOL_VALUE ERROR_VARIABLE json_error GET ${JSON_CONTENT} ${GROUP_NAME} ${JSON_KEY})
+    if(NOT json_error AND BOOL_VALUE)
+      list(APPEND CONFIG_ARGS ${FLAG_NAME})
+    endif()
+  endmacro()
+  
+  # Extract configuration parameters
+  extract_json_value("REPS" REPS_VALUE "reps")
+  extract_json_value("INNER_REPS" INNER_REPS_VALUE "inner_reps") 
+  extract_json_value("VERBOSITY" VERBOSITY_VALUE "verbosity")
+  extract_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
+  extract_json_bool_flag("DO_WARMUP" "do_warmup")
+  extract_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  
+  # Set output variable
+  set(${OUTPUT_VAR} ${CONFIG_ARGS} PARENT_SCOPE)
+  
+  # Print what was loaded
+  if(CONFIG_ARGS)
+    message(STATUS "Loaded config for '${GROUP_NAME}' from ${CONFIG_FILE}:")
+    list(LENGTH CONFIG_ARGS ARG_COUNT)
+    math(EXPR PAIRS "${ARG_COUNT} / 2")
+    set(i 0)
+    while(i LESS ARG_COUNT)
+      list(GET CONFIG_ARGS ${i} KEY)
+      math(EXPR i "${i} + 1")
+      if(i LESS ARG_COUNT)
+        list(GET CONFIG_ARGS ${i} VALUE)
+        message(STATUS "  ${KEY}=${VALUE}")
+      else()
+        message(STATUS "  ${KEY}")
+      endif()
+      math(EXPR i "${i} + 1")
+    endwhile()
+  endif()
+endfunction()
+
+# NEW: Function to parse target-specific configuration from JSON file
+# Usage: parse_target_config_file("configs/benchmarks.json" "bench-madgwick-float-imu" OUTPUT_VAR)
+function(parse_target_config_file CONFIG_FILE TARGET_NAME OUTPUT_VAR)
+  if(NOT EXISTS ${CONFIG_FILE})
+    message(WARNING "Benchmark config file not found: ${CONFIG_FILE}")
+    return()
+  endif()
+  
+  # Read the JSON file
+  file(READ ${CONFIG_FILE} JSON_CONTENT)
+  
+  # Check if targets section exists
+  string(JSON TARGETS_EXISTS ERROR_VARIABLE json_error GET ${JSON_CONTENT} "targets")
+  if(json_error)
+    # No targets section, return empty
+    set(${OUTPUT_VAR} "" PARENT_SCOPE)
+    return()
+  endif()
+  
+  # Check if specific target exists in targets section
+  string(JSON TARGET_EXISTS ERROR_VARIABLE json_error GET ${JSON_CONTENT} "targets" ${TARGET_NAME})
+  if(json_error)
+    # Target not found, return empty
+    set(${OUTPUT_VAR} "" PARENT_SCOPE)
+    return()
+  endif()
+  
+  # Parse target-specific configuration
+  set(CONFIG_ARGS "")
+  
+  # Helper macro to extract JSON values for targets
+  macro(extract_target_json_value PARAM_NAME CMAKE_VAR JSON_KEY)
+    string(JSON ${CMAKE_VAR} ERROR_VARIABLE json_error GET ${JSON_CONTENT} "targets" ${TARGET_NAME} ${JSON_KEY})
+    if(NOT json_error AND DEFINED ${CMAKE_VAR})
+      list(APPEND CONFIG_ARGS ${PARAM_NAME} ${${CMAKE_VAR}})
+    endif()
+  endmacro()
+  
+  # Helper macro for boolean flags for targets
+  macro(extract_target_json_bool_flag FLAG_NAME JSON_KEY)
+    string(JSON BOOL_VALUE ERROR_VARIABLE json_error GET ${JSON_CONTENT} "targets" ${TARGET_NAME} ${JSON_KEY})
+    if(NOT json_error AND BOOL_VALUE)
+      list(APPEND CONFIG_ARGS ${FLAG_NAME})
+    endif()
+  endmacro()
+  
+  # Extract target-specific configuration parameters
+  extract_target_json_value("REPS" REPS_VALUE "reps")
+  extract_target_json_value("INNER_REPS" INNER_REPS_VALUE "inner_reps") 
+  extract_target_json_value("VERBOSITY" VERBOSITY_VALUE "verbosity")
+  extract_target_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
+  extract_target_json_bool_flag("DO_WARMUP" "do_warmup")
+  extract_target_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  
+  # Set output variable
+  set(${OUTPUT_VAR} ${CONFIG_ARGS} PARENT_SCOPE)
+  
+  # Print what was loaded
+  if(CONFIG_ARGS)
+    message(STATUS "Loaded target-specific config for '${TARGET_NAME}' from ${CONFIG_FILE}:")
+    list(LENGTH CONFIG_ARGS ARG_COUNT)
+    math(EXPR PAIRS "${ARG_COUNT} / 2")
+    set(i 0)
+    while(i LESS ARG_COUNT)
+      list(GET CONFIG_ARGS ${i} KEY)
+      math(EXPR i "${i} + 1")
+      if(i LESS ARG_COUNT)
+        list(GET CONFIG_ARGS ${i} VALUE)
+        message(STATUS "  ${KEY}=${VALUE}")
+      else()
+        message(STATUS "  ${KEY}")
+      endif()
+      math(EXPR i "${i} + 1")
+    endwhile()
+  endif()
+endfunction()
+
+# Function to configure benchmark group from config file
+# Usage: configure_benchmark_group_from_file("performance-group" "configs/benchmarks.json" target1 target2 target3)
+function(configure_benchmark_group_from_file GROUP_NAME CONFIG_FILE)
+  set(TARGET_LIST ${ARGN})
+  
+  # Parse configuration from file
+  parse_benchmark_config_file(${CONFIG_FILE} ${GROUP_NAME} CONFIG_ARGS)
+  
+  if(CONFIG_ARGS)
+    # Apply configuration to all targets
+    foreach(target_name IN LISTS TARGET_LIST)
+      if(TARGET ${target_name})
+        configure_benchmark_target(${target_name} ${CONFIG_ARGS})
+      else()
+        message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
+      endif()
+    endforeach()
+    
+    # Create the group target
+    add_benchmark_group_target(${GROUP_NAME} ${TARGET_LIST})
+    
+    message(STATUS "Configured group '${GROUP_NAME}' from ${CONFIG_FILE}")
+  else()
+    message(WARNING "No configuration found for group '${GROUP_NAME}' in ${CONFIG_FILE}")
+  endif()
+endfunction()
+
+# Function to configure benchmark group with config file support and fallback
+# Usage: add_configured_benchmark_group_from_file("performance-group" 
+#          CONFIG_FILE "configs/benchmarks.json"
+#          TARGETS target1 target2 target3
+#          REPS 10  # fallback values
+#          VERBOSITY 1)
+function(add_configured_benchmark_group_from_file GROUP_NAME)
+  cmake_parse_arguments(GROUP 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "TARGETS" 
+    ${ARGN}
+  )
+  
+  if(NOT GROUP_TARGETS)
+    message(FATAL_ERROR "add_configured_benchmark_group_from_file: TARGETS must be specified")
+  endif()
+  
+  set(FINAL_CONFIG_ARGS "")
+  
+  # Try to load from config file first
+  if(GROUP_CONFIG_FILE AND EXISTS ${GROUP_CONFIG_FILE})
+    parse_benchmark_config_file(${GROUP_CONFIG_FILE} ${GROUP_NAME} FILE_CONFIG_ARGS)
+    if(FILE_CONFIG_ARGS)
+      set(FINAL_CONFIG_ARGS ${FILE_CONFIG_ARGS})
+      message(STATUS "Using config file ${GROUP_CONFIG_FILE} for group '${GROUP_NAME}'")
+    endif()
+  endif()
+  
+  # If no config from file, use function parameters as fallback
+  if(NOT FINAL_CONFIG_ARGS)
+    if(DEFINED GROUP_REPS)
+      list(APPEND FINAL_CONFIG_ARGS "REPS" "${GROUP_REPS}")
+    endif()
+    if(DEFINED GROUP_INNER_REPS)
+      list(APPEND FINAL_CONFIG_ARGS "INNER_REPS" "${GROUP_INNER_REPS}")
+    endif()
+    if(DEFINED GROUP_VERBOSITY)
+      list(APPEND FINAL_CONFIG_ARGS "VERBOSITY" "${GROUP_VERBOSITY}")
+    endif()
+    if(DEFINED GROUP_MAX_PROBLEMS)
+      list(APPEND FINAL_CONFIG_ARGS "MAX_PROBLEMS" "${GROUP_MAX_PROBLEMS}")
+    endif()
+    if(GROUP_DO_WARMUP)
+      list(APPEND FINAL_CONFIG_ARGS "DO_WARMUP")
+    endif()
+    if(GROUP_ENABLE_CACHES)
+      list(APPEND FINAL_CONFIG_ARGS "ENABLE_CACHES")
+    endif()
+    
+    if(FINAL_CONFIG_ARGS)
+      message(STATUS "Using fallback configuration for group '${GROUP_NAME}'")
+    endif()
+  endif()
+  
+  # Configure all targets
+  foreach(target_name IN LISTS GROUP_TARGETS)
+    if(TARGET ${target_name})
+      if(FINAL_CONFIG_ARGS)
+        configure_benchmark_target(${target_name} ${FINAL_CONFIG_ARGS})
+      endif()
+    else()
+      message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
+    endif()
+  endforeach()
+  
+  # Create the group target
+  add_benchmark_group_target(${GROUP_NAME} ${GROUP_TARGETS})
+endfunction()
+
+# =============================================================================
+# EXISTING FUNCTIONS (unchanged)
+# =============================================================================
+
 function(add_arm_semihosting_executable TARGET_NAME)
   # Extract source files and libs from arguments
   cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
@@ -381,6 +631,269 @@ function(add_benchmark_group_target GROUP_NAME)
   if(EXISTS ${PROGRESS_SCRIPT})
     message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
   endif()
+endfunction()
+
+# NEW: Function to configure benchmark parameters via CMake
+# Usage: configure_benchmark_target(target_name
+#          REPS 10
+#          INNER_REPS 5  
+#          VERBOSITY 2
+#          MAX_PROBLEMS 100
+#          DO_WARMUP ON
+#          ENABLE_CACHES OFF)
+function(configure_benchmark_target TARGET_NAME)
+  cmake_parse_arguments(BENCH 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "" 
+    ${ARGN}
+  )
+  
+  if(TARGET ${TARGET_NAME})
+    # Set benchmark configuration defines
+    if(DEFINED BENCH_REPS)
+      target_compile_definitions(${TARGET_NAME} PRIVATE REPS=${BENCH_REPS})
+    endif()
+    
+    if(DEFINED BENCH_INNER_REPS)
+      target_compile_definitions(${TARGET_NAME} PRIVATE INNER_REPS=${BENCH_INNER_REPS})
+    endif()
+    
+    if(DEFINED BENCH_VERBOSITY)
+      target_compile_definitions(${TARGET_NAME} PRIVATE VERBOSITY=${BENCH_VERBOSITY})
+    endif()
+    
+    if(DEFINED BENCH_MAX_PROBLEMS)
+      target_compile_definitions(${TARGET_NAME} PRIVATE MAX_PROBLEMS=${BENCH_MAX_PROBLEMS})
+    endif()
+    
+    if(BENCH_DO_WARMUP)
+      target_compile_definitions(${TARGET_NAME} PRIVATE DO_WARMUP=1)
+    else()
+      target_compile_definitions(${TARGET_NAME} PRIVATE DO_WARMUP=0)
+    endif()
+    
+    if(BENCH_ENABLE_CACHES)
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=1)
+    else()
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=0)
+    endif()
+    
+    message(STATUS "Configured ${TARGET_NAME} with:")
+    if(DEFINED BENCH_REPS)
+      message(STATUS "  REPS=${BENCH_REPS}")
+    endif()
+    if(DEFINED BENCH_INNER_REPS)
+      message(STATUS "  INNER_REPS=${BENCH_INNER_REPS}")
+    endif()
+    if(DEFINED BENCH_VERBOSITY)
+      message(STATUS "  VERBOSITY=${BENCH_VERBOSITY}")
+    endif()
+    if(DEFINED BENCH_MAX_PROBLEMS)
+      message(STATUS "  MAX_PROBLEMS=${BENCH_MAX_PROBLEMS}")
+    endif()
+    message(STATUS "  DO_WARMUP=${BENCH_DO_WARMUP}")
+    message(STATUS "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
+  else()
+    message(WARNING "Target ${TARGET_NAME} does not exist, cannot configure benchmark parameters")
+  endif()
+endfunction()
+
+# Enhanced add_benchmark function with configuration support
+function(add_configured_benchmark TARGET_NAME)
+  cmake_parse_arguments(ARG 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "SOURCES;LIBRARIES" 
+    ${ARGN}
+  )
+
+  # Create the basic benchmark target first
+  if(STM32_BUILD)
+    add_arm_semihosting_executable(${TARGET_NAME}
+      SOURCES ${ARG_SOURCES}
+      LIBRARIES ${ARG_LIBRARIES}
+    )
+    add_arm_executable(${TARGET_NAME}-no-semihosting
+      SOURCES ${ARG_SOURCES}
+      LIBRARIES ${ARG_LIBRARIES}
+    )
+  elseif(GEM5_BUILD)
+    add_arm_baremetal_gem5_se_executable(${TARGET_NAME}
+      SOURCES ${ARG_SOURCES}
+      LIBRARIES ${ARG_LIBRARIES}
+    )
+  endif()
+
+  # Apply configuration parameters
+  configure_benchmark_target(${TARGET_NAME}
+    REPS ${ARG_REPS}
+    INNER_REPS ${ARG_INNER_REPS}
+    VERBOSITY ${ARG_VERBOSITY}
+    MAX_PROBLEMS ${ARG_MAX_PROBLEMS}
+    ${ARG_DO_WARMUP}
+    ${ARG_ENABLE_CACHES}
+  )
+endfunction()
+
+# NEW: Enhanced benchmark group function with configuration support
+function(add_configured_benchmark_group_target GROUP_NAME)
+  # Parse configuration arguments and target list
+  cmake_parse_arguments(GROUP 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "" 
+    ${ARGN}
+  )
+  
+  # The remaining unparsed arguments are the target list
+  set(TARGET_LIST ${GROUP_UNPARSED_ARGUMENTS})
+  
+  # Apply configuration to all targets in the group
+  foreach(target_name IN LISTS TARGET_LIST)
+    if(TARGET ${target_name})
+      configure_benchmark_target(${target_name}
+        REPS ${GROUP_REPS}
+        INNER_REPS ${GROUP_INNER_REPS}
+        VERBOSITY ${GROUP_VERBOSITY}
+        MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
+        ${GROUP_DO_WARMUP}
+        ${GROUP_ENABLE_CACHES}
+      )
+    else()
+      message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
+    endif()
+  endforeach()
+  
+  # Create the group target using the original function
+  add_benchmark_group_target(${GROUP_NAME} ${TARGET_LIST})
+  
+  # Print configuration summary for the group
+  list(LENGTH TARGET_LIST TARGET_COUNT)
+  message(STATUS "Applied configuration to ${TARGET_COUNT} targets in group '${GROUP_NAME}':")
+  if(DEFINED GROUP_REPS)
+    message(STATUS "  Group REPS=${GROUP_REPS}")
+  endif()
+  if(DEFINED GROUP_INNER_REPS)
+    message(STATUS "  Group INNER_REPS=${GROUP_INNER_REPS}")
+  endif()
+  if(DEFINED GROUP_VERBOSITY)
+    message(STATUS "  Group VERBOSITY=${GROUP_VERBOSITY}")
+  endif()
+  if(DEFINED GROUP_MAX_PROBLEMS)
+    message(STATUS "  Group MAX_PROBLEMS=${GROUP_MAX_PROBLEMS}")
+  endif()
+  message(STATUS "  Group DO_WARMUP=${GROUP_DO_WARMUP}")
+  message(STATUS "  Group ENABLE_CACHES=${GROUP_ENABLE_CACHES}")
+endfunction()
+
+# Enhanced function that configures targets first, then creates group
+# Usage: add_preconfigured_benchmark_group("performance-tests"
+#          TARGETS target1 target2 target3
+#          REPS 50
+#          VERBOSITY 1
+#          ENABLE_CACHES)
+function(add_preconfigured_benchmark_group GROUP_NAME)
+  cmake_parse_arguments(GROUP 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "TARGETS" 
+    ${ARGN}
+  )
+  
+  if(NOT GROUP_TARGETS)
+    message(FATAL_ERROR "add_preconfigured_benchmark_group: TARGETS must be specified")
+  endif()
+  
+  # Configure all targets first
+  foreach(target_name IN LISTS GROUP_TARGETS)
+    if(TARGET ${target_name})
+      # Build configuration arguments dynamically
+      set(CONFIG_ARGS "")
+      if(DEFINED GROUP_REPS)
+        list(APPEND CONFIG_ARGS "REPS" "${GROUP_REPS}")
+      endif()
+      if(DEFINED GROUP_INNER_REPS)
+        list(APPEND CONFIG_ARGS "INNER_REPS" "${GROUP_INNER_REPS}")
+      endif()
+      if(DEFINED GROUP_VERBOSITY)
+        list(APPEND CONFIG_ARGS "VERBOSITY" "${GROUP_VERBOSITY}")
+      endif()
+      if(DEFINED GROUP_MAX_PROBLEMS)
+        list(APPEND CONFIG_ARGS "MAX_PROBLEMS" "${GROUP_MAX_PROBLEMS}")
+      endif()
+      if(GROUP_DO_WARMUP)
+        list(APPEND CONFIG_ARGS "DO_WARMUP")
+      endif()
+      if(GROUP_ENABLE_CACHES)
+        list(APPEND CONFIG_ARGS "ENABLE_CACHES")
+      endif()
+      
+      # Apply configuration if any parameters were specified
+      if(CONFIG_ARGS)
+        configure_benchmark_target(${target_name} ${CONFIG_ARGS})
+      endif()
+    else()
+      message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
+    endif()
+  endforeach()
+  
+  # Create the group target
+  add_benchmark_group_target(${GROUP_NAME} ${GROUP_TARGETS})
+endfunction()
+
+# Enhanced function to configure benchmark group with both group and target-specific configs
+# Usage: add_configured_benchmark_group_with_target_configs("attitude-est"
+#          CONFIG_FILE "configs/benchmarks.json"
+#          TARGETS target1 target2 target3)
+function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
+  cmake_parse_arguments(GROUP 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "TARGETS" 
+    ${ARGN}
+  )
+  
+  if(NOT GROUP_TARGETS)
+    message(FATAL_ERROR "add_configured_benchmark_group_with_target_configs: TARGETS must be specified")
+  endif()
+  
+  # Get group-level configuration
+  set(GROUP_CONFIG_ARGS "")
+  if(GROUP_CONFIG_FILE AND EXISTS ${GROUP_CONFIG_FILE})
+    parse_benchmark_config_file(${GROUP_CONFIG_FILE} ${GROUP_NAME} GROUP_CONFIG_ARGS)
+  endif()
+  
+  # Apply configuration to each target
+  foreach(target_name IN LISTS GROUP_TARGETS)
+    if(TARGET ${target_name})
+      # Start with group configuration
+      set(FINAL_CONFIG_ARGS ${GROUP_CONFIG_ARGS})
+      
+      # Check for target-specific overrides
+      if(GROUP_CONFIG_FILE AND EXISTS ${GROUP_CONFIG_FILE})
+        parse_target_config_file(${GROUP_CONFIG_FILE} ${target_name} TARGET_CONFIG_ARGS)
+        
+        # If target-specific config exists, it overrides group config
+        if(TARGET_CONFIG_ARGS)
+          set(FINAL_CONFIG_ARGS ${TARGET_CONFIG_ARGS})
+          message(STATUS "Using target-specific config for ${target_name}")
+        else()
+          message(STATUS "Using group config for ${target_name}")
+        endif()
+      endif()
+      
+      # Apply final configuration
+      if(FINAL_CONFIG_ARGS)
+        configure_benchmark_target(${target_name} ${FINAL_CONFIG_ARGS})
+      endif()
+    else()
+      message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
+    endif()
+  endforeach()
+  
+  # Create the group target
+  add_benchmark_group_target(${GROUP_NAME} ${GROUP_TARGETS})
 endfunction()
 
 

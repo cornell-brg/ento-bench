@@ -36,7 +36,7 @@ int main()
 
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/upright_planar_3pt_float_data_placeholder.csv";  // Placeholder path
+  const char* rel_path = "rel-pose/upright_planar_3pt3_float_noise1.0.csv";  // Updated to use 3-point with 1.0 noise dataset
   char dataset_path[512];
   char output_path[256];
 

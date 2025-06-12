@@ -33,7 +33,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "abs-pose/dlt_float_data_placeholder.csv";  // Placeholder path
+  const char* rel_path = "abs-pose/dlt6_float_noise0.01.csv";  // Updated to use dlt6 with 0.01 noise dataset
   char dataset_path[512];
   char output_path[256];
 

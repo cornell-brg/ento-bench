@@ -1,6 +1,8 @@
 #ifndef CACHE_UTIL_H
 #define CACHE_UTIL_H
 
+#include <cstdint>
+
 #if defined(STM32G4)
     #include <stm32g4xx.h>
     #include <stm32g4xx_ll_bus.h>
@@ -65,5 +67,9 @@ void      dcache_invalidate(void);
 // Branch Predictor Functions
 void      branch_predictor_enable(void);
 void      branch_predictor_disable(void);
+
+// Generic cache enablement function that abstracts MCU-specific sequences
+void      enable_all_caches(void);
+void      disable_all_caches(void);
 
 #endif // CACHE_UTIL_H

@@ -19,9 +19,10 @@ mkdir -p "${RESULTS_DIR}/summary"
 
 # Grid of parameters to test
 SOLVERS=("p3p" "up2p" "dlt")
-NOISE_LEVELS=("0.0" "0.001" "0.005" "0.01" "0.02" "0.03" "0.04" "0.05" "0.06" "0.07" "0.08" "0.09" "0.1")
+# NOISE_LEVELS=("0.0" "0.001" "0.005" "0.01" "0.02" "0.03" "0.04" "0.05" "0.06" "0.07" "0.08" "0.09" "0.1")
+NOISE_LEVELS=("0.0" "0.01" "0.025" "0.05")
 PRECISION_TYPES=("float" "double")
-DATA_MODES=("traditional" "realistic")
+DATA_MODES=("traditional")
 PROBLEM_COUNTS=(1000)
 
 # DLT specific configurations
@@ -31,7 +32,7 @@ DLT_POINT_CONFIGS=(6 8 16 32 64 128)
 declare -A SOLVER_POINTS
 SOLVER_POINTS[p3p]=3
 SOLVER_POINTS[up2p]=2
-SOLVER_POINTS[dlt]=128  # Use more points for DLT overdetermined system
+SOLVER_POINTS[dlt]=6  # Use more points for DLT overdetermined system
 
 echo "=== Enhanced Absolute Pose Benchmarking System ==="
 echo "Results will be saved to: ${RESULTS_DIR}"

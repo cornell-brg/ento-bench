@@ -1,4 +1,6 @@
 #include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
+#include <cstdint>
 
 void icache_enable()
 {
@@ -243,4 +245,42 @@ void branch_predictor_disable()
   __DSB();                            // Data Synchronization Barrier
   __ISB();                            // Instruction Synchronization Barrier
 #endif
+}
+
+void enable_all_caches()
+{
+#ifndef NATIVE
+  // Enable instruction caches (abstracted MCU-specific calls)
+#if defined(STM32G4) || defined(STM32H7)
+  enable_instruction_cache();
+  enable_instruction_cache_prefetch();
+#endif
+
+#if defined(STM32U5) || defined(STM32F7) || defined(STM32H7)
+  icache_enable();
+#endif
+
+#if defined(STM32F7) || defined(STM32H7)
+  dcache_enable();
+#endif
+#endif // NATIVE
+}
+
+void disable_all_caches()
+{
+#ifndef NATIVE
+  // Disable instruction caches (abstracted MCU-specific calls)
+#if defined(STM32G4) || defined(STM32H7)
+  disable_instruction_cache();
+  disable_instruction_cache_prefetch();
+#endif
+
+#if defined(STM32U5) || defined(STM32F7) || defined(STM32H7)
+  icache_disable();
+#endif
+
+#if defined(STM32F7) || defined(STM32H7)
+  dcache_disable();
+#endif
+#endif // NATIVE
 }

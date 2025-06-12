@@ -3,6 +3,7 @@
 
 #ifndef NATIVE
 #include <ento-mcu/timing.h>
+#include <ento-mcu/cache_util.h>
 #endif
 
 #ifdef NATIVE
@@ -22,6 +23,8 @@
 #include <initializer_list>
 #include <ento-util/experiment_io.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
 
 namespace EntoBench {
 // Define a concept for callables with no arguments

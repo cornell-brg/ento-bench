@@ -36,7 +36,7 @@ int main()
 
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/5pt_double_data_placeholder.csv";  // Placeholder path
+  const char* rel_path = "rel-pose/5pt_double_noise1.0.csv";  // Updated to use 1.0 noise dataset
   char dataset_path[512];
   char output_path[256];
 

@@ -20,7 +20,7 @@ mkdir -p "${RESULTS_DIR}/summary"
 # Grid of parameters to test
 SOLVERS=("8pt" "5pt" "upright_3pt" "upright_planar_3pt" "upright_planar_2pt")  # Added 8pt back
 PRECISIONS=("float" "double")
-DATA_MODES=("realistic" "traditional")  # Changed order: realistic first (default)
+DATA_MODES=("realistic")  # Changed order: realistic first (default)
 #NOISE_LEVELS=(0.0 0.001 0.005 0.01 0.015 0.02 0.025 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1)
 NOISE_LEVELS=(0.5 1.0 2.5)
 NUM_PROBLEMS=1000
@@ -55,7 +55,7 @@ run_benchmark() {
     local precision="$2"
     local data_mode="$3"
     local noise_level="$4"
-    local num_points="$5"  # NEW: Accept point count as parameter
+    local num_points="$5"  # Accept point count as parameter
     
     TOTAL_RUNS=$((TOTAL_RUNS + 1))
     
@@ -91,35 +91,67 @@ run_benchmark() {
         *) echo "Unknown solver: ${solver}"; return 1 ;;
     esac
     
-    # Output files - UPDATED: Include point count in filename for linear solvers
-    local output_prefix
+    # Create unique identifier for this run (matching abs_pose pattern)
+    local run_id="${solver}_${precision}_${data_mode}_p${NUM_PROBLEMS}_noise${noise_level}"
     if [[ "${solver}" == "8pt" || "${solver}" == "upright_planar_3pt" ]]; then
         # Linear solvers: include point count in filename
-        output_prefix="${solver}_${precision}_${data_mode}_p${NUM_PROBLEMS}_noise${noise_level}_N${num_points}"
-    else
-        # Minimal solvers: use standard filename (point count is fixed)
-        output_prefix="${solver}_${precision}_${data_mode}_p${NUM_PROBLEMS}_noise${noise_level}"
+        run_id="${run_id}_N${num_points}"
     fi
     
-    local log_file="${RESULTS_DIR}/logs/${output_prefix}.log"
-    local summary_file="${RESULTS_DIR}/summary/${output_prefix}_summary.txt"
+    local log_file="${RESULTS_DIR}/logs/${run_id}.log"
+    local data_dir="${RESULTS_DIR}/data/${run_id}"
     
-    echo "[$TOTAL_RUNS] Running: ${solver} ${precision} ${data_mode} noise=${noise_level} (N=${num_points} points)"
+    echo "Running: ${solver} (${precision}, ${data_mode}, ${NUM_PROBLEMS} problems)"
+    if [[ "${solver}" == "8pt" || "${solver}" == "upright_planar_3pt" ]]; then
+        echo "  Points: ${num_points}"
+    fi
+    echo "  Noise level: ${noise_level}"
+    echo "  Log: $(basename "$log_file")"
+    
+    # Create data directory for this run
+    mkdir -p "$data_dir"
+    
+    # Change to data directory so CSV files are saved there
+    cd "$data_dir"
     
     # Build command
     local cmd="${TOOL} ${solver_flag} ${precision_flag} ${data_mode_flag} --problems ${NUM_PROBLEMS} --points ${num_points} --noise-levels \"${noise_level}\""
     
-    # Execute benchmark
-    if timeout 300 bash -c "${cmd}" > "${log_file}" 2>&1; then
+    # Run the tool and capture all output
+    echo "Command: $cmd" > "$log_file"
+    echo "Started: $(date)" >> "$log_file"
+    echo "========================================" >> "$log_file"
+    
+    if eval "$cmd" >> "$log_file" 2>&1; then
+        echo "Completed: $(date)" >> "$log_file"
         echo "  ✓ Success"
         SUCCESSFUL_RUNS=$((SUCCESSFUL_RUNS + 1))
-        echo "Successful: ${solver} ${precision} ${data_mode} noise=${noise_level} N=${num_points}" >> "${summary_file}"
-        echo "Extracted: ${output_prefix}_summary.txt"
+        return 0
     else
+        echo "Failed: $(date)" >> "$log_file"
         echo "  ✗ Failed (check log)"
         FAILED_RUNS=$((FAILED_RUNS + 1))
-        echo "Failed: ${solver} ${precision} ${data_mode} noise=${noise_level} N=${num_points}" >> "${summary_file}"
+        return 1
     fi
+}
+
+# Function to extract statistics from log files
+extract_statistics() {
+    local log_file="$1"
+    local output_file="$2"
+    
+    echo "# Extracted statistics from: $(basename "$log_file")" > "$output_file"
+    echo "# Generated: $(date)" >> "$output_file"
+    echo "" >> "$output_file"
+    
+    # Extract configuration info
+    echo "=== Configuration ===" >> "$output_file"
+    grep -E "(Scalar type|Problems|Points|Data generation|Noise levels)" "$log_file" | head -10 >> "$output_file" || true
+    echo "" >> "$output_file"
+    
+    # Extract all statistics sections
+    echo "=== Statistics ===" >> "$output_file"
+    awk '/=== .* Statistics \(noise=.*\) ===/,/================================/ {print}' "$log_file" >> "$output_file" || true
 }
 
 # Function to get point counts for each solver type
@@ -145,7 +177,7 @@ get_point_counts() {
     esac
 }
 
-# Run all combinations - UPDATED: Support multiple point counts
+# Run all combinations - Support multiple point counts
 for solver in "${SOLVERS[@]}"; do
     for precision in "${PRECISIONS[@]}"; do
         for data_mode in "${DATA_MODES[@]}"; do
@@ -160,51 +192,93 @@ for solver in "${SOLVERS[@]}"; do
                 # Run benchmark for each point count
                 for num_points in ${point_counts}; do
                     run_benchmark "${solver}" "${precision}" "${data_mode}" "${noise_level}" "${num_points}"
+                    echo ""
                 done
             done
         done
     done
 done
 
-# Generate summary
+# Extract statistics from all log files
+echo "=== Extracting Statistics ==="
+for log_file in "${RESULTS_DIR}/logs"/*.log; do
+    if [[ -f "$log_file" ]]; then
+        base_name=$(basename "$log_file" .log)
+        summary_file="${RESULTS_DIR}/summary/${base_name}_summary.txt"
+        extract_statistics "$log_file" "$summary_file"
+        echo "Extracted: $(basename "$summary_file")"
+    fi
+done
+
+# Generate overall summary
 SUMMARY_FILE="${RESULTS_DIR}/benchmark_summary.txt"
-cat > "${SUMMARY_FILE}" << EOF
-=== Benchmark Summary ===
-Start time: $(date)
-Total runs: ${TOTAL_RUNS}
-Successful: ${SUCCESSFUL_RUNS}
-Failed: ${FAILED_RUNS}
-Success rate: $(echo "scale=1; ${SUCCESSFUL_RUNS} * 100 / ${TOTAL_RUNS}" | bc -l)%
+echo "=== Enhanced Relative Pose Benchmark Summary ===" > "$SUMMARY_FILE"
+echo "Generated: $(date)" >> "$SUMMARY_FILE"
+echo "Total runs: $TOTAL_RUNS" >> "$SUMMARY_FILE"
+echo "Successful: $SUCCESSFUL_RUNS" >> "$SUMMARY_FILE"
+echo "Failed: $FAILED_RUNS" >> "$SUMMARY_FILE"
+echo "Success rate: $(echo "scale=1; 100*$SUCCESSFUL_RUNS/$TOTAL_RUNS" | bc -l)%" >> "$SUMMARY_FILE"
+echo "" >> "$SUMMARY_FILE"
 
-Configuration:
-- Solvers: ${SOLVERS[*]}
-- Precisions: ${PRECISIONS[*]}  
-- Data Modes: ${DATA_MODES[*]}
-- Noise Levels: ${NOISE_LEVELS[*]}
-- Problems per run: ${NUM_PROBLEMS}
+echo "Data files saved in: ${RESULTS_DIR}/data/" >> "$SUMMARY_FILE"
+echo "Log files saved in: ${RESULTS_DIR}/logs/" >> "$SUMMARY_FILE"
+echo "Summaries saved in: ${RESULTS_DIR}/summary/" >> "$SUMMARY_FILE"
+echo "" >> "$SUMMARY_FILE"
 
-Results saved to: ${RESULTS_DIR}
-EOF
+# List generated data files
+echo "=== Generated Data Files ===" >> "$SUMMARY_FILE"
+find "${RESULTS_DIR}/data" -name "*.csv" | wc -l | xargs echo "Total CSV files:" >> "$SUMMARY_FILE"
+echo "" >> "$SUMMARY_FILE"
+
+echo "=== Run Details ===" >> "$SUMMARY_FILE"
+for log_file in "${RESULTS_DIR}/logs"/*.log; do
+    if [[ -f "$log_file" ]]; then
+        echo "$(basename "$log_file"): $(grep -c "✓\|✗" "$log_file" 2>/dev/null || echo "0") results" >> "$SUMMARY_FILE"
+    fi
+done
 
 echo ""
 echo "=== Benchmark Complete ==="
-echo "Total runs: ${TOTAL_RUNS}"
-echo "Successful: ${SUCCESSFUL_RUNS}"
-echo "Failed: ${FAILED_RUNS}"
+echo "Total runs: $TOTAL_RUNS"
+echo "Successful: $SUCCESSFUL_RUNS" 
+echo "Failed: $FAILED_RUNS"
 echo "Results saved to: ${RESULTS_DIR}"
 echo "Summary: ${SUMMARY_FILE}"
 echo "End time: $(date)"
 
+# Automatically run analysis and generate plots
 echo ""
 echo "=== Running Analysis and Generating Plots ==="
-echo "Running analysis script with conda sandbox environment..."
+ANALYSIS_SCRIPT="${SCRIPT_DIR}/tools/analyze_rel_pose_results.py"
 
-# Run analysis script in conda environment
-if conda activate sandbox 2>/dev/null && python "${SCRIPT_DIR}/analyze_rel_pose_results.py"; then
-    echo "✓ Analysis complete! Plots saved to: ${RESULTS_DIR}/plots/"
+if [[ -f "$ANALYSIS_SCRIPT" ]]; then
+    # Use conda environment with proper initialization
+    if command -v conda &> /dev/null; then
+        echo "Running analysis script with conda sandbox environment..."
+        # Initialize conda for this shell session and activate
+        eval "$(conda shell.bash hook)"
+        if conda activate sandbox && python "$ANALYSIS_SCRIPT" "$RESULTS_DIR"; then
+            echo "✓ Analysis complete! Plots saved to: ${RESULTS_DIR}/plots/"
+        else
+            echo "✗ Analysis script failed. Check the logs above."
+            echo "You can run it manually with:"
+            echo "  conda activate sandbox && python $ANALYSIS_SCRIPT $RESULTS_DIR"
+        fi
+    elif command -v python3 &> /dev/null; then
+        echo "Conda not found, falling back to python3..."
+        if python3 "$ANALYSIS_SCRIPT" "$RESULTS_DIR"; then
+            echo "✓ Analysis complete! Plots saved to: ${RESULTS_DIR}/plots/"
+        else
+            echo "✗ Analysis script failed. Check the logs above."
+        fi
+    else
+        echo "⚠ Neither conda nor python3 found. Please run analysis manually:"
+        echo "  conda activate sandbox && python $ANALYSIS_SCRIPT $RESULTS_DIR"
+    fi
 else
-    echo "✗ Analysis failed or conda environment not available"
-    echo "You can run the analysis manually:"
-    echo "  conda activate sandbox"
-    echo "  python analyze_rel_pose_results.py"
-fi 
+    echo "⚠ Analysis script not found at: $ANALYSIS_SCRIPT"
+    echo "  Please run analysis manually if needed."
+fi
+
+# Return to original directory
+cd "${SCRIPT_DIR}" 

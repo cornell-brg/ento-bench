@@ -1,0 +1,39 @@
+{
+  "attitude-est": {
+    "reps": 30,
+    "inner_reps": 2,
+    "verbosity": 1,
+    "enable_caches": true
+  },
+  "pose-est": {
+    "reps": 25,
+    "inner_reps": 3,
+    "verbosity": 1,
+    "enable_caches": true
+  },
+  "targets": {
+    "bench-madgwick-float-imu": {
+      "reps": 50,
+      "verbosity": 2,
+      "enable_caches": true
+    },
+    "bench-madgwick-double-imu": {
+      "reps": 100,
+      "inner_reps": 5,
+      "verbosity": 1,
+      "enable_caches": true
+    },
+    "bench-mahony-q7-24-imu": {
+      "reps": 20,
+      "inner_reps": 1,
+      "verbosity": 2,
+      "enable_caches": false
+    },
+    "bench-fourati-float-marg": {
+      "reps": 15,
+      "verbosity": 2,
+      "do_warmup": true,
+      "enable_caches": true
+    }
+  }
+} 

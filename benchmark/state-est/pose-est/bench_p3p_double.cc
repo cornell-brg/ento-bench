@@ -36,7 +36,7 @@ int main()
   software_delay_cycles(10000);
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "abs-pose/p3p_double_data_placeholder.csv";  // Placeholder path
+  const char* rel_path = "abs-pose/p3p_double_noise0.01.csv";  // Updated to use 0.01 noise dataset
   char dataset_path[512];
   char output_path[256];
 

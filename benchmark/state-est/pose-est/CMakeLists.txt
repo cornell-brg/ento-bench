@@ -30,11 +30,11 @@ add_benchmark(bench-p3p-double
 )
 list(APPEND BENCH_TARGETS bench-p3p-double)
 
-add_benchmark(bench-p3p
-  SOURCES bench_p3p.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-p3p)
+#add_benchmark(bench-p3p
+#  SOURCES bench_p3p.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-p3p)
 
 # =============================================================================
 # Absolute Pose Solvers - UP2P
@@ -52,11 +52,11 @@ add_benchmark(bench-up2p-double
 )
 list(APPEND BENCH_TARGETS bench-up2p-double)
 
-add_benchmark(bench-up2p
-  SOURCES bench_up2p.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-up2p)
+#add_benchmark(bench-up2p
+#  SOURCES bench_up2p.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-up2p)
 
 # =============================================================================
 # Absolute Pose Solvers - DLT
@@ -74,11 +74,11 @@ add_benchmark(bench-dlt-double
 )
 list(APPEND BENCH_TARGETS bench-dlt-double)
 
-add_benchmark(bench-dlt
-  SOURCES bench_dlt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-dlt)
+#add_benchmark(bench-dlt
+#  SOURCES bench_dlt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-dlt)
 
 # =============================================================================
 # Relative Pose Solvers - 8pt
@@ -96,11 +96,11 @@ add_benchmark(bench-8pt-double
 )
 list(APPEND BENCH_TARGETS bench-8pt-double)
 
-add_benchmark(bench-8pt
-  SOURCES bench_8pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-8pt)
+#add_benchmark(bench-8pt
+#  SOURCES bench_8pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-8pt)
 
 # =============================================================================
 # Relative Pose Solvers - 5pt
@@ -118,11 +118,11 @@ add_benchmark(bench-5pt-double
 )
 list(APPEND BENCH_TARGETS bench-5pt-double)
 
-add_benchmark(bench-5pt
-  SOURCES bench_5pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-5pt)
+#add_benchmark(bench-5pt
+#  SOURCES bench_5pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-5pt)
 
 # =============================================================================
 # Relative Pose Solvers - Upright 3pt
@@ -140,11 +140,11 @@ add_benchmark(bench-upright-3pt-double
 )
 list(APPEND BENCH_TARGETS bench-upright-3pt-double)
 
-add_benchmark(bench-u3pt
-  SOURCES bench_u3pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-u3pt)
+#add_benchmark(bench-u3pt
+#  SOURCES bench_u3pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-u3pt)
 
 # =============================================================================
 # Relative Pose Solvers - Upright Planar 3pt
@@ -162,11 +162,11 @@ add_benchmark(bench-upright-planar-3pt-double
 )
 list(APPEND BENCH_TARGETS bench-upright-planar-3pt-double)
 
-add_benchmark(bench-upright-planar-3pt
-  SOURCES bench_upright_planar_3pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-upright-planar-3pt)
+#add_benchmark(bench-upright-planar-3pt
+#  SOURCES bench_upright_planar_3pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-upright-planar-3pt)
 
 # =============================================================================
 # Relative Pose Solvers - Upright Planar 2pt
@@ -184,45 +184,45 @@ add_benchmark(bench-upright-planar-2pt-double
 )
 list(APPEND BENCH_TARGETS bench-upright-planar-2pt-double)
 
-add_benchmark(bench-upright-planar-2pt
-  SOURCES bench_upright_planar_2pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-upright-planar-2pt)
+#add_benchmark(bench-upright-planar-2pt
+#  SOURCES bench_upright_planar_2pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-upright-planar-2pt)
 
 # =============================================================================
 # Other existing benchmarks (Homography, Up2pt, Gold Standard)
 # =============================================================================
 
-add_benchmark(bench-homography
-  SOURCES bench_homography.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-homography)
-
-add_benchmark(bench-homography-rel
-  SOURCES bench_homography_rel.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-homography-rel)
-
-add_benchmark(bench-up2pt
-  SOURCES bench_up2pt.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-up2pt)
-
-add_benchmark(bench-gold-standard-abs
-  SOURCES bench_gold_standard_abs.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-abs)
-
-add_benchmark(bench-gold-standard-rel
-  SOURCES bench_gold_standard_rel.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-rel)
+#add_benchmark(bench-homography
+#  SOURCES bench_homography.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-homography)
+#
+#add_benchmark(bench-homography-rel
+#  SOURCES bench_homography_rel.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-homography-rel)
+#
+#add_benchmark(bench-up2pt
+#  SOURCES bench_up2pt.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-up2pt)
+#
+#add_benchmark(bench-gold-standard-abs
+#  SOURCES bench_gold_standard_abs.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-gold-standard-abs)
+#
+#add_benchmark(bench-gold-standard-rel
+#  SOURCES bench_gold_standard_rel.cc
+#  LIBRARIES ${MODULES}
+#)
+#list(APPEND BENCH_TARGETS bench-gold-standard-rel)
 
 # =============================================================================
 # Add stm32 targets
