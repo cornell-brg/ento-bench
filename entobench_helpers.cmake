@@ -420,22 +420,25 @@ endfunction()
 # Helper function to create custom targets for flashing and debugging STM32 binaries using OpenOCD
 # Usage: add_stm32_target(target_name [CONFIG_STR config_string])
 function(add_stm32_target target_name)
-  # Parse optional configuration string argument
   cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
-  
-  # Flash target
   get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
   file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
-
-  # Create log file names with optional configuration string
+  # Use CONFIG_STR argument if provided, else use target property
   if(STM32_CONFIG_STR)
-    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}${STM32_CONFIG_STR}.log")
-    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}${STM32_CONFIG_STR}.log")
+    set(CONFIG_STR "${STM32_CONFIG_STR}")
   else()
-  set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
-  set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+    get_target_property(CONFIG_STR ${target_name} BENCH_CONFIG_STR)
+    if(NOT CONFIG_STR)
+      set(CONFIG_STR "")
+    endif()
   endif()
-
+  if(CONFIG_STR)
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}${CONFIG_STR}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}${CONFIG_STR}.log")
+  else()
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+  endif()
   add_custom_target(stm32-flash-${target_name}-semihosted
     COMMAND bash -c "\
       openocd \
@@ -452,8 +455,6 @@ function(add_stm32_target target_name)
     VERBATIM
     COMMENT "Flashing ${target_name} and logging to ${FLASH_LOG}"
   )
-
-  # Debug target. User must open up another terminal and use arm-none-eabi-gdb/gdb/lldb...
   add_custom_target(stm32-debug-${target_name}-semihosted
     COMMAND bash -c "\
       openocd \
@@ -470,7 +471,6 @@ function(add_stm32_target target_name)
     VERBATIM
     COMMENT "Starting debug session for ${target_name} and logging to ${DEBUG_LOG}"
   )
-
 endfunction()
 
 function(add_stm32_no_semihosting_target target_name)
@@ -543,24 +543,13 @@ function(add_stm32_targets target_list)
   # Parse optional configuration string argument
   cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
   
-  # Use provided config string or fall back to global one
-  set(EFFECTIVE_CONFIG_STR "")
-  if(STM32_CONFIG_STR)
-    set(EFFECTIVE_CONFIG_STR "${STM32_CONFIG_STR}")
-  elseif(DEFINED GLOBAL_BENCHMARK_CONFIG_STR AND GLOBAL_BENCHMARK_CONFIG_STR)
-    set(EFFECTIVE_CONFIG_STR "${GLOBAL_BENCHMARK_CONFIG_STR}")
-    message(STATUS "Using global benchmark config for STM32 targets: ${EFFECTIVE_CONFIG_STR}")
-  endif()
-  
   message(STATUS "Inside add_stm32_targets: ${target_list}")
   foreach(target_name IN LISTS target_list)
     MESSAGE(INFO "Added stm32 target: ${target_name}")
-    if(EFFECTIVE_CONFIG_STR)
-      add_stm32_target(${target_name} CONFIG_STR ${EFFECTIVE_CONFIG_STR})
-      #add_stm32_no_semihosting_target(${target_name} CONFIG_STR ${EFFECTIVE_CONFIG_STR})
+    if(STM32_CONFIG_STR)
+      add_stm32_target(${target_name} CONFIG_STR ${STM32_CONFIG_STR})
     else()
-    add_stm32_target(${target_name})
-    #add_stm32_no_semihosting_target(${target_name})
+      add_stm32_target(${target_name})
     endif()
   endforeach()
 endfunction()
@@ -773,31 +762,48 @@ function(configure_benchmark_target TARGET_NAME)
     if(DEFINED BENCH_REPS)
       target_compile_definitions(${TARGET_NAME} PRIVATE REPS=${BENCH_REPS})
     endif()
-    
     if(DEFINED BENCH_INNER_REPS)
       target_compile_definitions(${TARGET_NAME} PRIVATE INNER_REPS=${BENCH_INNER_REPS})
     endif()
-    
     if(DEFINED BENCH_VERBOSITY)
       target_compile_definitions(${TARGET_NAME} PRIVATE VERBOSITY=${BENCH_VERBOSITY})
     endif()
-    
     if(DEFINED BENCH_MAX_PROBLEMS)
       target_compile_definitions(${TARGET_NAME} PRIVATE MAX_PROBLEMS=${BENCH_MAX_PROBLEMS})
     endif()
-    
     if(BENCH_DO_WARMUP)
       target_compile_definitions(${TARGET_NAME} PRIVATE DO_WARMUP=1)
     else()
       target_compile_definitions(${TARGET_NAME} PRIVATE DO_WARMUP=0)
     endif()
-    
     if(BENCH_ENABLE_CACHES)
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=1)
     else()
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=0)
     endif()
-    
+    # Generate config string for this target
+    set(CONFIG_STR "")
+    if(DEFINED BENCH_REPS)
+      set(CONFIG_STR "${CONFIG_STR}_r${BENCH_REPS}")
+    endif()
+    if(DEFINED BENCH_INNER_REPS)
+      set(CONFIG_STR "${CONFIG_STR}_ir${BENCH_INNER_REPS}")
+    endif()
+    if(DEFINED BENCH_VERBOSITY)
+      set(CONFIG_STR "${CONFIG_STR}_v${BENCH_VERBOSITY}")
+    endif()
+    if(DEFINED BENCH_MAX_PROBLEMS)
+      set(CONFIG_STR "${CONFIG_STR}_mp${BENCH_MAX_PROBLEMS}")
+    endif()
+    if(BENCH_DO_WARMUP)
+      set(CONFIG_STR "${CONFIG_STR}_wu")
+    endif()
+    if(BENCH_ENABLE_CACHES)
+      set(CONFIG_STR "${CONFIG_STR}_cache")
+    else()
+      set(CONFIG_STR "${CONFIG_STR}_nocache")
+    endif()
+    set_target_properties(${TARGET_NAME} PROPERTIES BENCH_CONFIG_STR "${CONFIG_STR}")
     message(STATUS "Configured ${TARGET_NAME} with:")
     if(DEFINED BENCH_REPS)
       message(STATUS "  REPS=${BENCH_REPS}")
@@ -813,6 +819,7 @@ function(configure_benchmark_target TARGET_NAME)
     endif()
     message(STATUS "  DO_WARMUP=${BENCH_DO_WARMUP}")
     message(STATUS "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
+    message(STATUS "  BENCH_CONFIG_STR=${CONFIG_STR}")
   else()
     message(WARNING "Target ${TARGET_NAME} does not exist, cannot configure benchmark parameters")
   endif()
