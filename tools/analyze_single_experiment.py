@@ -199,7 +199,7 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
 
         rel_lat_error = 100 * (tdiff / (tend - tstart))
         current = current_segment.mean()
-        energy_segment = np.trapezoid(current_segment, time_segment) * voltage * 1e-6  # mJ
+        energy_segment = np.trapz(current_segment, time_segment) * voltage * 1e-6  # mJ
 
         if abs(rel_lat_error) > 10:
             energy_adjustment = current * voltage * tdiff * 1e-3
