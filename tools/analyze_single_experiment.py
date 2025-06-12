@@ -99,23 +99,26 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         
         # Prealign based on previous segment if its not the first segment
         if i > 0 and previous_shift != 0:
-            # For prealignment, calculate a time offset based on the previous shift
-            search_start_time = (data['time'].iloc[idx2] - window_size * duration) + previous_shift
-            search_end_time = (data['time'].iloc[idx1] + window_size * duration) + previous_shift
+            # For prealignment, search BACKWARD from expected start position
+            # Apply the shift to move the search window to where we expect the spike
+            expected_start_time = data['time'].iloc[idx1] + previous_shift
+            search_start_time = expected_start_time - window_size * duration
+            search_end_time = data['time'].iloc[idx2]  # Use original idx2, don't look back
             # print(f'Previous shift: {previous_shift}')
-            # print(f'New search/end: {search_start_time}:{search_end_time}')
-            # print(f'Old search/end: {search_start_time-previous_shift}:{search_end_time-previous_shift}')
-        # If first segment, use previous method
+            # print(f'Expected start: {expected_start_time}')
+            # print(f'Search window: {search_start_time} to {search_end_time}')
+        # If first segment, use original method (search backward from idx2)
         else:
             search_start_time = data['time'].iloc[idx2] - window_size * duration
-            search_end_time = data['time'].iloc[idx1] + window_size * duration
+            search_end_time = data['time'].iloc[idx2]
         
         search_start_time = max(search_start_time, data['time'].iloc[0])
         search_start = np.where(data['time'] >= search_start_time)[0][0]
 
-        # Adjust search end using window
+        # Adjust search end using prealigned window
         search_end_time = min(search_end_time, data['time'].iloc[-1])
-        search_end = (data['time'] >= search_end_time).idxmax()
+        search_end = np.where(data['time'] >= search_end_time)[0]
+        search_end = search_end[0] if len(search_end) > 0 else len(data) - 1
 
         # Original search window plot
         if plot_data:
@@ -251,8 +254,8 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
             # Add prealigned search window in green (if not the first segment)
             if i > 0 and previous_shift != 0:
                 # Calculate where the prealigned window would have been
-                prealigned_time = search_start_time
-                prealigned_idx = np.where(data['time'] >= prealigned_time)[0][0]
+                expected_start_time = data['time'].iloc[idx1] + previous_shift
+                prealigned_idx = np.where(data['time'] >= expected_start_time)[0][0]
                 plt.axvline(x=data['time'].iloc[prealigned_idx], color='g',
                           linestyle='--', linewidth=vertical_width, label='Prealigned Window')
             
@@ -269,7 +272,8 @@ def analyze_power_consumption(parent_dir, dataset_name, window_size, rising_thre
         # Update legend to include the green prealigned search window
         plt.legend(['Data', 'Latency Indices', 'Search Window', 'Prealigned Window', 'Adjusted Indices'])
         plt.savefig(os.path.join(plot_dir, 'full_plot.png'))
-        plt.close()
+        plt.show()
+        #plt.close()
 
     average_energy = np.mean(energy_segments)
     average_current = np.mean(currents)
