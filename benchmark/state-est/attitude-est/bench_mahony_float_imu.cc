@@ -49,7 +49,7 @@ int main()
   Filter filter;  // Default constructor - no internal state
   Problem problem(filter, 0.1f, 0.01f);  // Pass tuned gains to AttitudeProblem
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
 
   ENTO_BENCH_HARNESS_TYPE(Problem);
   BenchHarness harness(problem, "Bench Mahony Float IMU",

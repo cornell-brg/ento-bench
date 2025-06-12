@@ -9,6 +9,8 @@
 #include <ento-state-est/attitude-est/attitude_estimation_problem.h>
 #include <ento-state-est/attitude-est/mahoney.h>
 
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
@@ -28,10 +30,7 @@ int main()
   SysTick_Setup();
   __enable_irq();
 
-  // Turn on caches if applicable
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  ENTO_BENCH_SETUP();
 
   const char* base_path = DATASET_PATH;
   const char* rel_path = "state-est/tuned_icm42688_1khz_marg_dataset.txt";
@@ -44,14 +43,13 @@ int main()
     ENTO_DEBUG("ERROR! Could not build file path for bench_bench_mahony_double_marg!");
   }
 
-  // Create filter with default constructor
   Filter filter;
-  // Create problem with filter and gains (passed to solve() method)
-  Problem problem(filter, Scalar(1.0), Scalar(0.1)); // kp=1.0, ki=0.1
+  Problem problem(filter, Scalar(1.0), Scalar(0.1));
 
-  printf("File path: %s", dataset_path);
-  using Harness = Harness<Problem, false, 1, 10, 100>;
-  Harness harness(problem, "Bench Mahony double MARG",
+  printf("File path: %s\n", dataset_path);
+
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench Mahony double MARG",
                              dataset_path,
                              output_path);
 
