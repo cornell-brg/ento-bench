@@ -49,7 +49,7 @@ int main()
   // Create problem with filter and gain
   Problem problem(filter, Scalar(0.1f)); // beta=0.1
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
   using Harness = Harness<Problem, false, 1, 10, 100>;
   Harness harness(problem, "Bench Madgwick Q3_12 IMU",
                              dataset_path,

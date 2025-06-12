@@ -51,7 +51,6 @@ int main()
 
   printf("File path: %s", dataset_path);
 
-  // NEW IDIOM: Configuration-driven harness type
   ENTO_BENCH_HARNESS_TYPE(Problem);
   BenchHarness harness(problem, "Bench Mahony Float IMU",
                       dataset_path,

@@ -418,13 +418,23 @@ endfunction()
 
 
 # Helper function to create custom targets for flashing and debugging STM32 binaries using OpenOCD
+# Usage: add_stm32_target(target_name [CONFIG_STR config_string])
 function(add_stm32_target target_name)
+  # Parse optional configuration string argument
+  cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
+  
   # Flash target
   get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
   file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
 
-  set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
-  set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+  # Create log file names with optional configuration string
+  if(STM32_CONFIG_STR)
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}${STM32_CONFIG_STR}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}${STM32_CONFIG_STR}.log")
+  else()
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+  endif()
 
   add_custom_target(stm32-flash-${target_name}-semihosted
     COMMAND bash -c "\
@@ -464,12 +474,21 @@ function(add_stm32_target target_name)
 endfunction()
 
 function(add_stm32_no_semihosting_target target_name)
+  # Parse optional configuration string argument
+  cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
+  
   # Flash target without semihosting
   get_target_property(TARGET_BUILD_DIR ${target_name} BINARY_DIR)
   file(RELATIVE_PATH RELATIVE_TARGET_BUILD_DIR ${CMAKE_BINARY_DIR} ${TARGET_BUILD_DIR})
 
-  set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
-  set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+  # Create log file names with optional configuration string
+  if(STM32_CONFIG_STR)
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}${STM32_CONFIG_STR}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}${STM32_CONFIG_STR}.log")
+  else()
+    set(FLASH_LOG "${TARGET_BUILD_DIR}/flash-${target_name}.log")
+    set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
+  endif()
 
   add_custom_target(stm32-flash-${target_name}
     COMMAND bash -c "\
@@ -521,11 +540,28 @@ function(add_ento_test TARGET_NAME)
 endfunction()
 
 function(add_stm32_targets target_list)
+  # Parse optional configuration string argument
+  cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
+  
+  # Use provided config string or fall back to global one
+  set(EFFECTIVE_CONFIG_STR "")
+  if(STM32_CONFIG_STR)
+    set(EFFECTIVE_CONFIG_STR "${STM32_CONFIG_STR}")
+  elseif(DEFINED GLOBAL_BENCHMARK_CONFIG_STR AND GLOBAL_BENCHMARK_CONFIG_STR)
+    set(EFFECTIVE_CONFIG_STR "${GLOBAL_BENCHMARK_CONFIG_STR}")
+    message(STATUS "Using global benchmark config for STM32 targets: ${EFFECTIVE_CONFIG_STR}")
+  endif()
+  
   message(STATUS "Inside add_stm32_targets: ${target_list}")
   foreach(target_name IN LISTS target_list)
     MESSAGE(INFO "Added stm32 target: ${target_name}")
-    add_stm32_target(${target_name})
-    #add_stm32_no_semihosting_target(${target_name})
+    if(EFFECTIVE_CONFIG_STR)
+      add_stm32_target(${target_name} CONFIG_STR ${EFFECTIVE_CONFIG_STR})
+      #add_stm32_no_semihosting_target(${target_name} CONFIG_STR ${EFFECTIVE_CONFIG_STR})
+    else()
+      add_stm32_target(${target_name})
+      #add_stm32_no_semihosting_target(${target_name})
+    endif()
   endforeach()
 endfunction()
 
@@ -630,6 +666,89 @@ function(add_benchmark_group_target GROUP_NAME)
   message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
   if(EXISTS ${PROGRESS_SCRIPT})
     message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
+  endif()
+endfunction()
+
+# Enhanced function to create benchmark group targets with configuration parameters
+# Usage: add_benchmark_group_target_with_config("attitude-est" 
+#          TARGETS target1 target2 target3
+#          REPS 30 VERBOSITY 1 ENABLE_CACHES)
+function(add_benchmark_group_target_with_config GROUP_NAME)
+  cmake_parse_arguments(GROUP 
+    "DO_WARMUP;ENABLE_CACHES" 
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
+    "TARGETS" 
+    ${ARGN}
+  )
+  
+  if(NOT GROUP_TARGETS)
+    message(FATAL_ERROR "add_benchmark_group_target_with_config: TARGETS must be specified")
+  endif()
+  
+  # Create the benchmark group target name
+  set(GROUP_TARGET "bench-${GROUP_NAME}")
+  
+  # Convert target list to space-separated string
+  string(REPLACE ";" " " TARGET_LIST_STR "${GROUP_TARGETS}")
+  
+  # Build configuration string for log file naming
+  set(CONFIG_STR "")
+  if(DEFINED GROUP_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_r${GROUP_REPS}")
+  endif()
+  if(DEFINED GROUP_INNER_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_ir${GROUP_INNER_REPS}")
+  endif()
+  if(DEFINED GROUP_VERBOSITY)
+    set(CONFIG_STR "${CONFIG_STR}_v${GROUP_VERBOSITY}")
+  endif()
+  if(DEFINED GROUP_MAX_PROBLEMS)
+    set(CONFIG_STR "${CONFIG_STR}_mp${GROUP_MAX_PROBLEMS}")
+  endif()
+  if(GROUP_DO_WARMUP)
+    set(CONFIG_STR "${CONFIG_STR}_wu")
+  endif()
+  if(GROUP_ENABLE_CACHES)
+    set(CONFIG_STR "${CONFIG_STR}_cache")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nocache")
+  endif()
+  
+  # Path to the build progress script
+  set(PROGRESS_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/build_with_progress.sh")
+  
+  # Check if script exists
+  if(NOT EXISTS ${PROGRESS_SCRIPT})
+    message(WARNING "Build progress script not found at: ${PROGRESS_SCRIPT}")
+    message(WARNING "Falling back to simple build target")
+    
+    # Fallback to simple target
+    add_custom_target(${GROUP_TARGET}
+      COMMAND ${CMAKE_COMMAND} -E echo "🔨 Building ${GROUP_NAME} benchmarks..."
+      COMMENT "Building all ${GROUP_NAME} benchmarks"
+    )
+  else()
+    # Create a custom target that uses the external script for colored progress with config
+    add_custom_target(${GROUP_TARGET}
+      COMMAND bash ${PROGRESS_SCRIPT} "${GROUP_NAME}" "${TARGET_LIST_STR}" "${CMAKE_BINARY_DIR}" "${CONFIG_STR}"
+      COMMENT "Building all ${GROUP_NAME} benchmarks with config${CONFIG_STR}"
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+      USES_TERMINAL
+    )
+  endif()
+  
+  # Print summary
+  list(LENGTH GROUP_TARGETS TARGET_COUNT)
+  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  if(EXISTS ${PROGRESS_SCRIPT})
+    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
+    message(STATUS "Config string: ${CONFIG_STR}")
+  endif()
+  
+  # Pass config string to STM32 targets for OpenOCD log naming
+  if(STM32_BUILD AND CONFIG_STR)
+    message(STATUS "Setting up STM32 targets with config: ${CONFIG_STR}")
+    # We'll call add_stm32_targets with config later in the process
   endif()
 endfunction()
 
@@ -765,8 +884,16 @@ function(add_configured_benchmark_group_target GROUP_NAME)
     endif()
   endforeach()
   
-  # Create the group target using the original function
-  add_benchmark_group_target(${GROUP_NAME} ${TARGET_LIST})
+  # Create the group target using the enhanced function with config
+  add_benchmark_group_target_with_config(${GROUP_NAME}
+    TARGETS ${TARGET_LIST}
+    REPS ${GROUP_REPS}
+    INNER_REPS ${GROUP_INNER_REPS}
+    VERBOSITY ${GROUP_VERBOSITY}
+    MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
+    ${GROUP_DO_WARMUP}
+    ${GROUP_ENABLE_CACHES}
+  )
   
   # Print configuration summary for the group
   list(LENGTH TARGET_LIST TARGET_COUNT)
@@ -805,6 +932,32 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
     message(FATAL_ERROR "add_preconfigured_benchmark_group: TARGETS must be specified")
   endif()
   
+  # Build configuration string for log file naming
+  set(CONFIG_STR "")
+  if(DEFINED GROUP_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_r${GROUP_REPS}")
+  endif()
+  if(DEFINED GROUP_INNER_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_ir${GROUP_INNER_REPS}")
+  endif()
+  if(DEFINED GROUP_VERBOSITY)
+    set(CONFIG_STR "${CONFIG_STR}_v${GROUP_VERBOSITY}")
+  endif()
+  if(DEFINED GROUP_MAX_PROBLEMS)
+    set(CONFIG_STR "${CONFIG_STR}_mp${GROUP_MAX_PROBLEMS}")
+  endif()
+  if(GROUP_DO_WARMUP)
+    set(CONFIG_STR "${CONFIG_STR}_wu")
+  endif()
+  if(GROUP_ENABLE_CACHES)
+    set(CONFIG_STR "${CONFIG_STR}_cache")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nocache")
+  endif()
+  
+  # Store configuration string globally for use by add_stm32_targets
+  set(GLOBAL_BENCHMARK_CONFIG_STR "${CONFIG_STR}" CACHE INTERNAL "Current benchmark configuration string")
+  
   # Configure all targets first
   foreach(target_name IN LISTS GROUP_TARGETS)
     if(TARGET ${target_name})
@@ -838,8 +991,18 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
     endif()
   endforeach()
   
-  # Create the group target
-  add_benchmark_group_target(${GROUP_NAME} ${GROUP_TARGETS})
+  # Create the group target with configuration parameters
+  add_benchmark_group_target_with_config(${GROUP_NAME}
+    TARGETS ${GROUP_TARGETS}
+    REPS ${GROUP_REPS}
+    INNER_REPS ${GROUP_INNER_REPS}
+    VERBOSITY ${GROUP_VERBOSITY}
+    MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
+    ${GROUP_DO_WARMUP}
+    ${GROUP_ENABLE_CACHES}
+  )
+  
+  message(STATUS "Stored benchmark config string: ${CONFIG_STR}")
 endfunction()
 
 # Enhanced function to configure benchmark group with both group and target-specific configs
@@ -863,6 +1026,70 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   if(GROUP_CONFIG_FILE AND EXISTS ${GROUP_CONFIG_FILE})
     parse_benchmark_config_file(${GROUP_CONFIG_FILE} ${GROUP_NAME} GROUP_CONFIG_ARGS)
   endif()
+  
+  # Extract configuration values for log file naming from GROUP_CONFIG_ARGS
+  set(LOG_REPS "")
+  set(LOG_INNER_REPS "")
+  set(LOG_VERBOSITY "")
+  set(LOG_MAX_PROBLEMS "")
+  set(LOG_DO_WARMUP OFF)
+  set(LOG_ENABLE_CACHES OFF)
+  
+  # Parse GROUP_CONFIG_ARGS to extract values
+  list(LENGTH GROUP_CONFIG_ARGS CONFIG_LEN)
+  if(CONFIG_LEN GREATER 0)
+    set(i 0)
+    while(i LESS CONFIG_LEN)
+      list(GET GROUP_CONFIG_ARGS ${i} KEY)
+      math(EXPR i "${i} + 1")
+      if(i LESS CONFIG_LEN)
+        if(KEY STREQUAL "REPS")
+          list(GET GROUP_CONFIG_ARGS ${i} LOG_REPS)
+        elseif(KEY STREQUAL "INNER_REPS")
+          list(GET GROUP_CONFIG_ARGS ${i} LOG_INNER_REPS)
+        elseif(KEY STREQUAL "VERBOSITY")
+          list(GET GROUP_CONFIG_ARGS ${i} LOG_VERBOSITY)
+        elseif(KEY STREQUAL "MAX_PROBLEMS")
+          list(GET GROUP_CONFIG_ARGS ${i} LOG_MAX_PROBLEMS)
+        endif()
+        math(EXPR i "${i} + 1")
+      else()
+        # Boolean flags don't have values
+        if(KEY STREQUAL "DO_WARMUP")
+          set(LOG_DO_WARMUP ON)
+        elseif(KEY STREQUAL "ENABLE_CACHES")
+          set(LOG_ENABLE_CACHES ON)
+        endif()
+        math(EXPR i "${i} + 1")
+      endif()
+    endwhile()
+  endif()
+  
+  # Build configuration string for log file naming
+  set(CONFIG_STR "")
+  if(LOG_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_r${LOG_REPS}")
+  endif()
+  if(LOG_INNER_REPS)
+    set(CONFIG_STR "${CONFIG_STR}_ir${LOG_INNER_REPS}")
+  endif()
+  if(LOG_VERBOSITY)
+    set(CONFIG_STR "${CONFIG_STR}_v${LOG_VERBOSITY}")
+  endif()
+  if(LOG_MAX_PROBLEMS)
+    set(CONFIG_STR "${CONFIG_STR}_mp${LOG_MAX_PROBLEMS}")
+  endif()
+  if(LOG_DO_WARMUP)
+    set(CONFIG_STR "${CONFIG_STR}_wu")
+  endif()
+  if(LOG_ENABLE_CACHES)
+    set(CONFIG_STR "${CONFIG_STR}_cache")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nocache")
+  endif()
+  
+  # Store configuration string globally for use by add_stm32_targets
+  set(GLOBAL_BENCHMARK_CONFIG_STR "${CONFIG_STR}" CACHE INTERNAL "Current benchmark configuration string")
   
   # Apply configuration to each target
   foreach(target_name IN LISTS GROUP_TARGETS)
@@ -892,8 +1119,30 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
     endif()
   endforeach()
   
-  # Create the group target
-  add_benchmark_group_target(${GROUP_NAME} ${GROUP_TARGETS})
+  # Create the group target with configuration parameters for log naming
+  set(CONFIG_PARAMS TARGETS ${GROUP_TARGETS})
+  if(LOG_REPS)
+    list(APPEND CONFIG_PARAMS REPS ${LOG_REPS})
+  endif()
+  if(LOG_INNER_REPS)
+    list(APPEND CONFIG_PARAMS INNER_REPS ${LOG_INNER_REPS})
+  endif()
+  if(LOG_VERBOSITY)
+    list(APPEND CONFIG_PARAMS VERBOSITY ${LOG_VERBOSITY})
+  endif()
+  if(LOG_MAX_PROBLEMS)
+    list(APPEND CONFIG_PARAMS MAX_PROBLEMS ${LOG_MAX_PROBLEMS})
+  endif()
+  if(LOG_DO_WARMUP)
+    list(APPEND CONFIG_PARAMS DO_WARMUP)
+  endif()
+  if(LOG_ENABLE_CACHES)
+    list(APPEND CONFIG_PARAMS ENABLE_CACHES)
+  endif()
+  
+  add_benchmark_group_target_with_config(${GROUP_NAME} ${CONFIG_PARAMS})
+  
+  message(STATUS "Stored benchmark config string: ${CONFIG_STR}")
 endfunction()
 
 

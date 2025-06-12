@@ -49,7 +49,7 @@ int main()
   Filter filter;  // Default constructor - no internal state
   Problem problem(filter, Scalar(0.001f));  // Pass tuned gain to AttitudeProblem
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
   Harness harness(problem, "Bench Madgwick Q7_24 MARG",
                              dataset_path,
                              output_path);

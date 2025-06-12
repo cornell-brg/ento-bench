@@ -49,7 +49,7 @@ int main()
   // Create problem with filter and Fourati gain: 0.1
   Problem problem(filter, Scalar(0.1));
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
   using Harness = Harness<Problem, false, 1, 10, 100>;
   Harness harness(problem, "Bench Fourati Double MARG",
                              dataset_path,

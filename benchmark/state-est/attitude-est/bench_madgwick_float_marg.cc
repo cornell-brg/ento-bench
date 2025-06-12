@@ -48,7 +48,7 @@ int main()
   Filter filter;  // Default constructor - no internal state
   Problem problem(filter, 0.001f);  // Pass tuned gain to AttitudeProblem
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
   using Harness = Harness<Problem, false, 1, 10, 100>;
   Harness harness(problem, "Bench Madgwick Float MARG",
                              dataset_path,

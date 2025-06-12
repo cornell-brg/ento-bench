@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # build_with_progress.sh - Colored progress builder for benchmark groups
-# Usage: ./build_with_progress.sh GROUP_NAME "target1 target2 target3" [BUILD_DIR]
+# Usage: ./build_with_progress.sh GROUP_NAME "target1 target2 target3" [BUILD_DIR] [CONFIG_STR]
 
 GROUP_NAME="$1"
 TARGET_LIST="$2"
 BUILD_DIR="${3:-$(pwd)}"
+CONFIG_STR="${4:-}"
 
 # Validate inputs
 if [ -z "$GROUP_NAME" ] || [ -z "$TARGET_LIST" ]; then
-  echo "Usage: $0 GROUP_NAME \"target1 target2 target3\" [BUILD_DIR]"
+  echo "Usage: $0 GROUP_NAME \"target1 target2 target3\" [BUILD_DIR] [CONFIG_STR]"
   exit 1
 fi
 
@@ -36,8 +37,12 @@ print_progress() {
   echo -ne "${color}${text}${NC}"
 }
 
-# Create log file with timestamp in the build directory
-LOG_FILE="$BUILD_DIR/build_${GROUP_NAME}_$(date +%Y%m%d_%H%M%S).log"
+# Create log file with timestamp and configuration in the build directory
+if [ -n "$CONFIG_STR" ]; then
+  LOG_FILE="$BUILD_DIR/build_${GROUP_NAME}${CONFIG_STR}_$(date +%Y%m%d_%H%M%S).log"
+else
+  LOG_FILE="$BUILD_DIR/build_${GROUP_NAME}_$(date +%Y%m%d_%H%M%S).log"
+fi
 
 # Initialize counters
 BUILT_COUNT=0
@@ -48,6 +53,9 @@ TOTAL_TARGETS=$(echo $TARGET_LIST | wc -w)
 print_colored "$CYAN" ""
 print_colored "$CYAN" "🔨 Building $GROUP_NAME benchmarks..."
 print_colored "$CYAN" "📍 Build directory: $BUILD_DIR"
+if [ -n "$CONFIG_STR" ]; then
+  print_colored "$CYAN" "⚙️  Configuration: $CONFIG_STR"
+fi
 print_colored "$CYAN" "📝 Logging output to: $(basename $LOG_FILE)"
 print_colored "$CYAN" "🎯 Targets: $TOTAL_TARGETS"
 print_colored "$CYAN" ""

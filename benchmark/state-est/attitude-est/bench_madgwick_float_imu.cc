@@ -49,7 +49,7 @@ int main()
   Filter filter;  // Default constructor - no internal state
   Problem problem(filter, 0.001f);  // Pass tuned gain to AttitudeProblem
 
-  printf("File path: %s", dataset_path);
+  printf("File path: %s\n", dataset_path);
 
   // NEW IDIOM: Configuration-driven harness type
   ENTO_BENCH_HARNESS_TYPE(Problem);
