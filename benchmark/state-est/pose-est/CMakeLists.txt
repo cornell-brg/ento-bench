@@ -98,17 +98,17 @@ add_benchmark(bench-dlt32-double
 list(APPEND BENCH_TARGETS bench-dlt32-double)
 
 # Comment out 64-bit variants - too large for current deserialize ExperimentIO
-# add_benchmark(bench-dlt64-float
-#   SOURCES bench_dlt64_float.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-dlt64-float)
+add_benchmark(bench-dlt64-float
+  SOURCES bench_dlt64_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-dlt64-float)
 
-# add_benchmark(bench-dlt64-double
-#   SOURCES bench_dlt64_double.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-dlt64-double)
+add_benchmark(bench-dlt64-double
+  SOURCES bench_dlt64_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-dlt64-double)
 
 # =============================================================================
 # Relative Pose Solvers - 8pt (Original + Scaling)
@@ -152,17 +152,17 @@ add_benchmark(bench-8pt32-double
 list(APPEND BENCH_TARGETS bench-8pt32-double)
 
 # Comment out 64-bit variants - too large for current deserialize ExperimentIO
-# add_benchmark(bench-8pt64-float
-#   SOURCES bench_8pt64_float.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-8pt64-float)
+add_benchmark(bench-8pt64-float
+  SOURCES bench_8pt64_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-8pt64-float)
 
-# add_benchmark(bench-8pt64-double
-#   SOURCES bench_8pt64_double.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-8pt64-double)
+add_benchmark(bench-8pt64-double
+  SOURCES bench_8pt64_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-8pt64-double)
 
 # =============================================================================
 # Relative Pose Solvers - 5pt
@@ -249,6 +249,18 @@ add_benchmark(bench-upright-planar-3pt32-double
 )
 list(APPEND BENCH_TARGETS bench-upright-planar-3pt32-double)
 
+add_benchmark(bench-upright-planar-3pt64-float
+  SOURCES bench_upright_planar_3pt64_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-upright-planar-3pt64-float)
+
+add_benchmark(bench-upright-planar-3pt64-double
+  SOURCES bench_upright_planar_3pt64_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-upright-planar-3pt64-double)
+
 # =============================================================================
 # Relative Pose Solvers - Upright Planar 2pt
 # =============================================================================
@@ -315,12 +327,14 @@ set(DLT_SCALING_TARGETS
   bench-dlt16-float bench-dlt16-double
   bench-dlt32-float bench-dlt32-double
   # 64 points commented out - too large for current deserialize ExperimentIO
+  bench-dlt64-float bench-dlt64-double
 )
 
 set(8PT_SCALING_TARGETS
   bench-8pt16-float bench-8pt16-double
   bench-8pt32-float bench-8pt32-double
   # 64 points commented out - too large for current deserialize ExperimentIO
+  bench-8pt64-float bench-8pt64-double
 )
 
 set(UPRIGHT_PLANAR_TARGETS
@@ -332,6 +346,7 @@ set(UPRIGHT_PLANAR_SCALING_TARGETS
   bench-upright-planar-3pt8-float bench-upright-planar-3pt8-double
   bench-upright-planar-3pt16-float bench-upright-planar-3pt16-double
   bench-upright-planar-3pt32-float bench-upright-planar-3pt32-double
+  bench-upright-planar-3pt64-float bench-upright-planar-3pt64-double
 )
 
 set(GOLD_STANDARD_TARGETS

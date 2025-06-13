@@ -128,7 +128,7 @@
 
     "bench-p3p-float": {
       "reps": 1,
-      "inner_reps": 5,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
       "max_problems": 100
@@ -280,7 +280,7 @@
 
     "bench-8pt64-float": {
       "reps": 1,
-      "inner_reps": 10,
+      "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
       "max_problems": 100
@@ -288,7 +288,7 @@
 
     "bench-8pt64-double": {
       "reps": 1,
-      "inner_reps": 10,
+      "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
       "max_problems": 100

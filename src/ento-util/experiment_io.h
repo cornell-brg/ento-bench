@@ -220,7 +220,7 @@ public:
       return problem_instance.deserialize(line);
     }
 #else
-    char line[1024];
+    char line[4096];
     if (ifile_ && fgets(line, sizeof(line), ifile_))
     {
       return problem_instance.deserialize(line);
