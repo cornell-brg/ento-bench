@@ -3,6 +3,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 import zipfile
 import numpy as np
+import sys
 
 def separate_and_combine(path: Path) -> Path:
     dir_name = path.stem
@@ -214,11 +215,18 @@ def process_sal(input_file: Path, test_type: str = 'PIL', field_order: int = 0):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--directory', metavar='d', type=str)
-    parser.add_argument('--traverse_subdirs', type=bool, default=False,
-                        required=False)
-    parser.add_argument('--field_order', type=int, default=0, required=False)
+    parser.add_argument('--directory', metavar='d', type=str, required=True,
+                        help="The target directory containing experiment data.")
+    parser.add_argument('--traverse_subdirs', action='store_true',
+                        help="If set, traverse and process each subdirectory within the target directory.")
+    parser.add_argument('--field_order', type=int, default=0, required=False,
+                        help="Specify the field order for SAL processing (0 or 1).")
     args = parser.parse_args()
+
+    if not args.directory:
+        parser.print_help()
+        print("\nError: --directory argument is required.")
+        sys.exit(1)
 
     args.directory = Path(args.directory).resolve()
     print(args.directory)

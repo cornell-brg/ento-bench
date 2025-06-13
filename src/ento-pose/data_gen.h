@@ -14,6 +14,9 @@
 #include <ento-pose/rel-pose/upright_three_pt.h>
 #include <ento-pose/rel-pose/upright_planar_three_pt.h>
 
+#include <ento-pose/abs-pose/gold_standard.h>
+#include <ento-pose/rel-pose/gold_standard.h>
+
 #include <ento-pose/problem-types/homography_problem.h>
 #include <ento-pose/problem-types/absolute_pose_problem.h>
 #include <ento-pose/problem-types/relative_pose_problem.h>
@@ -579,6 +582,84 @@ struct SolverDLT {
 
   typedef CalibratedAbsolutePoseValidator<Scalar> validator;
   static std::string name() { return "dlt"; }
+};
+
+// Gold Standard Absolute Pose Solver (DLT + Bundle Adjustment)
+template <typename Scalar>
+struct SolverGoldStandardAbs {
+  using scalar_type = Scalar;
+  static constexpr size_t MaxSolns = 1;
+  static constexpr size_t MinSampleSize = 6;
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverGoldStandardAbs<Scalar>, 0>& instance,
+                         std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return gold_standard_abs(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  static inline int solve(AbsolutePoseProblem<Scalar, SolverGoldStandardAbs<Scalar>, 6>& instance,
+                         EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return gold_standard_abs(instance.x_point_, instance.X_point_, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                         EntoContainer<Vec3<Scalar>, N>& X,
+                         std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return gold_standard_abs(x, X, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x,
+                         EntoContainer<Vec3<Scalar>, N>& X,
+                         EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return gold_standard_abs<Scalar, N>(x, X, solutions);
+  }
+
+  typedef CalibratedAbsolutePoseValidator<Scalar> validator;
+  static std::string name() { return "GoldStandardAbs"; }
+};
+
+// Gold Standard Relative Pose Solver (8pt + Sampson Refinement)
+template <typename Scalar>
+struct SolverGoldStandardRel {
+  using scalar_type = Scalar;
+  static constexpr size_t MaxSolns = 1;
+  static constexpr size_t MinSampleSize = 8;
+
+  static inline int solve(const RelativePoseProblem<Scalar, SolverGoldStandardRel<Scalar>, 0>& instance,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return gold_standard_rel(instance.x1_, instance.x2_, solutions);
+  }
+
+  static inline int solve(RelativePoseProblem<Scalar, SolverGoldStandardRel<Scalar>, 8>& instance,
+                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return gold_standard_rel(instance.x1_, instance.x2_, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          std::vector<CameraPose<Scalar>>* solutions)
+  {
+    return gold_standard_rel(x1, x2, solutions);
+  }
+
+  template <size_t N = 0>
+  static inline int solve(EntoContainer<Vec3<Scalar>, N>& x1,
+                          EntoContainer<Vec3<Scalar>, N>& x2,
+                          EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
+  {
+    return gold_standard_rel<Scalar, N>(x1, x2, solutions);
+  }
+
+  typedef CalibratedRelativePoseValidator<Scalar> validator;
+  static std::string name() { return "GoldStandardRel"; }
 };
 
 } // namespace EntoPose

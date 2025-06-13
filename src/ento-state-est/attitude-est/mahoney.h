@@ -36,16 +36,14 @@ Eigen::Quaternion<Scalar> mahoney_update_imu(
   {
     // Compute the rotation matrix from the current quaternion.
     const Eigen::Matrix<Scalar, 3, 3> R = q_new.toRotationMatrix();
-    // Expected direction of gravity in the body frame is given by:
-    // v_a = R^T * [0, 0, 1]^T.
+    // Expected direction of gravity in the body frame
     const Eigen::Matrix<Scalar, 3, 1> v_a = R.transpose() *
         Eigen::Matrix<Scalar, 3, 1>(Scalar(0), Scalar(0), Scalar(1));
 
     // Normalize the accelerometer reading.
     const Eigen::Matrix<Scalar, 3, 1> acc_normalized = acc / a_norm;
 
-    // Innovation term (error) computed as the cross product between the measured and
-    // expected gravity vectors.
+    // Innovation term (error) computed as the cross product
     const Eigen::Matrix<Scalar, 3, 1> omega_mes = acc_normalized.cross(v_a);
 
     // Compute the derivative of the bias (integral term).
@@ -117,7 +115,7 @@ Eigen::Quaternion<Scalar> mahoney_update_marg(
       Eigen::Matrix<Scalar, 3, 1> v_m = R.transpose() *
           Eigen::Matrix<Scalar, 3, 1>(Scalar(0), h_xy_norm, h.z());
 
-      // Normalize v_m (like in fixed-point version)
+      // Normalize v_m
       const Scalar v_m_norm = v_m.norm();
       if (v_m_norm > Scalar(0))
           v_m /= v_m_norm;

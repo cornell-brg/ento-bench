@@ -2,6 +2,7 @@
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
+#include <ento-bench/bench_config.h>
 
 #include <ento-mcu/cache_util.h>
 #include <ento-mcu/flash_util.h>
@@ -24,15 +25,13 @@ int main()
   constexpr Scalar tol = 1e-8;
   initialise_monitor_handles();
 
-  // Configure max clock rate and set flash latency
+  // Configure clock
   sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
-  // Turn on caches if applicable
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // Generic cache setup via config macro
+  ENTO_BENCH_SETUP();
 
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
@@ -51,10 +50,12 @@ int main()
   // Construct problem with solver
   Problem problem(Solver{});
 
+  printf("File path: %s\n", dataset_path);
+
   // Construct harness and run
-  EntoBench::Harness<Problem, false, 5> harness(problem, "Bench Relative Upright 3pt [double]",
-                                                 dataset_path,
-                                                 output_path);
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench Relative Upright 3pt [double]",
+                       dataset_path, output_path);
   harness.run();
 
   exit(1);

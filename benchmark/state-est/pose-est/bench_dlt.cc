@@ -5,18 +5,61 @@
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
+#include <ento-bench/bench_config.h>
 
-// TODO: Add pose estimation specific includes
-// #include <ento-pose/dlt.h>
+#include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
+#include <ento-mcu/clk_util.h>
+#include <ento-pose/data_gen.h>
+#include <ento-pose/prob_gen.h>
+#include <ento-pose/pose_util.h>
+#include <ento-pose/abs-pose/dlt.h>
 
-// TODO: Implement DLT (Direct Linear Transform) for 3D points
-// This benchmark should test the DLT algorithm for absolute pose estimation
-// using 3D point correspondences
+#if defined(SEMIHOSTING)
+extern "C" void initialise_monitor_handles(void);
+#endif
 
-int main() {
-    // TODO: Initialize DLT solver for 3D points
-    // TODO: Load test 3D point correspondences
-    // TODO: Run benchmark with timing measurements
-    // TODO: Validate pose estimation accuracy
-    return 0;
+using namespace EntoBench;
+using namespace EntoUtil;
+
+int main()
+{
+  using Scalar  = double;
+  using Solver  = EntoPose::SolverDLT<Scalar>;
+  using Problem = EntoPose::AbsolutePoseProblem<Scalar, Solver, 6>;
+  constexpr Scalar tol = 1e-4;
+  
+  initialise_monitor_handles();
+
+  // Configure clock
+  sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
+
+  // Generic cache setup via config macro
+  ENTO_BENCH_SETUP();
+
+  const char* base_path = DATASET_PATH;
+  const char* rel_path = "abs-pose/dlt6_double_noise0.01.csv";
+  char dataset_path[512];
+  char output_path[256];
+
+  if (!EntoUtil::build_file_path(base_path, rel_path,
+                                 dataset_path, sizeof(dataset_path)))
+  {
+    ENTO_DEBUG("ERROR! Could not build file path for bench_dlt!");
+  }
+
+  Problem problem(Solver{});
+
+  printf("File path: %s\n", dataset_path);
+
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench DLT [double]",
+                       dataset_path, output_path);
+
+  harness.run();
+
+  exit(1);
+  return 0;
 }

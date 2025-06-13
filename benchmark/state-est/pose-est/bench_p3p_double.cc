@@ -2,6 +2,7 @@
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>
 #include <ento-util/unittest.h>
+#include <ento-bench/bench_config.h>
 
 #include <ento-mcu/cache_util.h>
 #include <ento-mcu/flash_util.h>
@@ -26,39 +27,32 @@ int main()
   constexpr Scalar tol = 1e-8;
   initialise_monitor_handles();
 
-  // Configure max clock rate and set flash latency
+  // Configure clock
   sys_clk_cfg();
+  SysTick_Setup();
+  __enable_irq();
 
-  // Turn on caches if applicable
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
-  software_delay_cycles(10000);
+  // Generic cache setup via config macro
+  ENTO_BENCH_SETUP();
 
   const char* base_path = DATASET_PATH;
   const char* rel_path = "abs-pose/p3p_double_noise0.01.csv";  // Updated to use 0.01 noise dataset
   char dataset_path[512];
   char output_path[256];
 
-  printf("================\n");
-  printf("Running bench_p3p_double...\n");
-  software_delay_cycles(10000);
-
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    software_delay_cycles(10000);
-    printf("ERROR! Could not build file path for bench_p3p_double!");
+    ENTO_DEBUG("ERROR! Could not build file path for bench_p3p_double!");
   }
-  printf("...\n");
-  printf("%s\n", dataset_path);
-  software_delay_cycles(10000);
+
   Problem problem(Solver{});
 
-  printf("File path: %s", dataset_path);
-  EntoBench::Harness harness(problem, "Bench P3P [double]",
-                             dataset_path,
-                             output_path);
+  printf("File path: %s\n", dataset_path);
+
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench P3P [double]",
+                       dataset_path, output_path);
 
   harness.run();
 

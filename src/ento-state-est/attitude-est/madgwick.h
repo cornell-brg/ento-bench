@@ -34,13 +34,12 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
   Eigen::Quaternion<Scalar> q_dot = (q * omega);
   q_dot.coeffs() *= Scalar(0.5);
 
-
   // Only if accelerometer measurement is valid:
   Scalar a_norm = acc.norm();
   if (a_norm > Scalar(0))
   {
     // Normalize accelerometer reading.
-    const auto a = acc / a_norm;
+    const Eigen::Matrix<Scalar, 3, 1> a = acc / a_norm;
     // Normalize the current orientation.
     const Eigen::Quaternion<Scalar> q_norm = q.normalized();
     // Extract quaternion components in (w, x, y, z) order.
@@ -50,9 +49,6 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
     const Scalar qz = q_norm.z();
 
     // Compute objective function f (a 3-vector) per Madgwick's eq. (25):
-    // f = [2*(qx*qz - qw*qy) - a_x,
-    //      2*(qw*qx + qy*qz) - a_y,
-    //      2*(0.5 - qx*qx - qy*qy) - a_z]
     Eigen::Matrix<Scalar, 3, 1> f;
     f(0) = Scalar(2) * (qx * qz - qw * qy) - a(0);
     f(1) = Scalar(2) * (qw * qx + qy * qz) - a(1);
@@ -89,8 +85,7 @@ Eigen::Quaternion<Scalar> madgwick_update_imu(
   q_dot_vec << q_dot.w(), q_dot.x(), q_dot.y(), q_dot.z();
   Eigen::Matrix<Scalar, 4, 1> q_new_vec = q_vec + q_dot_vec * dt;
   // Normalize the updated quaternion.
-  //q_new_vec.normalize();
-  q_new_vec = q_new_vec / q_new_vec.norm();
+  q_new_vec = q_new_vec / q_new_vec.norm();  // More efficient than normalize()
   Eigen::Quaternion<Scalar> q_new(q_new_vec(0), q_new_vec(1), q_new_vec(2), q_new_vec(3));
   return q_new;
 }
@@ -125,8 +120,8 @@ Eigen::Quaternion<Scalar> madgwick_update_marg(
   if (a_norm > Scalar(0))
   {
     // Normalize accelerometer and magnetometer measurements.
-    const auto a = acc / a_norm;
-    const auto m = mag / mag.norm();
+    const Eigen::Matrix<Scalar, 3, 1> a = acc / a_norm;
+    const Eigen::Matrix<Scalar, 3, 1> m = mag / mag.norm();
 
     // Rotate the magnetometer measurement into the Earth frame.
     // Compute h = q * (0, m) * q.conjugate()
@@ -145,10 +140,6 @@ Eigen::Quaternion<Scalar> madgwick_update_marg(
     const Scalar qz = q_norm.z();
 
     // Compute the objective function f (a 6-vector) as in eq. (31):
-    // f[0:2] same as for the IMU case,
-    // f[3] = 2*bx*(0.5 - qy*qy - qz*qz) + 2*bz*(qx*qz - qw*qy) - m_x,
-    // f[4] = 2*bx*(qx*qy - qw*qz)       + 2*bz*(qw*qx + qy*qz) - m_y,
-    // f[5] = 2*bx*(qw*qy + qx*qz)       + 2*bz*(0.5 - qx*qx - qy*qy) - m_z.
     Eigen::Matrix<Scalar, 6, 1> f;
     f(0) = Scalar(2) * (qx * qz - qw * qy) - a(0);
     f(1) = Scalar(2) * (qw * qx + qy * qz) - a(1);
@@ -212,7 +203,7 @@ Eigen::Quaternion<Scalar> madgwick_update_marg(
   Eigen::Matrix<Scalar, 4, 1> q_dot_vec;
   q_dot_vec << q_dot.w(), q_dot.x(), q_dot.y(), q_dot.z();
   Eigen::Matrix<Scalar, 4, 1> q_new_vec = q_vec + q_dot_vec * dt;
-  q_new_vec.normalize();
+  q_new_vec = q_new_vec / q_new_vec.norm();  // More efficient than normalize()
   Eigen::Quaternion<Scalar> q_new(q_new_vec(0), q_new_vec(1), q_new_vec(2), q_new_vec(3));
   return q_new;
 }

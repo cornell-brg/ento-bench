@@ -38,8 +38,8 @@ public:
 
   // Ground truth 
   CameraPose<Scalar> pose_gt_;
-  Scalar scale_gt_;
-  Scalar focal_gt_;
+  volatile Scalar scale_gt_;
+  volatile Scalar focal_gt_;
   std::size_t n_point_point_ = NumPts;
 
   // AbsolutePose Algorithm Outputs
@@ -123,7 +123,7 @@ auto make_absolute_pose_problem(Solver solver)
 template <typename Scalar, typename Solver, size_t NumPts>
 void AbsolutePoseProblem<Scalar, Solver, NumPts>::solve_impl()
 {
-  num_solns_ = solver_.solve(*this, &solns_);
+  num_solns_ = solver_.template solve<NumPts>(x_point_, X_point_, &solns_);
 }
 
 template <typename Scalar, typename Solver, size_t NumPts>
@@ -303,6 +303,34 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
     X_point_.push_back(Vec3<Scalar>(x, y, z));
   }
 
+  // -------------------------------------------------------------
+  // Diagnostic output to verify that deserialization succeeded
+  // -------------------------------------------------------------
+  if (!x_point_.empty() && !X_point_.empty())
+  {
+    const Vec3<Scalar> &x0 = x_point_[0];
+    const Vec3<Scalar> &X0 = X_point_[0];
+    ENTO_DEBUG("[AbsPose Deserialize] Problem type: %d", problem_type);
+    ENTO_DEBUG("[AbsPose Deserialize] Num points: %d", num_points);
+    ENTO_DEBUG("[AbsPose Deserialize] First 2D point  (homogeneous) : (%f, %f, %f)", x0.x(), x0.y(), x0.z());
+    ENTO_DEBUG("[AbsPose Deserialize] First 3D point               : (%f, %f, %f)", X0.x(), X0.y(), X0.z());
+
+    Vec3<Scalar> sum_x = Vec3<Scalar>::Zero();
+    Vec3<Scalar> sum_X = Vec3<Scalar>::Zero();
+    for (size_t i = 0; i < x_point_.size(); ++i)
+    {
+      sum_x += x_point_[i];
+      sum_X += X_point_[i];
+    }
+    Vec3<Scalar> centroid_x = sum_x / Scalar(x_point_.size());
+    Vec3<Scalar> centroid_X = sum_X / Scalar(X_point_.size());
+
+    ENTO_DEBUG("[AbsPose Deserialize] Centroid 2D (homogeneous): (%f, %f, %f)", centroid_x.x(), centroid_x.y(), centroid_x.z());
+    ENTO_DEBUG("[AbsPose Deserialize] Centroid 3D             : (%f, %f, %f)", centroid_X.x(), centroid_X.y(), centroid_X.z());
+
+    ENTO_DEBUG("[AbsPose Deserialize] scale_gt=%f focal_gt=%f", scale_gt_, focal_gt_);
+  }
+
   return true; // Successfully parsed
 }
 #endif
@@ -310,53 +338,91 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
 template <typename Scalar, typename Solver, size_t NumPts>
 bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
 {
-    // Microcontroller build: Use sscanf for parsing
-    char* pos = const_cast<char*>(line);
+    // -------- Fixed sscanf-based MCU deserializer --------
+    char *pos = const_cast<char*>(line);
+
     int problem_type;
-    if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 1) {
-        return false; // Parsing failed
-    }
+    if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 1)
+        return false;
     pos = strchr(pos, ',') + 1;
+
+    int num_points;
+    if (sscanf(pos, "%d,", &num_points) != 1 || num_points < 2)
+        return false;
+    pos = strchr(pos, ',') + 1;
+
+    if constexpr (NumPts == 0)
+        n_point_point_ = static_cast<size_t>(num_points);
+    else if (NumPts != static_cast<size_t>(num_points))
+        return false;
 
     // Parse quaternion (q)
     for (int i = 0; i < 4; ++i) {
-        if (sscanf(pos, "%lf,", &pose_gt_.q[i]) != 1) {
-            return false; // Parsing failed
-        }
+        if (sscanf(pos, "%f,", &pose_gt_.q[i]) != 1)
+            return false;
         pos = strchr(pos, ',') + 1;
     }
 
     // Parse translation (t)
     for (int i = 0; i < 3; ++i) {
-        if (sscanf(pos, "%lf,", &pose_gt_.t[i]) != 1) {
-            return false; // Parsing failed
-        }
+        if (sscanf(pos, "%f,", &pose_gt_.t[i]) != 1)
+            return false;
         pos = strchr(pos, ',') + 1;
     }
 
-    // Parse scale_gt and focal_gt
-    if (sscanf(pos, "%lf,%lf,", &scale_gt_, &focal_gt_) != 2) {
-        return false; // Parsing failed
-    }
+    // Parse scale_gt
+    if (sscanf(pos, "%f,", &scale_gt_) != 1)
+        return false;
+    pos = strchr(pos, ',') + 1;
+
+    // Parse focal_gt
+    if (sscanf(pos, "%f,", &focal_gt_) != 1)
+        return false;
     pos = strchr(pos, ',') + 1;
 
     // Parse x_point correspondences
     Scalar x, y, z;
-    for (std::size_t i = 0; i < x_point_.capacity(); ++i) {
-        if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
-            return false; // Parsing failed
-        }
+    x_point_.clear();
+    for (int i = 0; i < num_points; ++i) {
+        if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
+            return false;
         x_point_.push_back(Vec3<Scalar>(x, y, z));
         pos = strchr(pos, ',') + 1;
     }
 
     // Parse X_point correspondences
-    for (std::size_t i = 0; i < X_point_.capacity(); ++i) {
-        if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
-            return false; // Parsing failed
-        }
+    X_point_.clear();
+    for (int i = 0; i < num_points; ++i) {
+        if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
+            return false;
         X_point_.push_back(Vec3<Scalar>(x, y, z));
         pos = strchr(pos, ',') + 1;
+    }
+
+    // -------------------------------------------------------------
+    // Diagnostic output to verify that deserialization succeeded
+    // -------------------------------------------------------------
+    if (!x_point_.empty() && !X_point_.empty())
+    {
+      const Vec3<Scalar> &x0 = x_point_[0];
+      const Vec3<Scalar> &X0 = X_point_[0];
+      ENTO_DEBUG("[AbsPose Deserialize] First 2D point  (homogeneous) : (%f, %f, %f)", x0.x(), x0.y(), x0.z());
+      ENTO_DEBUG("[AbsPose Deserialize] First 3D point               : (%f, %f, %f)", X0.x(), X0.y(), X0.z());
+
+      Vec3<Scalar> sum_x = Vec3<Scalar>::Zero();
+      Vec3<Scalar> sum_X = Vec3<Scalar>::Zero();
+      for (size_t i = 0; i < x_point_.size(); ++i)
+      {
+        sum_x += x_point_[i];
+        sum_X += X_point_[i];
+      }
+      Vec3<Scalar> centroid_x = sum_x / Scalar(x_point_.size());
+      Vec3<Scalar> centroid_X = sum_X / Scalar(X_point_.size());
+
+      ENTO_DEBUG("[AbsPose Deserialize] Centroid 2D (homogeneous): (%f, %f, %f)", centroid_x.x(), centroid_x.y(), centroid_x.z());
+      ENTO_DEBUG("[AbsPose Deserialize] Centroid 3D             : (%f, %f, %f)", centroid_X.x(), centroid_X.y(), centroid_X.z());
+
+      ENTO_DEBUG("[AbsPose Deserialize] scale_gt=%f focal_gt=%f", scale_gt_, focal_gt_);
     }
 
     return true; // Successfully parsed

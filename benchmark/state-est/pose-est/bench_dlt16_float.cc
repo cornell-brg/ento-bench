@@ -10,7 +10,7 @@
 #include <ento-pose/data_gen.h>
 #include <ento-pose/prob_gen.h>
 #include <ento-pose/pose_util.h>
-#include <ento-pose/rel-pose/upright_planar_two_pt.h>
+#include <ento-pose/abs-pose/dlt.h>
 
 extern "C" void initialise_monitor_handles(void);
 
@@ -20,8 +20,8 @@ using namespace EntoUtil;
 int main()
 {
   using Scalar  = float;
-  using Solver  = EntoPose::SolverRelUprightPlanar2pt<Scalar>;
-  using Problem = EntoPose::RelativePoseProblem<Scalar, Solver, 2>;
+  using Solver  = EntoPose::SolverDLT<Scalar>;
+  using Problem = EntoPose::AbsolutePoseProblem<Scalar, Solver, 16>;
   constexpr Scalar tol = 1e-4;
   initialise_monitor_handles();
 
@@ -33,29 +33,25 @@ int main()
   // Generic cache setup via config macro
   ENTO_BENCH_SETUP();
 
-  // Build input dataset filepath
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/upright_planar_2pt_float_noise1.0.csv";  // Updated to use 1.0 noise dataset
+  const char* rel_path = "abs-pose/dlt16_float_noise0.01.csv";
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build file path for bench_upright_planar_2pt_float!");
+    ENTO_DEBUG("ERROR! Could not build file path for bench_dlt16_float!");
   }
 
-  ENTO_DEBUG("File path: %s", dataset_path);
-
-  // Construct problem with solver
   Problem problem(Solver{});
 
   printf("File path: %s\n", dataset_path);
 
-  // Construct harness and run
   ENTO_BENCH_HARNESS_TYPE(Problem);
-  BenchHarness harness(problem, "Bench Relative Upright Planar 2pt [float]",
+  BenchHarness harness(problem, "Bench DLT16 [float]",
                        dataset_path, output_path);
+
   harness.run();
 
   exit(1);

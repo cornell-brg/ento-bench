@@ -10,9 +10,9 @@ namespace EntoAttitude
 {
 
 /**
- * @brief Fourati’s nonlinear filter update (MARG version).
+ * @brief Fourati's nonlinear filter update (MARG version).
  * 
- * This function performs one update step of Fourati’s algorithm using a 
+ * This function performs one update step of Fourati's algorithm using a 
  * Levenberg–Marquardt–style correction. It accepts a priori quaternion `q`, 
  * a single measurement (gyroscope, accelerometer, magnetometer), a time step `dt`,
  * and a filter gain. It also uses two reference pure quaternions: one for gravity 
@@ -155,7 +155,7 @@ Eigen::Quaternion<Scalar> fourati_update(
  * @param m_q Reference magnetic field pure quaternion representing the local geomagnetic field.
  * @return Updated quaternion after applying the Fourati filter update.
  *
- * @note Fourati’s algorithm is designed for MARG systems. In this implementation,
+ * @note Fourati's algorithm is designed for MARG systems. In this implementation,
  *       if magnetometer data is not available (i.e. UseMag==false), the functor falls back to
  *       basic gyroscope integration.
  */

@@ -4,44 +4,406 @@
     "inner_reps": 10,
     "verbosity": 2,
     "enable_caches": true,
-    "max_problems": 100
+    "max_problems": 1
   },
   "pose-est": {
     "reps": 1,
-    "inner_reps": 30,
+    "inner_reps": 1,
     "verbosity": 1,
     "enable_caches": true,
-    "max_problems": 100
+    "max_problems": 1
   },
   "targets": {
     "bench-madgwick-float-imu": {
       "reps": 1,
-      "inner_reps": 1000,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 100
+      "max_problems": 1
     },
+
+    "bench-madgwick-float-marg": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
     "bench-madgwick-double-imu": {
       "reps": 1,
       "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 100
+      "max_problems": 1
     },
-    "bench-mahony-q7-24-imu": {
+
+    "bench-madgwick-double-marg": {
       "reps": 1,
       "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 100,
+      "max_problems": 1
     },
+
+    "bench-madgwick-q7-24-imu": {
+      "reps": 1,
+      "inner_reps": 100,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-madgwick-q7-24-marg": {
+      "reps": 1,
+      "inner_reps": 100,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-float-imu": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-float-marg": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-double-imu": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-double-marg": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-q7-24-imu": {
+      "reps": 1,
+      "inner_reps": 100,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-mahony-q7-24-marg": {
+      "reps": 1,
+      "inner_reps": 100,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
     "bench-fourati-float-marg": {
       "reps": 1,
       "inner_reps": 50,
       "verbosity": 1,
-      "do_warmup": true,
       "enable_caches": true,
-      "max_problems": 100,
+      "max_problems": 1
+    },
+
+    "bench-fourati-double-marg": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-p3p-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-p3p-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-up2p-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-up2p-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt8-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt16-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt16-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt32-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt32-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt64-float": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-dlt64-double": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt16-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt16-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt32-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt32-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt64-float": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-8pt64-double": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-5pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-5pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-3pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-3pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt8-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt8-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt16-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt16-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt32-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-3pt32-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-2pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
+    },
+
+    "bench-upright-planar-2pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 1
     }
   }
 } 
