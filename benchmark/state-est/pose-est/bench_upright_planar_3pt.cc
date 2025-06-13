@@ -30,7 +30,7 @@ int main()
   icache_enable();
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "pose-est/upright_planar_3pt_dataset.txt";
+  const char* rel_path = "pose-est/upright_planar_3pt3_dataset.txt";
   char dataset_path[512];
   char output_path[256];
 

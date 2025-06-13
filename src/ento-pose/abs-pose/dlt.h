@@ -104,9 +104,21 @@ int dlt(const EntoArray<Vec3<Scalar>, N>& x,
                         Xw.x() * xh.z(), Xw.y() * xh.z(), Xw.z() * xh.z(), xh.z(),
                         -Xw.x() * xh.y(), -Xw.y() * xh.y(), -Xw.z() * xh.y(), -xh.y();
     }
-    // Solve Ap = 0 using SVD with fixed-size matrix
-    Eigen::JacobiSVD<Eigen::Matrix<Scalar, 2*N, 12>> svd(A, Eigen::ComputeFullV);
-    Eigen::Matrix<Scalar, 12, 1> p = svd.matrixV().col(11);
+    
+    // Solve Ap = 0 using optimized approach based on problem size
+    Eigen::Matrix<Scalar, 12, 1> p;
+    if constexpr (N == 6) {
+        // Minimal case: use QR decomposition (more efficient than SVD for square systems)
+        ENTO_DEBUG("[DLT] Using QR decomposition for minimal case (N=6)");
+        Eigen::Matrix<Scalar, 12, 12> Q = A.transpose().householderQr().householderQ();
+        p = Q.col(11);  // Last column of Q is the null space vector
+    } else {
+        // Overdetermined case: use SVD (more robust for rectangular systems)
+        ENTO_DEBUG("[DLT] Using SVD for overdetermined case (N=%zu)", N);
+        Eigen::JacobiSVD<Eigen::Matrix<Scalar, 2*N, 12>> svd(A, Eigen::ComputeFullV);
+        p = svd.matrixV().col(11);
+    }
+    
     Eigen::Matrix<Scalar, 3, 4> P = Eigen::Map<Eigen::Matrix<Scalar, 3, 4, Eigen::RowMajor>>(p.data());
     
     // Check for degeneracy
@@ -184,8 +196,21 @@ int dlt(const std::vector<Vec3<Scalar>>& x,
                         Xw.x() * xh.z(), Xw.y() * xh.z(), Xw.z() * xh.z(), xh.z(),
                         -Xw.x() * xh.y(), -Xw.y() * xh.y(), -Xw.z() * xh.y(), -xh.y();
     }
-    Eigen::JacobiSVD<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>> svd(A, Eigen::ComputeFullV);
-    Eigen::Matrix<Scalar, 12, 1> p = svd.matrixV().col(11);
+    
+    // Solve Ap = 0 using optimized approach based on problem size
+    Eigen::Matrix<Scalar, 12, 1> p;
+    if (N == 6) {
+        // Minimal case: use QR decomposition (more efficient than SVD for square systems)
+        ENTO_DEBUG("[DLT] Using QR decomposition for minimal case (N=6)");
+        Eigen::Matrix<Scalar, 12, 12> Q = A.transpose().householderQr().householderQ();
+        p = Q.col(11);  // Last column of Q is the null space vector
+    } else {
+        // Overdetermined case: use SVD (more robust for rectangular systems)
+        ENTO_DEBUG("[DLT] Using SVD for overdetermined case (N=%zu)", N);
+        Eigen::JacobiSVD<Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>> svd(A, Eigen::ComputeFullV);
+        p = svd.matrixV().col(11);
+    }
+    
     Eigen::Matrix<Scalar, 3, 4> P = Eigen::Map<Eigen::Matrix<Scalar, 3, 4, Eigen::RowMajor>>(p.data());
     
     // Check for degeneracy

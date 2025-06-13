@@ -38,8 +38,8 @@ public:
 
   // Ground truth 
   CameraPose<Scalar> pose_gt_;
-  volatile Scalar scale_gt_;
-  volatile Scalar focal_gt_;
+  Scalar scale_gt_;
+  Scalar focal_gt_;
   std::size_t n_point_point_ = NumPts;
 
   // AbsolutePose Algorithm Outputs

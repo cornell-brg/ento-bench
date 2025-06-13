@@ -128,10 +128,10 @@
 
     "bench-p3p-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 5,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-p3p-double": {
@@ -139,23 +139,23 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-up2p-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-up2p-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt-float": {
@@ -163,7 +163,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt-double": {
@@ -171,7 +171,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt8-float": {
@@ -179,7 +179,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt16-float": {
@@ -187,7 +187,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt16-double": {
@@ -195,7 +195,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt32-float": {
@@ -203,7 +203,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt32-double": {
@@ -211,7 +211,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt64-float": {
@@ -219,7 +219,7 @@
       "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-dlt64-double": {
@@ -227,7 +227,7 @@
       "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt-float": {
@@ -235,7 +235,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt-double": {
@@ -243,7 +243,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt16-float": {
@@ -251,7 +251,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt16-double": {
@@ -259,7 +259,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt32-float": {
@@ -267,7 +267,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt32-double": {
@@ -275,7 +275,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt64-float": {
@@ -283,7 +283,7 @@
       "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-8pt64-double": {
@@ -291,7 +291,7 @@
       "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-5pt-float": {
@@ -299,7 +299,7 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-5pt-double": {
@@ -307,103 +307,103 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-3pt-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-3pt-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt8-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 25,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt8-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt16-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt16-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 5,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt32-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-3pt32-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 5,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-2pt-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-upright-planar-2pt-double": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 25,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     }
   }
 } 

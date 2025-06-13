@@ -97,17 +97,18 @@ add_benchmark(bench-dlt32-double
 )
 list(APPEND BENCH_TARGETS bench-dlt32-double)
 
-add_benchmark(bench-dlt64-float
-  SOURCES bench_dlt64_float.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-dlt64-float)
+# Comment out 64-bit variants - too large for current deserialize ExperimentIO
+# add_benchmark(bench-dlt64-float
+#   SOURCES bench_dlt64_float.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-dlt64-float)
 
-add_benchmark(bench-dlt64-double
-  SOURCES bench_dlt64_double.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-dlt64-double)
+# add_benchmark(bench-dlt64-double
+#   SOURCES bench_dlt64_double.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-dlt64-double)
 
 # =============================================================================
 # Relative Pose Solvers - 8pt (Original + Scaling)
@@ -150,17 +151,18 @@ add_benchmark(bench-8pt32-double
 )
 list(APPEND BENCH_TARGETS bench-8pt32-double)
 
-add_benchmark(bench-8pt64-float
-  SOURCES bench_8pt64_float.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-8pt64-float)
+# Comment out 64-bit variants - too large for current deserialize ExperimentIO
+# add_benchmark(bench-8pt64-float
+#   SOURCES bench_8pt64_float.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-8pt64-float)
 
-add_benchmark(bench-8pt64-double
-  SOURCES bench_8pt64_double.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-8pt64-double)
+# add_benchmark(bench-8pt64-double
+#   SOURCES bench_8pt64_double.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-8pt64-double)
 
 # =============================================================================
 # Relative Pose Solvers - 5pt
@@ -265,31 +267,31 @@ list(APPEND BENCH_TARGETS bench-upright-planar-2pt-double)
 
 # =============================================================================
 # Gold Standard Benchmarks (H&Z Reference Implementations)
-# =============================================================================
+# Commented out to speed up builds
 
-add_benchmark(bench-gold-standard-abs-float
-  SOURCES bench_gold_standard_abs_float.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-abs-float)
+# add_benchmark(bench-gold-standard-abs-float
+#   SOURCES bench_gold_standard_abs_float.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-gold-standard-abs-float)
 
-add_benchmark(bench-gold-standard-abs-double
-  SOURCES bench_gold_standard_abs_double.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-abs-double)
+# add_benchmark(bench-gold-standard-abs-double
+#   SOURCES bench_gold_standard_abs_double.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-gold-standard-abs-double)
 
-add_benchmark(bench-gold-standard-rel-float
-  SOURCES bench_gold_standard_rel_float.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-rel-float)
+# add_benchmark(bench-gold-standard-rel-float
+#   SOURCES bench_gold_standard_rel_float.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-gold-standard-rel-float)
 
-add_benchmark(bench-gold-standard-rel-double
-  SOURCES bench_gold_standard_rel_double.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-gold-standard-rel-double)
+# add_benchmark(bench-gold-standard-rel-double
+#   SOURCES bench_gold_standard_rel_double.cc
+#   LIBRARIES ${MODULES}
+# )
+# list(APPEND BENCH_TARGETS bench-gold-standard-rel-double)
 
 # =============================================================================
 # Benchmark Group Definitions for Runners
@@ -312,13 +314,13 @@ set(DLT_SCALING_TARGETS
   bench-dlt8-float
   bench-dlt16-float bench-dlt16-double
   bench-dlt32-float bench-dlt32-double
-  #bench-dlt64-float bench-dlt64-double # 64 points too large for current deserialize ExperimentIO
+  # 64 points commented out - too large for current deserialize ExperimentIO
 )
 
 set(8PT_SCALING_TARGETS
   bench-8pt16-float bench-8pt16-double
   bench-8pt32-float bench-8pt32-double
-  #bench-8pt64-float bench-8pt64-double # 64 points too large for current deserialize ExperimentIO
+  # 64 points commented out - too large for current deserialize ExperimentIO
 )
 
 set(UPRIGHT_PLANAR_TARGETS
@@ -329,17 +331,17 @@ set(UPRIGHT_PLANAR_TARGETS
 set(UPRIGHT_PLANAR_SCALING_TARGETS
   bench-upright-planar-3pt8-float bench-upright-planar-3pt8-double
   bench-upright-planar-3pt16-float bench-upright-planar-3pt16-double
-  #bench-upright-planar-3pt32-float bench-upright-planar-3pt32-double # 32 points too large for current deserialize ExperimentIO
+  bench-upright-planar-3pt32-float bench-upright-planar-3pt32-double
 )
 
 set(GOLD_STANDARD_TARGETS
-  bench-gold-standard-abs-float bench-gold-standard-abs-double
-  bench-gold-standard-rel-float bench-gold-standard-rel-double
+  # bench-gold-standard-abs-float bench-gold-standard-abs-double
+  # bench-gold-standard-rel-float bench-gold-standard-rel-double
 )
 
-set(ALL_POSE_TARGETS ${ABSOLUTE_POSE_TARGETS} ${RELATIVE_POSE_TARGETS})
+set(ALL_POSE_TARGETS ${ABSOLUTE_POSE_TARGETS} ${RELATIVE_POSE_TARGETS} ${DLT_SCALING_TARGETS} ${8PT_SCALING_TARGETS} ${UPRIGHT_PLANAR_TARGETS} ${UPRIGHT_PLANAR_SCALING_TARGETS})
 set(QUICK_TEST_TARGETS bench-p3p-float bench-8pt-float bench-dlt-float)
-set(PERFORMANCE_TARGETS ${ALL_POSE_TARGETS} ${DLT_SCALING_TARGETS} ${8PT_SCALING_TARGETS})
+set(PERFORMANCE_TARGETS ${ALL_POSE_TARGETS})
 
 # =============================================================================
 # Add Benchmark Group Runners with Timeout Support
@@ -398,11 +400,11 @@ add_benchmark_group_runner(upright-planar-scaling
 )
 
 # Gold standard benchmarks (longer timeout for bundle adjustment)
-add_benchmark_group_runner(gold-standard
-  TARGETS ${GOLD_STANDARD_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+# add_benchmark_group_runner(gold-standard
+#   TARGETS ${GOLD_STANDARD_TARGETS}
+#   TIMEOUT 120
+#   OUTPUT_TIMEOUT 20
+# )
 
 # All basic pose estimation benchmarks
 add_benchmark_group_runner(all-pose
@@ -438,10 +440,10 @@ add_custom_target(bench-pose-relative
   COMMENT "Alias for bench-relative-pose-run"
 )
 
-add_custom_target(bench-pose-gold-standard
-  DEPENDS bench-gold-standard-run
-  COMMENT "Alias for bench-gold-standard-run"
-)
+# add_custom_target(bench-pose-gold-standard
+#   DEPENDS bench-gold-standard-run
+#   COMMENT "Alias for bench-gold-standard-run"
+# )
 
 add_custom_target(bench-pose-all
   DEPENDS bench-all-pose-run
@@ -470,15 +472,15 @@ add_custom_target(bench-pose-help
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-relative         Alias for bench-relative-pose-run"
   COMMAND ${CMAKE_COMMAND} -E echo ""
   COMMAND ${CMAKE_COMMAND} -E echo "Scaling Studies:"
-  COMMAND ${CMAKE_COMMAND} -E echo "  bench-dlt-scaling-run       DLT with different point counts (8, 16, 32, 64)"
-  COMMAND ${CMAKE_COMMAND} -E echo "  bench-8pt-scaling-run       8pt with different point counts (16, 32, 64)"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-dlt-scaling-run       DLT with different point counts (8, 16, 32)"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-8pt-scaling-run       8pt with different point counts (16, 32)"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-upright-planar-run    Upright planar 2pt and 3pt benchmarks"
-  COMMAND ${CMAKE_COMMAND} -E echo "  bench-upright-planar-scaling-run  Upright planar with different point counts"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-upright-planar-scaling-run  Upright planar with different point counts (8, 16, 32)"
   COMMAND ${CMAKE_COMMAND} -E echo ""
-  COMMAND ${CMAKE_COMMAND} -E echo "Reference Implementations:"
-  COMMAND ${CMAKE_COMMAND} -E echo "  bench-gold-standard-run     H&Z gold standard absolute and relative pose"
-  COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-gold-standard    Alias for bench-gold-standard-run"
-  COMMAND ${CMAKE_COMMAND} -E echo ""
+  #COMMAND ${CMAKE_COMMAND} -E echo "Reference Implementations:"
+  #COMMAND ${CMAKE_COMMAND} -E echo "  bench-gold-standard-run     H&Z gold standard absolute and relative pose"
+  #COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-gold-standard    Alias for bench-gold-standard-run"
+  #COMMAND ${CMAKE_COMMAND} -E echo ""
   COMMAND ${CMAKE_COMMAND} -E echo "Comprehensive Testing:"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-all-pose-run          All basic pose estimation benchmarks"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-performance-run       Comprehensive performance evaluation"
