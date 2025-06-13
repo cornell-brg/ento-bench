@@ -336,7 +336,7 @@
 
     "bench-upright-planar-3pt-double": {
       "reps": 1,
-      "inner_reps": 50,
+      "inner_reps": 10,
       "verbosity": 1,
       "enable_caches": true,
       "max_problems": 100
@@ -383,6 +383,22 @@
     },
 
     "bench-upright-planar-3pt32-double": {
+      "reps": 1,
+      "inner_reps": 5,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
+    "bench-upright-planar-3pt64-float": {
+      "reps": 1,
+      "inner_reps": 5,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
+    "bench-upright-planar-3pt64-double": {
       "reps": 1,
       "inner_reps": 5,
       "verbosity": 1,
