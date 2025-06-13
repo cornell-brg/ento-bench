@@ -10,6 +10,14 @@ add_definitions(-DLL_USE_FULL_DRIVER)
 add_definitions(-DUSE_FULL_LL_DRIVER)
 add_definitions(-DSMPS)
 
+# FPU-related definitions for debugging and optimization
+add_definitions(-D__FPU_PRESENT=1)             # Hardware FPU is present
+add_definitions(-D__FPU_USED=1)                # Hardware FPU is being used
+add_definitions(-DARM_MATH_CM7)                # Enable ARM CMSIS-DSP optimizations for Cortex-M7
+add_definitions(-DARM_MATH_MATRIX_CHECK)       # Enable matrix operation bounds checking
+add_definitions(-DARM_MATH_ROUNDING)           # Enable proper rounding in ARM math functions
+add_definitions(-DHARDWARE_FPU_DOUBLE)         # Custom flag to indicate double-precision FPU usage
+
 option(BUILD_H7A3ZIQ "Build for Nucleo board STM32H7A3ZI..." ON)
 
 
@@ -37,6 +45,17 @@ else()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -g -fno-exceptions -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -g -fno-exceptions -O3 -Wl,-Map,output.map -fno-rtti -std=c++20")
 endif()
+
+# Explicit FPU flags for STM32H7 double-precision performance
+set(FPU_FLAGS "-mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard")
+
+# Apply FPU flags to both C and C++ compilers
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FPU_FLAGS} ${FPU_OPTIMIZATION_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FPU_FLAGS} ${FPU_OPTIMIZATION_FLAGS}")
+
+# Apply FPU flags to linker
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${FPU_FLAGS} -Wl,--no-warn-mismatch")
+
 set(CMAKE_ASM_FLAGS "")
 
 message(STATUS "ASM COMPILER, ASM FLAGS: ${CMAKE_ASM_COMPILER}, ${CMAKE_ASM_FLAGS}")

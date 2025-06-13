@@ -32,10 +32,10 @@ set(STM32_H7_DUAL_CORE
 stm32_util_create_family_targets(H7 M7)
 
 target_compile_options(STM32::H7::M7 INTERFACE 
-    -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=hard
+    -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard
 )
 target_link_options(STM32::H7::M7 INTERFACE 
-    -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=hard
+    -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard
 )
 target_compile_definitions(STM32::H7::M7 INTERFACE 
     -DCORE_CM7

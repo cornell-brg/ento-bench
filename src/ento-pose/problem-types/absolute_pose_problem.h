@@ -338,7 +338,26 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const std::st
 template <typename Scalar, typename Solver, size_t NumPts>
 bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* line)
 {
-    // -------- Fixed sscanf-based MCU deserializer --------
+    // -------- Fixed sscanf-based MCU deserializer with type-safe format specifiers --------
+    
+    // Helper lambda to parse a single scalar value with appropriate format specifier
+    auto parse_scalar = [](const char* str, Scalar* value) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,", value);
+        } else {
+            return sscanf(str, "%f,", value);
+        }
+    };
+    
+    // Helper lambda to parse three scalar values with appropriate format specifier
+    auto parse_three_scalars = [](const char* str, Scalar* x, Scalar* y, Scalar* z) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,%lf,%lf,", x, y, z);
+        } else {
+            return sscanf(str, "%f,%f,%f,", x, y, z);
+        }
+    };
+    
     char *pos = const_cast<char*>(line);
 
     int problem_type;
@@ -356,44 +375,44 @@ bool AbsolutePoseProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* l
     else if (NumPts != static_cast<size_t>(num_points))
         return false;
 
-    // Parse quaternion (q)
+    // Parse quaternion (q) with appropriate format specifier
     for (int i = 0; i < 4; ++i) {
-        if (sscanf(pos, "%f,", &pose_gt_.q[i]) != 1)
+        if (parse_scalar(pos, &pose_gt_.q[i]) != 1)
             return false;
         pos = strchr(pos, ',') + 1;
     }
 
-    // Parse translation (t)
+    // Parse translation (t) with appropriate format specifier
     for (int i = 0; i < 3; ++i) {
-        if (sscanf(pos, "%f,", &pose_gt_.t[i]) != 1)
+        if (parse_scalar(pos, &pose_gt_.t[i]) != 1)
             return false;
         pos = strchr(pos, ',') + 1;
     }
 
-    // Parse scale_gt
-    if (sscanf(pos, "%f,", &scale_gt_) != 1)
+    // Parse scale_gt with appropriate format specifier
+    if (parse_scalar(pos, &scale_gt_) != 1)
         return false;
     pos = strchr(pos, ',') + 1;
 
-    // Parse focal_gt
-    if (sscanf(pos, "%f,", &focal_gt_) != 1)
+    // Parse focal_gt with appropriate format specifier
+    if (parse_scalar(pos, &focal_gt_) != 1)
         return false;
     pos = strchr(pos, ',') + 1;
 
-    // Parse x_point correspondences
+    // Parse x_point correspondences with appropriate format specifier
     Scalar x, y, z;
     x_point_.clear();
     for (int i = 0; i < num_points; ++i) {
-        if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
+        if (parse_three_scalars(pos, &x, &y, &z) != 3)
             return false;
         x_point_.push_back(Vec3<Scalar>(x, y, z));
         pos = strchr(pos, ',') + 1;
     }
 
-    // Parse X_point correspondences
+    // Parse X_point correspondences with appropriate format specifier
     X_point_.clear();
     for (int i = 0; i < num_points; ++i) {
-        if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3)
+        if (parse_three_scalars(pos, &x, &y, &z) != 3)
             return false;
         X_point_.push_back(Vec3<Scalar>(x, y, z));
         pos = strchr(pos, ',') + 1;

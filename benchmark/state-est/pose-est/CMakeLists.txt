@@ -312,13 +312,13 @@ set(DLT_SCALING_TARGETS
   bench-dlt8-float
   bench-dlt16-float bench-dlt16-double
   bench-dlt32-float bench-dlt32-double
-  bench-dlt64-float bench-dlt64-double
+  #bench-dlt64-float bench-dlt64-double # 64 points too large for current deserialize ExperimentIO
 )
 
 set(8PT_SCALING_TARGETS
   bench-8pt16-float bench-8pt16-double
   bench-8pt32-float bench-8pt32-double
-  bench-8pt64-float bench-8pt64-double
+  #bench-8pt64-float bench-8pt64-double # 64 points too large for current deserialize ExperimentIO
 )
 
 set(UPRIGHT_PLANAR_TARGETS
@@ -329,7 +329,7 @@ set(UPRIGHT_PLANAR_TARGETS
 set(UPRIGHT_PLANAR_SCALING_TARGETS
   bench-upright-planar-3pt8-float bench-upright-planar-3pt8-double
   bench-upright-planar-3pt16-float bench-upright-planar-3pt16-double
-  bench-upright-planar-3pt32-float bench-upright-planar-3pt32-double
+  #bench-upright-planar-3pt32-float bench-upright-planar-3pt32-double # 32 points too large for current deserialize ExperimentIO
 )
 
 set(GOLD_STANDARD_TARGETS

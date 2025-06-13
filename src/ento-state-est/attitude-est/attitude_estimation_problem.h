@@ -187,10 +187,10 @@ bool AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::deserialize_impl(const c
     }
   }();
   
-  Scalar ax, ay, az, gx, gy, gz, mx, my, mz;
-  
   // Use appropriate precision for quaternion and dt parsing based on Scalar type
   using ParseType = typename std::conditional_t<std::is_same_v<Scalar, double>, double, float>;
+  
+  Scalar ax, ay, az, gx, gy, gz, mx, my, mz;
   ParseType qw, qx, qy, qz, dt;
   
   int parsed_count = 0;
