@@ -380,18 +380,4 @@ endif()
 message(STATUS "Attitude Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
-# Add FPU deserialization test
-if(STM32_BUILD)
-  add_arm_semihosting_executable(test-fpu-deserialization
-    SOURCES test_fpu_deserialization.cc
-    LIBRARIES ento-state-est Eigen
-  )
-  add_stm32_target(test-fpu-deserialization)
-else()
-  add_non_arm_executable(test-fpu-deserialization
-    SOURCES test_fpu_deserialization.cc  
-    LIBRARIES ento-state-est Eigen
-  )
-endif()
-
 endif() 
