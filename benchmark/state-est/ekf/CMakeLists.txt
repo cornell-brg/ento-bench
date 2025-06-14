@@ -6,26 +6,23 @@ include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 if (STM32_BUILD)
 
 # =============================================================================
-# H7 Performance Scaling Configuration
+# H7 Performance Multiplier Detection (mirrors bench_config.h logic)
 # =============================================================================
 
-# Detect H7 and set default performance multiplier
+# Detect H7 and set performance multiplier (same logic as in bench_config.h)
 if(STM_PRODUCT MATCHES "H7")
-  set(DEFAULT_H7_MULTIPLIER 2)  # H7 is ~2x faster than other STM32s
+  set(H7_PERFORMANCE_MULTIPLIER 2)  # H7 is ~2x faster than other STM32s
 else()
-  set(DEFAULT_H7_MULTIPLIER 1)
+  set(H7_PERFORMANCE_MULTIPLIER 1)  # No scaling for non-H7
 endif()
 
 # Allow override via command line: cmake -DH7_PERFORMANCE_MULTIPLIER=3
-if(NOT DEFINED H7_PERFORMANCE_MULTIPLIER)
-  set(H7_PERFORMANCE_MULTIPLIER ${DEFAULT_H7_MULTIPLIER})
+if(DEFINED H7_PERFORMANCE_MULTIPLIER_OVERRIDE)
+  set(H7_PERFORMANCE_MULTIPLIER ${H7_PERFORMANCE_MULTIPLIER_OVERRIDE})
+  message(STATUS "H7 Performance Multiplier overridden to: ${H7_PERFORMANCE_MULTIPLIER}")
 endif()
 
-# Calculate scaled repetitions for H7
-math(EXPR H7_SCALED_REPS "30 * ${H7_PERFORMANCE_MULTIPLIER}")
-
 message(STATUS "EKF H7 Performance Multiplier: ${H7_PERFORMANCE_MULTIPLIER}")
-message(STATUS "EKF H7 Scaled Reps: ${H7_SCALED_REPS}")
 
 set(MODULES
   bench
@@ -75,19 +72,17 @@ add_benchmark(bench-ekf-truncated-update-float
 list(APPEND BENCH_TARGETS bench-ekf-truncated-update-float)
 
 # =============================================================================
-# Apply H7 Performance Scaling to All EKF Targets
+# H7-specific defines (automatic scaling handled in bench_config.h)
 # =============================================================================
 
 foreach(target ${BENCH_TARGETS})
-  # Set the REPS preprocessor define to scale repetitions based on platform
-  target_compile_definitions(${target} PRIVATE 
-    REPS=${H7_SCALED_REPS}
-  )
-  
-  # Add H7-specific define if on H7
+  # Add H7-specific define if on H7 (for any H7-specific code paths)
   if(STM_PRODUCT MATCHES "H7")
     target_compile_definitions(${target} PRIVATE STM32H7_BUILD=1)
   endif()
+  
+  # Pass the multiplier to C++ as a verification define (optional)
+  target_compile_definitions(${target} PRIVATE H7_CMAKE_MULTIPLIER=${H7_PERFORMANCE_MULTIPLIER})
 endforeach()
 
 # =============================================================================
@@ -125,104 +120,37 @@ set(FLOAT_TARGETS
   bench-ekf-truncated-update-float
 )
 
-set(ALL_EKF_TARGETS ${BENCH_TARGETS})
-set(QUICK_EKF_TEST_TARGETS bench-robofly-ekf-float bench-robobee-ekf-float)
-set(PERFORMANCE_EKF_TARGETS ${ALL_EKF_TARGETS})
-
 # =============================================================================
-# Add Benchmark Group Runners with Timeout Support
+# Configure benchmark groups with JSON config and H7 scaling awareness
 # =============================================================================
 
-# Create the benchmark runner script (reuse from pose estimation)
-create_benchmark_runner_script()
+# Get base inner_reps from JSON config for proper log file naming
+set(BASE_INNER_REPS 2)  # From estimation_benchmarks.json "ekf" section
+math(EXPR EFFECTIVE_INNER_REPS "${BASE_INNER_REPS} * ${H7_PERFORMANCE_MULTIPLIER}")
 
-# Quick test runner (subset for fast validation)
-add_benchmark_group_runner(ekf-quick-test
-  TARGETS ${QUICK_EKF_TEST_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
+message(STATUS "Base INNER_REPS from JSON: ${BASE_INNER_REPS}")
+message(STATUS "Effective INNER_REPS (with H7 scaling): ${EFFECTIVE_INNER_REPS}")
+
+# Configure EKF benchmarks using the estimation_benchmarks.json config
+# The config system will use the base values, but log files will reflect the effective values
+add_configured_benchmark_group_with_target_configs("ekf"
+  CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/estimation_benchmarks.json"
+  TARGETS ${BENCH_TARGETS}
 )
 
-# Performance test runner (all benchmarks)
-add_benchmark_group_runner(ekf-performance
-  TARGETS ${PERFORMANCE_EKF_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+# Override the global config string to reflect H7 scaling in log file names
+if(H7_PERFORMANCE_MULTIPLIER GREATER 1)
+  set(H7_CONFIG_SUFFIX "_h7x${H7_PERFORMANCE_MULTIPLIER}")
+  set(GLOBAL_BENCHMARK_CONFIG_STR "${GLOBAL_BENCHMARK_CONFIG_STR}${H7_CONFIG_SUFFIX}" CACHE INTERNAL "Current benchmark configuration string with H7 scaling")
+  message(STATUS "Updated benchmark config string for H7 scaling: ${GLOBAL_BENCHMARK_CONFIG_STR}")
+endif()
 
-# Platform-specific runners
-add_benchmark_group_runner(robofly-ekf
-  TARGETS ${ROBOFLY_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
-
-add_benchmark_group_runner(robobee-ekf
-  TARGETS ${ROBOBEE_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
-
-# Update method comparison runners
-add_benchmark_group_runner(ekf-sync-update
-  TARGETS ${SYNC_UPDATE_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
-
-add_benchmark_group_runner(ekf-async-update
-  TARGETS ${ASYNC_UPDATE_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
-
-# =============================================================================
-# Convenience Targets for Common Use Cases
-# =============================================================================
-
-# Add convenience aliases that match common naming patterns
-add_custom_target(bench-ekf-quick
-  DEPENDS bench-ekf-quick-test-run
-  COMMENT "Alias for bench-ekf-quick-test-run"
-)
-
-add_custom_target(bench-ekf-robofly
-  DEPENDS bench-robofly-ekf-run
-  COMMENT "Alias for bench-robofly-ekf-run"
-)
-
-add_custom_target(bench-ekf-robobee
-  DEPENDS bench-robobee-ekf-run
-  COMMENT "Alias for bench-robobee-ekf-run"
-)
-
-add_custom_target(bench-ekf-all
-  DEPENDS bench-ekf-performance-run
-  COMMENT "Alias for bench-ekf-performance-run"
-)
-
-# =============================================================================
-# Apply Configuration Using Config File with Target-Specific Support
-# =============================================================================
-
-# Method 1: Enhanced config file approach with target-specific support
-set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/estimation_benchmarks.json")
-if(EXISTS ${CONFIG_FILE})
-  message(STATUS "Using enhanced config file with target-specific support: ${CONFIG_FILE}")
-  add_configured_benchmark_group_with_target_configs("ekf"
-    CONFIG_FILE ${CONFIG_FILE}
-    TARGETS ${BENCH_TARGETS}
-  )
+message(STATUS "EKF benchmarks configured with automatic H7 scaling")
+if(STM_PRODUCT MATCHES "H7")
+  message(STATUS "H7 detected: INNER_REPS will be automatically scaled by ${H7_PERFORMANCE_MULTIPLIER}x in bench_config.h")
+  message(STATUS "Log files will include H7 scaling suffix: ${H7_CONFIG_SUFFIX}")
 else()
-  # Method 2: Direct configuration (fallback)
-  message(STATUS "Config file not found, using direct configuration")
-  add_preconfigured_benchmark_group("ekf"
-    TARGETS ${BENCH_TARGETS}
-    REPS 30
-    INNER_REPS 2
-    VERBOSITY 1
-    ENABLE_CACHES
-  )
+  message(STATUS "Non-H7 platform: INNER_REPS will use base values from JSON config")
 endif()
 
 # =============================================================================

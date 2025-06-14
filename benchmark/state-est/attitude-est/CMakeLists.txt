@@ -131,6 +131,25 @@ add_benchmark(bench-fourati-double-marg
 )
 list(APPEND BENCH_TARGETS bench-fourati-double-marg)
 
+# Fourati fixed-point benchmarks
+add_benchmark(bench-fourati-q7-24-marg
+  SOURCES bench_fourati_q7_24_marg.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati-q7-24-marg)
+
+add_benchmark(bench-fourati-q5-26-marg
+  SOURCES bench_fourati_q5_26_marg.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati-q5-26-marg)
+
+add_benchmark(bench-fourati-q3-12-marg
+  SOURCES bench_fourati_q3_12_marg.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fourati-q3-12-marg)
+
 # =============================================================================
 # Define Benchmark Groups for Organized Testing
 # =============================================================================
@@ -152,6 +171,7 @@ set(MADGWICK_TARGETS
 
 set(FOURATI_TARGETS
   bench-fourati-float-marg bench-fourati-double-marg
+  bench-fourati-q7-24-marg bench-fourati-q5-26-marg bench-fourati-q3-12-marg
 )
 
 # Group by data type
@@ -172,6 +192,7 @@ set(FIXED_POINT_TARGETS
   bench-madgwick-q7-24-imu bench-madgwick-q7-24-marg
   bench-mahony-q3-12-imu bench-mahony-q3-12-marg
   bench-madgwick-q3-12-imu bench-madgwick-q3-12-marg
+  bench-fourati-q7-24-marg bench-fourati-q5-26-marg bench-fourati-q3-12-marg
 )
 
 # Group by sensor configuration
@@ -188,6 +209,7 @@ set(MARG_TARGETS
   bench-fourati-float-marg bench-fourati-double-marg
   bench-mahony-q7-24-marg bench-madgwick-q7-24-marg
   bench-mahony-q3-12-marg bench-madgwick-q3-12-marg
+  bench-fourati-q7-24-marg bench-fourati-q5-26-marg bench-fourati-q3-12-marg
 )
 
 set(ALL_ATTITUDE_TARGETS ${BENCH_TARGETS})

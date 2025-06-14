@@ -9,6 +9,7 @@
 #include <ento-state-est/attitude-est/mahoney.h>
 #include <ento-state-est/attitude-est/madgwick.h>
 #include <ento-state-est/attitude-est/fourati_nonlinear.h>
+#include <ento-state-est/attitude-est/fourati_fixed.h>
 #include <math/FixedPointMath.hh>
 #include <vector>
 #include <cmath>
@@ -90,6 +91,15 @@ using MahonyQ3_12_MARG = FilterMahonyFixed<Q3_12, true>;
 using MadgwickQ3_12_IMU = FilterMadgwickFixed<Q3_12, false>;
 using MadgwickQ3_12_MARG = FilterMadgwickFixed<Q3_12, true>;
 
+// Fixed-Point Fourati Filters (Q7.24 format)
+using FouratiQ7_24_MARG = FilterFouratiFixed<Q7_24>;
+
+// Fixed-Point Fourati Filters (Q5.26 format - better precision for small values)
+using FouratiQ5_26_MARG = FilterFouratiFixed<Q5_26>;
+
+// Fixed-Point Fourati Filters (Q3.12 format - should fail with small values)
+using FouratiQ3_12_MARG = FilterFouratiFixed<Q3_12>;
+
 // =============================================================================
 // Problem Type Definitions (using AttitudeProblem with float ground truth)
 // =============================================================================
@@ -127,6 +137,15 @@ using MahonyQ3_12_IMUProblem = AttitudeProblem<Q3_12, MahonyQ3_12_IMU, false>;
 using MahonyQ3_12_MARGProblem = AttitudeProblem<Q3_12, MahonyQ3_12_MARG, true>;
 using MadgwickQ3_12_IMUProblem = AttitudeProblem<Q3_12, MadgwickQ3_12_IMU, false>;
 using MadgwickQ3_12_MARGProblem = AttitudeProblem<Q3_12, MadgwickQ3_12_MARG, true>;
+
+// Fixed-Point Fourati Problems (Q7.24)
+using FouratiQ7_24_MARGProblem = AttitudeProblem<Q7_24, FouratiQ7_24_MARG, true>;
+
+// Fixed-Point Fourati Problems (Q5.26)
+using FouratiQ5_26_MARGProblem = AttitudeProblem<Q5_26, FouratiQ5_26_MARG, true>;
+
+// Fixed-Point Fourati Problems (Q3.12)
+using FouratiQ3_12_MARGProblem = AttitudeProblem<Q3_12, FouratiQ3_12_MARG, true>;
 
 // =============================================================================
 // Error Tracking and Results Structure
@@ -694,6 +713,39 @@ void test_attitude_filter_benchmark() {
         MahonyFloat_MARG kernel;
         auto result = run_error_benchmark<MahonyFloat_MARGProblem>("Mahony", "Float-High", "MARG", 
                                                                   marg_input_path, kernel, 0.1f, 0.01f);  // Higher gains
+        benchmark_results.push_back(result);
+    }
+    
+    // ========== Q7.24 FIXED-POINT FOURATI TESTS ==========
+    ENTO_DEBUG("=== Q7.24 FIXED-POINT FOURATI FILTERS ===");
+    
+    // Fourati Q7.24 (MARG)
+    {
+        FouratiQ7_24_MARG kernel;
+        auto result = run_error_benchmark<FouratiQ7_24_MARGProblem>("Fourati", "Q7.24", "MARG", 
+                                                                   marg_input_path, kernel, Q7_24(0.1f));
+        benchmark_results.push_back(result);
+    }
+    
+    // ========== Q5.26 FIXED-POINT FOURATI TESTS ==========
+    ENTO_DEBUG("=== Q5.26 FIXED-POINT FOURATI FILTERS ===");
+    
+    // Fourati Q5.26 (MARG)
+    {
+        FouratiQ5_26_MARG kernel;
+        auto result = run_error_benchmark<FouratiQ5_26_MARGProblem>("Fourati", "Q5.26", "MARG", 
+                                                                   marg_input_path, kernel, Q5_26(0.1f));
+        benchmark_results.push_back(result);
+    }
+    
+    // ========== Q3.12 FIXED-POINT FOURATI TESTS ==========
+    ENTO_DEBUG("=== Q3.12 FIXED-POINT FOURATI FILTERS ===");
+    
+    // Fourati Q3.12 (MARG)
+    {
+        FouratiQ3_12_MARG kernel;
+        auto result = run_error_benchmark<FouratiQ3_12_MARGProblem>("Fourati", "Q3.12", "MARG", 
+                                                                   marg_input_path, kernel, Q3_12(0.1f));
         benchmark_results.push_back(result);
     }
     

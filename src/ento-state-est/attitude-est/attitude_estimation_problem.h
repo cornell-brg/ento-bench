@@ -11,6 +11,7 @@
 #include <ento-state-est/attitude-est/mahoney_fixed.h>
 #include <ento-state-est/attitude-est/madgwick_fixed.h>
 #include <ento-state-est/attitude-est/fourati_nonlinear.h>
+#include <ento-state-est/attitude-est/fourati_fixed.h>
 
 namespace EntoAttitude
 {
@@ -111,14 +112,21 @@ public:
                  typename std::enable_if_t<std::is_same_v<T, FilterFourati<Scalar>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 
-  // Constructor for fixed-point filters (already have internal state) - excludes FilterMadgwickFixed, FilterMahoney, FilterMahonyFixed, FilterFourati
+  // Constructor for Fourati fixed-point filters (gain parameter)  
+  template<typename T = Kernel>
+  AttitudeProblem(Kernel kernel, Scalar gain,
+                 typename std::enable_if_t<std::is_same_v<T, FilterFouratiFixed<Scalar>>>* = nullptr)
+    : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
+
+  // Constructor for fixed-point filters (already have internal state) - excludes FilterMadgwickFixed, FilterMahoney, FilterMahonyFixed, FilterFourati, FilterFouratiFixed
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel,
                  typename std::enable_if_t<!std::is_same_v<T, FilterMahoney<Scalar, UseMag>> && 
                                           !std::is_same_v<T, FilterMadgwick<Scalar, UseMag>> &&
                                           !std::is_same_v<T, FilterMadgwickFixed<Scalar, UseMag>> &&
                                           !std::is_same_v<T, FilterMahonyFixed<Scalar, UseMag>> &&
-                                          !std::is_same_v<T, FilterFourati<Scalar>>>* = nullptr)
+                                          !std::is_same_v<T, FilterFourati<Scalar>> &&
+                                          !std::is_same_v<T, FilterFouratiFixed<Scalar>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(Scalar(0.0f)), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 };
 
@@ -323,6 +331,15 @@ void AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::solve_impl()
     } else if constexpr (std::is_same_v<Kernel, FilterFourati<Scalar>>) {
         // Fourati filter: needs gain, g_q, m_q (MARG only)
         static_assert(UseMag, "Fourati filter requires magnetometer data (MARG)");
+        // Convert AttitudeMeasurement to MARGMeasurement for Fourati
+        MARGMeasurement<Scalar> marg_meas;
+        marg_meas.gyr = measurement_.gyr;
+        marg_meas.acc = measurement_.acc;
+        marg_meas.mag = measurement_.mag;
+        q_ = kernel_(q_prev_, marg_meas, dt_, gain_, g_q_, m_q_);
+    } else if constexpr (std::is_same_v<Kernel, FilterFouratiFixed<Scalar>>) {
+        // Fourati fixed-point filter: needs gain, g_q, m_q (MARG only, same interface as FilterFourati)
+        static_assert(UseMag, "Fourati fixed-point filter requires magnetometer data (MARG)");
         // Convert AttitudeMeasurement to MARGMeasurement for Fourati
         MARGMeasurement<Scalar> marg_meas;
         marg_meas.gyr = measurement_.gyr;

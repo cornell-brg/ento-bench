@@ -410,47 +410,47 @@
       "inner_reps": 1,
       "verbosity": 1,
       "enable_caches": true,
-      "max_problems": 1
+      "max_problems": 100
     },
 
     "bench-robofly-ekf-float": {
       "reps": 1,
-      "inner_reps": 5,
+      "inner_reps": 20,
       "verbosity": 1,
-      "enable_caches": true,
-      "max_problems": 20
+      "enable_caches": false,
+      "max_problems": 100
     },
 
     "bench-robobee-ekf-float": {
       "reps": 1,
-      "inner_reps": 3,
+      "inner_reps": 20,
       "verbosity": 1,
-      "enable_caches": true,
-      "max_problems": 15
+      "enable_caches": false,
+      "max_problems": 100
     },
 
     "bench-ekf-sync-update-float": {
       "reps": 1,
-      "inner_reps": 5,
+      "inner_reps": 20,
       "verbosity": 1,
-      "enable_caches": true,
-      "max_problems": 20
+      "enable_caches": false,
+      "max_problems": 100
     },
 
     "bench-ekf-seq-update-float": {
       "reps": 1,
-      "inner_reps": 4,
+      "inner_reps": 20,
       "verbosity": 1,
-      "enable_caches": true,
-      "max_problems": 15
+      "enable_caches": false,
+      "max_problems": 100
     },
 
     "bench-ekf-truncated-update-float": {
       "reps": 1,
-      "inner_reps": 4,
+      "inner_reps": 20,
       "verbosity": 1,
-      "enable_caches": true,
-      "max_problems": 15
+      "enable_caches": false,
+      "max_problems": 100
     }
   }
 } 

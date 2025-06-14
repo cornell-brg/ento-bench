@@ -20,7 +20,25 @@ template<typename Problem,
 class Harness;
 
 //=============================================================================
-// Benchmark Configuration with constexpr defaults
+// Automatic H7 Performance Scaling Configuration
+//=============================================================================
+
+// Detect H7 automatically and set performance multiplier
+#if defined(STM32H7) || defined(STM32H7xx) || defined(STM32H743xx) || defined(STM32H753xx) || defined(STM32H750xx)
+constexpr std::size_t H7_PERFORMANCE_MULTIPLIER = 1;  // @TODO: Fix this in cmake before making 2. H7 is ~2x faster than other STM32s
+#else
+constexpr std::size_t H7_PERFORMANCE_MULTIPLIER = 1;  // No scaling for non-H7
+#endif
+
+// Compile-time verification that CMake and C++ multipliers are in sync
+#ifdef H7_CMAKE_MULTIPLIER
+static_assert(H7_PERFORMANCE_MULTIPLIER == H7_CMAKE_MULTIPLIER, 
+              "H7 Performance Multiplier mismatch between CMake and C++! "
+              "Update both benchmark/state-est/ekf/CMakeLists.txt and src/ento-bench/bench_config.h");
+#endif
+
+//=============================================================================
+// Benchmark Configuration with constexpr defaults and automatic H7 scaling
 // Override these values with preprocessor defines if needed
 //=============================================================================
 
@@ -31,10 +49,13 @@ constexpr std::size_t DefaultReps = REPS;
 #endif
 
 #ifndef INNER_REPS
-constexpr std::size_t DefaultInnerReps = 1;
+constexpr std::size_t BaseInnerReps = 1;
 #else
-constexpr std::size_t DefaultInnerReps = INNER_REPS;
+constexpr std::size_t BaseInnerReps = INNER_REPS;
 #endif
+
+// Apply automatic H7 scaling to INNER_REPS only (REPS comes from JSON config unchanged)
+constexpr std::size_t DefaultInnerReps = BaseInnerReps * H7_PERFORMANCE_MULTIPLIER;
 
 #ifndef VERBOSITY
 constexpr int DefaultVerbosity = 1;

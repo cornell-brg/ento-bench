@@ -53,6 +53,51 @@ target_compile_definitions(STM32::H7::M4 INTERFACE
     -DCORE_CM4
 )
 
+# Custom function to use vendor linker scripts for H7 devices
+function(stm32h7_use_vendor_linker_script FAMILY DEVICE CORE)
+    if(CORE)
+        set(CORE_C "::${CORE}")
+        set(CORE_U "_${CORE}")
+    endif()
+    
+    # Define the vendor linker script path
+    set(VENDOR_LD_SCRIPT "${STM32_CMAKE_DIR}/linker-scripts/h7/${DEVICE}${CORE_U}.ld")
+    set(OUTPUT_LD_FILE "${CMAKE_CURRENT_BINARY_DIR}/${DEVICE}${CORE_U}.ld")
+    
+    # Check if vendor script exists
+    if(EXISTS "${VENDOR_LD_SCRIPT}")
+        message(STATUS "Using vendor linker script for ${DEVICE}${CORE_U}: ${VENDOR_LD_SCRIPT}")
+        
+        # Copy vendor script to build directory
+        add_custom_command(OUTPUT "${OUTPUT_LD_FILE}"
+            COMMAND ${CMAKE_COMMAND} -E copy "${VENDOR_LD_SCRIPT}" "${OUTPUT_LD_FILE}"
+            DEPENDS "${VENDOR_LD_SCRIPT}"
+            COMMENT "Copying vendor linker script for ${DEVICE}${CORE_U}"
+        )
+        
+        # Create custom target and add dependencies
+        if (NOT (TARGET CMSIS_LD_${DEVICE}${CORE_U}))
+            add_custom_target(CMSIS_LD_${DEVICE}${CORE_U} DEPENDS "${OUTPUT_LD_FILE}")
+        endif()
+        add_dependencies(CMSIS::STM32::${DEVICE}${CORE_C} CMSIS_LD_${DEVICE}${CORE_U})
+        
+        # Add linker script to target
+        stm32_add_linker_script(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE "${OUTPUT_LD_FILE}")
+        
+        message(STATUS "Vendor linker script configured for CMSIS::STM32::${DEVICE}${CORE_C}")
+        
+        # Set a variable to indicate success so the caller knows not to generate default
+        set(VENDOR_SCRIPT_CONFIGURED TRUE PARENT_SCOPE)
+        return()
+    else()
+        message(WARNING "Vendor linker script not found: ${VENDOR_LD_SCRIPT}")
+        message(STATUS "Falling back to generated linker script for ${DEVICE}${CORE_U}")
+        # Set variable to indicate failure
+        set(VENDOR_SCRIPT_CONFIGURED FALSE PARENT_SCOPE)
+        return()
+    endif()
+endfunction()
+
 function(stm32h7_get_memory_info DEVICE TYPE CORE RAM FLASH_ORIGIN RAM_ORIGIN TWO_FLASH_BANKS)
     if(${TYPE} IN_LIST STM32_H7_DUAL_CORE)
         set(${TWO_FLASH_BANKS} TRUE PARENT_SCOPE)  
