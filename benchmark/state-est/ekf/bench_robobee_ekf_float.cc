@@ -49,9 +49,9 @@ int main()
 
   ENTO_DEBUG("File path: %s", dataset_path);
 
-  // Initialize EKF with realistic noise matrices for RoboBee (10-state system)
-  Eigen::Matrix<Scalar, 10, 10> Q = Eigen::Matrix<Scalar, 10, 10>::Identity() * 0.01f;
-  Eigen::Matrix<Scalar, 4, 4> R = Eigen::Matrix<Scalar, 4, 4>::Identity() * 0.1f;
+  // Initialize EKF with matrices for RoboBee
+  Eigen::Matrix<Scalar, 10, 10> Q = Eigen::Matrix<Scalar, 10, 10>::Identity() * 0.001f;
+  Eigen::Matrix<Scalar, 4, 4> R = Eigen::Matrix<Scalar, 4, 4>::Identity() * 0.01f;
   
   RoboBeeKernel kernel(Q, R);
   DynamicsModel dynamics;

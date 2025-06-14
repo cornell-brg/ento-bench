@@ -4,6 +4,29 @@
 include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 
 if (STM32_BUILD)
+
+# =============================================================================
+# H7 Performance Scaling Configuration
+# =============================================================================
+
+# Detect H7 and set default performance multiplier
+if(STM_PRODUCT MATCHES "H7")
+  set(DEFAULT_H7_MULTIPLIER 2)  # H7 is ~2x faster than other STM32s
+else()
+  set(DEFAULT_H7_MULTIPLIER 1)
+endif()
+
+# Allow override via command line: cmake -DH7_PERFORMANCE_MULTIPLIER=3
+if(NOT DEFINED H7_PERFORMANCE_MULTIPLIER)
+  set(H7_PERFORMANCE_MULTIPLIER ${DEFAULT_H7_MULTIPLIER})
+endif()
+
+# Calculate scaled repetitions for H7
+math(EXPR H7_SCALED_REPS "30 * ${H7_PERFORMANCE_MULTIPLIER}")
+
+message(STATUS "EKF H7 Performance Multiplier: ${H7_PERFORMANCE_MULTIPLIER}")
+message(STATUS "EKF H7 Scaled Reps: ${H7_SCALED_REPS}")
+
 set(MODULES
   bench
   ento-mcu-semihosted
@@ -50,6 +73,22 @@ add_benchmark(bench-ekf-truncated-update-float
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-ekf-truncated-update-float)
+
+# =============================================================================
+# Apply H7 Performance Scaling to All EKF Targets
+# =============================================================================
+
+foreach(target ${BENCH_TARGETS})
+  # Set the REPS preprocessor define to scale repetitions based on platform
+  target_compile_definitions(${target} PRIVATE 
+    REPS=${H7_SCALED_REPS}
+  )
+  
+  # Add H7-specific define if on H7
+  if(STM_PRODUCT MATCHES "H7")
+    target_compile_definitions(${target} PRIVATE STM32H7_BUILD=1)
+  endif()
+endforeach()
 
 # =============================================================================
 # Define Benchmark Groups for Organized Testing
