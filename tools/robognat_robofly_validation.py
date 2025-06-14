@@ -360,37 +360,119 @@ def generate_robofly_data_from_robognat(tfinal=10.0, use_estimator=True, noisy=T
     
     return time, q_data, u_data, y_data, qhat_data, robofly_measurements
 
-def save_robofly_csv(time, q_data, u_data, robofly_measurements, filename):
+def save_robofly_csv(time, q_data, u_data, robofly_measurements, filename, 
+                     async_sensors=False, imu_rate_hz=1000, flow_rate_hz=100, sync_rate_hz=50):
     """
     Save data in RoboFly EKF format: timestamp,dt,meas0,meas1,meas2,meas3,ctrl0,mask0,mask1,mask2,mask3
+    
+    Args:
+        time: Time vector
+        q_data: State data
+        u_data: Control data  
+        robofly_measurements: Measurement data
+        filename: Output CSV filename
+        async_sensors: If True, generate asynchronous sensor measurements
+        imu_rate_hz: IMU sampling rate (Hz) - sensors 2,3 (accel_x, accel_z)
+        flow_rate_hz: Optical flow rate (Hz) - sensor 1 (optical_flow)  
+        sync_rate_hz: Synchronized measurement rate (Hz) - all sensors 0,1,2,3
+        
+    Asynchronous sensor schedule (based on paper):
+    - IMU (accel_x, accel_z): Available every 1ms (1000 Hz)
+    - Optical flow: Available every 10ms (100 Hz) in addition to IMU
+    - All sensors synchronized: Available every 20ms (50 Hz)
+    
+    This creates:
+    - 50 occurrences/sec with all 4 measurements (every 20ms)
+    - 50 occurrences/sec with 3 measurements (IMU + flow, every 20ms offset)
+    - 900 occurrences/sec with 2 measurements (IMU only, remaining 1ms slots)
     """
     # Use the filename as provided (can be relative path)
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
+        row_count = 0  # Track row count manually
         
-        for i in range(len(time)):
-            timestamp = time[i]
-            dt = DT
+        if not async_sensors:
+            # Original synchronous behavior - all sensors at same time
+            for i in range(len(time)):
+                timestamp = time[i]
+                dt = DT
+                
+                # RoboFly measurements: [range, optical_flow, accel_x, accel_z]
+                meas0, meas1, meas2, meas3 = robofly_measurements[i]
+                
+                # Controls: Use actual angular velocity from state
+                ctrl0 = q_data[i, 1]  # omegay (angular velocity) from robognat state
+                
+                # All sensors active (synchronous)
+                mask0, mask1, mask2, mask3 = 1, 1, 1, 1
+                
+                # Write CSV row
+                writer.writerow([timestamp, dt, meas0, meas1, meas2, meas3, ctrl0, mask0, mask1, mask2, mask3])
+                row_count += 1
+        else:
+            # Asynchronous sensor behavior
+            # Calculate time periods
+            imu_period = 1.0 / imu_rate_hz      # 0.001s (1ms)
+            flow_period = 1.0 / flow_rate_hz    # 0.01s (10ms)  
+            sync_period = 1.0 / sync_rate_hz    # 0.02s (20ms)
             
-            # RoboFly measurements: [range, optical_flow, accel_x, accel_z]
-            meas0, meas1, meas2, meas3 = robofly_measurements[i]
+            # Generate asynchronous measurement schedule
+            current_time = time[0]
             
-            # Controls: Use actual angular velocity from state instead of control command
-            # RoboFly EKF expects omega (angular velocity in rad/s), not control acceleration
-            ctrl0 = q_data[i, 1]  # omegay (angular velocity) from robognat state
+            # Interpolation function for measurements
+            def interpolate_measurement(target_time, time_vec, meas_data):
+                # Find closest time index
+                idx = np.argmin(np.abs(time_vec - target_time))
+                return meas_data[idx]
             
-            # Sensor mask: Convert single integer (15 = 0b1111) to individual binary digits
-            # For RoboFly with 4 measurements, sensor_mask=15 means all sensors active
-            sensor_mask_int = 15  # All sensors active (0b1111)
-            mask0 = int((sensor_mask_int >> 0) & 1)  # Bit 0 (range sensor)
-            mask1 = int((sensor_mask_int >> 1) & 1)  # Bit 1 (optical flow)
-            mask2 = int((sensor_mask_int >> 2) & 1)  # Bit 2 (accel_x)
-            mask3 = int((sensor_mask_int >> 3) & 1)  # Bit 3 (accel_z)
+            def interpolate_state(target_time, time_vec, state_data):
+                # Find closest time index  
+                idx = np.argmin(np.abs(time_vec - target_time))
+                return state_data[idx]
             
-            # Write CSV row: timestamp,dt,meas0,meas1,meas2,meas3,ctrl0,mask0,mask1,mask2,mask3
-            writer.writerow([timestamp, dt, meas0, meas1, meas2, meas3, ctrl0, mask0, mask1, mask2, mask3])
+            # Generate measurements at IMU rate (1ms intervals)
+            time_step = 0
+            while current_time <= time[-1]:
+                # Get interpolated measurements and state
+                meas = interpolate_measurement(current_time, time, robofly_measurements)
+                state = interpolate_state(current_time, time, q_data)
+                
+                meas0, meas1, meas2, meas3 = meas
+                ctrl0 = state[1]  # omegay
+                
+                # Determine sensor availability based on time step
+                # Every 20ms (20 steps): All sensors (sync)
+                # Every 10ms (10 steps): IMU + optical flow  
+                # Every 1ms (1 step): IMU only
+                
+                if time_step % 20 == 0:
+                    # All sensors synchronized (every 20ms)
+                    mask0, mask1, mask2, mask3 = 1, 1, 1, 1
+                elif time_step % 10 == 0:
+                    # IMU + optical flow (every 10ms, excluding sync times)
+                    mask0, mask1, mask2, mask3 = 0, 1, 1, 1  # No range sensor
+                else:
+                    # Only IMU (every 1ms, excluding flow and sync times)
+                    mask0, mask1, mask2, mask3 = 0, 0, 1, 1  # Only accelerometers
+                
+                # Calculate dt (constant for simplicity)
+                dt = imu_period
+                
+                # Write CSV row
+                writer.writerow([current_time, dt, meas0, meas1, meas2, meas3, ctrl0, mask0, mask1, mask2, mask3])
+                row_count += 1
+                
+                # Advance to next time step
+                time_step += 1
+                current_time += imu_period
     
-    print(f"Saved RoboFly validation data to {filename}")
+    if async_sensors:
+        print(f"Saved RoboFly asynchronous validation data to {filename}")
+        print(f"  IMU rate: {imu_rate_hz} Hz, Flow rate: {flow_rate_hz} Hz, Sync rate: {sync_rate_hz} Hz")
+        print(f"  Total rows generated: {row_count}")
+    else:
+        print(f"Saved RoboFly synchronous validation data to {filename}")
+        print(f"  Total rows generated: {row_count}")
 
 def plot_comparison(time, q_data, y_original, robofly_measurements):
     """Plot comparison between original robognat and RoboFly measurements"""
@@ -553,6 +635,16 @@ def main():
                         help='Output CSV filename')
     parser.add_argument('--plot', action='store_true', help='Show plots after generation')
     
+    # Asynchronous sensor options
+    parser.add_argument('--async-sensors', action='store_true', 
+                        help='Generate asynchronous sensor measurements (default: synchronous)')
+    parser.add_argument('--imu-rate', type=int, default=1000,
+                        help='IMU sampling rate in Hz (default: 1000)')
+    parser.add_argument('--flow-rate', type=int, default=100,
+                        help='Optical flow sampling rate in Hz (default: 100)')
+    parser.add_argument('--sync-rate', type=int, default=50,
+                        help='Synchronized measurement rate in Hz (default: 50)')
+    
     # Terrain analysis options
     parser.add_argument('--visualize-terrains', action='store_true', 
                         help='Create comparison visualization of all terrain types')
@@ -594,6 +686,14 @@ def main():
     
     # Indoor environment (cables, debris)
     --terrain-type indoor_bumps --terrain-params '{"cable_height": 0.003, "debris_height": 0.01}'
+    
+    ASYNCHRONOUS SENSOR EXAMPLES:
+    
+    # Generate asynchronous measurements matching paper rates
+    --async-sensors --imu-rate 1000 --flow-rate 100 --sync-rate 50
+    
+    # Custom asynchronous rates
+    --async-sensors --imu-rate 500 --flow-rate 50 --sync-rate 25
     
     ANALYSIS OPTIONS:
     
@@ -652,7 +752,11 @@ def main():
     )
     
     # Save CSV data
-    save_robofly_csv(time, q_data, u_data, robofly_measurements, args.output)
+    save_robofly_csv(time, q_data, u_data, robofly_measurements, args.output,
+                     async_sensors=args.async_sensors, 
+                     imu_rate_hz=args.imu_rate,
+                     flow_rate_hz=args.flow_rate, 
+                     sync_rate_hz=args.sync_rate)
     
     # Run Python EKF validation if requested
     if args.run_python_ekf:

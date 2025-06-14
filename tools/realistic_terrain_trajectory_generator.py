@@ -33,6 +33,9 @@ from robognat_clean import *
 # Change back to original directory
 os.chdir(original_dir)
 
+# Override robognat's DT to enable high-rate simulation
+DT = 1./1000  # 1000 Hz sampling (increased from robognat's 200Hz for high-rate IMU)
+
 # Import our terrain functions - use direct import instead of from another module
 # since there may be path conflicts
 def generate_ground_height(x, z, terrain_type="flat", terrain_params=None):
@@ -144,7 +147,6 @@ def robofly_sensor_model_from_state(q, noisy=True, terrain_type="flat", terrain_
     return array([range_sensor, optical_flow, accel_x, accel_z])
 
 # Constants (from original robognat)
-DT = 1./200  # 200 Hz sampling
 g = 9.81
 
 def create_terrain_crossing_waypoints(terrain_type, terrain_params, trajectory_length=2.0, n_waypoints=5):
@@ -398,6 +400,10 @@ def generate_terrain_crossing_trajectory(terrain_type="flat", terrain_params=Non
     # Run simulation using original robognat physics
     print("Running physics simulation...")
     
+    # Override robognat's DT in the module to ensure 1000Hz simulation
+    import robognat_clean
+    robognat_clean.DT = DT  # Use our 1000Hz DT
+    
     # Starting position at first waypoint
     initial_state = array([0, 0, waypoints[0][0], 0, waypoints[0][1], 0, 0])  # 7 states including wind
     
@@ -454,7 +460,7 @@ def generate_asynchronous_sensor_data(time, q_data, terrain_type, terrain_params
     Returns:
         measurements: Dict for async sensors, numpy array for sync sensors (backward compatibility)
     """
-    base_rate = 200  # Hz - robognat simulation rate
+    base_rate = 1000  # Hz - robognat simulation rate (increased from 200Hz)
     dt_base = 1.0 / base_rate
     
     # If sensor_rates is None, return synchronous measurements (old format)

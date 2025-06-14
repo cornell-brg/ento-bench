@@ -184,10 +184,14 @@ public:
   bool read_next(Problem &problem_instance)
   {
     __asm__ volatile("" ::: "memory");
+    ENTO_DEBUG("ExperimentIO: read_next called");
+    
     if (!header_validated_)
     {
+      ENTO_DEBUG("ExperimentIO: validating header");
       if (!validate_input_header<Problem>())
       {
+        ENTO_DEBUG("ExperimentIO: header validation failed");
 #ifdef NATIVE
         ifile_.close();
 #else
@@ -195,14 +199,17 @@ public:
 #endif
         return false;
       }
+      ENTO_DEBUG("ExperimentIO: header validation passed");
     }
 
     if constexpr (Problem::RequiresSetup_)
     {
       if (!setup_finished_)
       {
+        ENTO_DEBUG("ExperimentIO: setting up problem");
         if (!setup_problem<Problem>(problem_instance))
         {
+          ENTO_DEBUG("ExperimentIO: problem setup failed");
 #ifdef NATIVE
           ifile_.close();
 #else
@@ -213,20 +220,37 @@ public:
     }
 
     problem_instance.clear();
+    ENTO_DEBUG("ExperimentIO: cleared problem instance");
+    
 #ifdef NATIVE
     std::string line;
     if (std::getline(ifile_, line))
     {
-      return problem_instance.deserialize(line);
+      ENTO_DEBUG("ExperimentIO: read line (native): %.50s", line.c_str());
+      bool result = problem_instance.deserialize(line);
+      ENTO_DEBUG("ExperimentIO: deserialize result: %d", result);
+      return result;
+    }
+    else
+    {
+      ENTO_DEBUG("ExperimentIO: failed to read line (native)");
     }
 #else
     char line[4096];
     if (ifile_ && fgets(line, sizeof(line), ifile_))
     {
-      return problem_instance.deserialize(line);
+      ENTO_DEBUG("ExperimentIO: read line (MCU): %.50s", line);
+      bool result = problem_instance.deserialize(line);
+      ENTO_DEBUG("ExperimentIO: deserialize result: %d", result);
+      return result;
+    }
+    else
+    {
+      ENTO_DEBUG("ExperimentIO: failed to read line (MCU)");
     }
 #endif
     __asm__ volatile("" ::: "memory");
+    ENTO_DEBUG("ExperimentIO: returning false (end of file)");
     return false; // End of file or error
   }
 
@@ -305,7 +329,7 @@ private:
 
         if (strcmp(header, Problem::header()) != 0)
         {
-          ENTO_DEBUG("Expected header: %s, Found: %s", Problem::header(), header);
+          ENTO_DEBUG("Expected header: %s\nFound: %s", Problem::header(), header);
           return false;
         }
       }

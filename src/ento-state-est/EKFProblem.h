@@ -59,7 +59,8 @@ public:
 
   // EntoBench interface requirements
   static constexpr bool RequiresDataset_ = true;
-  static constexpr bool SavesResults_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
 
   // Configuration
   enum class UpdateMethod {
@@ -242,24 +243,31 @@ public:
 #endif
 
   bool deserialize_impl(const char* line) {
+    ENTO_DEBUG("EKF deserialize_impl called with line: %.50s", line);
+    
     // Initialize EKF on first call
     if (!has_current_data_ && state_trajectory_.empty()) {
       ekf_.setState(initial_state_);
       ekf_.setCovariance(initial_covariance_);
+      ENTO_DEBUG("EKF initialized with initial conditions");
     }
     
     // Parse single CSV line and process immediately (MCU path)
     DataPoint point;
     
     if (!parseDataPointFromCString(line, point)) {
+      ENTO_DEBUG("EKF parsing failed for line: %.50s", line);
       return false;
     }
+    
+    ENTO_DEBUG("EKF parsed successfully: t=%.3f, dt=%.3f", point.timestamp, point.dt);
     
     // Process the data point immediately
     processDataPoint(point);
     has_current_data_ = true;
     current_data_point_ = point;
     
+    ENTO_DEBUG("EKF data point processed successfully");
     return true;
   }
 
@@ -286,7 +294,7 @@ public:
   }
 
   static constexpr const char* header_impl() { 
-    return "timestamp,state_estimate,covariance_trace,log_likelihood"; 
+    return "EKF Problem"; 
   }
   
   static constexpr const char* output_header_impl() { 
@@ -341,23 +349,37 @@ private:
     
     // Skip empty lines
     if (!line || strlen(line) == 0) {
+      ENTO_DEBUG("EKF parse: empty line");
       return false;
     }
     
+    ENTO_DEBUG("EKF parse: starting with line length %zu", strlen(line));
+    
     // Parse timestamp
     point.timestamp = strtod(pos, &end_pos);
-    if (end_pos == pos || *end_pos != ',') return false;
+    if (end_pos == pos || *end_pos != ',') {
+      ENTO_DEBUG("EKF parse: timestamp failed at pos %zu", pos - line);
+      return false;
+    }
     pos = end_pos + 1;
+    ENTO_DEBUG("EKF parse: timestamp=%.3f", point.timestamp);
     
     // Parse dt
     point.dt = strtod(pos, &end_pos);
-    if (end_pos == pos || *end_pos != ',') return false;
+    if (end_pos == pos || *end_pos != ',') {
+      ENTO_DEBUG("EKF parse: dt failed at pos %zu", pos - line);
+      return false;
+    }
     pos = end_pos + 1;
+    ENTO_DEBUG("EKF parse: dt=%.3f", point.dt);
     
     // Parse measurements
     for (size_t i = 0; i < MeasurementDim; ++i) {
       double val = strtod(pos, &end_pos);
-      if (end_pos == pos || (i < MeasurementDim - 1 && *end_pos != ',')) return false;
+      if (end_pos == pos || (i < MeasurementDim - 1 && *end_pos != ',')) {
+        ENTO_DEBUG("EKF parse: measurement[%zu] failed at pos %zu", i, pos - line);
+        return false;
+      }
       point.measurements(i) = static_cast<Scalar>(val);
       if (i < MeasurementDim - 1) pos = end_pos + 1;
       else {
@@ -365,11 +387,15 @@ private:
         if (*pos == ',') pos++; // Move past comma if present
       }
     }
+    ENTO_DEBUG("EKF parse: measurements done");
     
     // Parse controls
     for (size_t i = 0; i < ControlDim; ++i) {
       double val = strtod(pos, &end_pos);
-      if (end_pos == pos || (i < ControlDim - 1 && *end_pos != ',')) return false;
+      if (end_pos == pos || (i < ControlDim - 1 && *end_pos != ',')) {
+        ENTO_DEBUG("EKF parse: control[%zu] failed at pos %zu", i, pos - line);
+        return false;
+      }
       point.controls(i) = static_cast<Scalar>(val);
       if (i < ControlDim - 1) pos = end_pos + 1;
       else {
@@ -377,15 +403,22 @@ private:
         if (*pos == ',') pos++; // Move past comma if present  
       }
     }
+    ENTO_DEBUG("EKF parse: controls done");
     
     // Parse sensor mask
     for (size_t i = 0; i < MeasurementDim; ++i) {
       long val = strtol(pos, &end_pos, 10);
-      if (end_pos == pos || (val != 0 && val != 1)) return false;
+      if (end_pos == pos || (val != 0 && val != 1)) {
+        ENTO_DEBUG("EKF parse: sensor_mask[%zu] failed at pos %zu, val=%ld", i, pos - line, val);
+        return false;
+      }
       point.sensor_mask[i] = (val == 1);
       
       if (i < MeasurementDim - 1) {
-        if (*end_pos != ',') return false;
+        if (*end_pos != ',') {
+          ENTO_DEBUG("EKF parse: sensor_mask[%zu] missing comma at pos %zu", i, end_pos - line);
+          return false;
+        }
         pos = end_pos + 1;
       } else {
         // Last element - should be end of line or end of string
@@ -393,6 +426,7 @@ private:
       }
     }
     
+    ENTO_DEBUG("EKF parse: all fields parsed successfully");
     return true;
   }
 
@@ -436,16 +470,15 @@ private:
         point.measurements(field - 2) = std::stod(token);
       } else if (field >= 2 + MeasurementDim && field < 2 + MeasurementDim + ControlDim) {
         point.controls(field - 2 - MeasurementDim) = std::stod(token);
-      } else if (field == 2 + MeasurementDim + ControlDim) {
-        // Parse sensor mask (binary string)
-        for (size_t i = 0; i < MeasurementDim && i < token.length(); ++i) {
-          point.sensor_mask[i] = (token[i] == '1');
-        }
+      } else if (field >= 2 + MeasurementDim + ControlDim && field < 2 + MeasurementDim + ControlDim + MeasurementDim) {
+        // Parse individual sensor mask fields
+        size_t mask_idx = field - 2 - MeasurementDim - ControlDim;
+        point.sensor_mask[mask_idx] = (std::stoi(token) == 1);
       }
       field++;
     }
     
-    return field >= 2 + MeasurementDim + ControlDim; // Minimum required fields
+    return field >= 2 + MeasurementDim + ControlDim + MeasurementDim; // All required fields
   }
 };
 
