@@ -33,6 +33,9 @@ int main()
   // Generic cache setup via config macro
   ENTO_BENCH_SETUP();
 
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
   // Build input dataset filepath
   const char* base_path = DATASET_PATH;
   const char* rel_path = "rel-pose/8pt32_double_noise1.0.csv";

@@ -40,6 +40,12 @@ int main()
   enable_instruction_cache_prefetch();
   icache_enable();
 
+  // Generic cache setup via config macro
+  ENTO_BENCH_SETUP();
+
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
   const char* base_path = DATASET_PATH;
   const char* rel_path  = "opt-control/fig8.csv";
   char dataset_path[512];

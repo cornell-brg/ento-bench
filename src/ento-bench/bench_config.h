@@ -111,6 +111,19 @@ using CustomHarness = Harness<Problem, DoWarmup, Reps, InnerReps, MaxProblems, V
         } \
     } while(0)
 
+#define ENTO_BENCH_PRINT_CONFIG() \
+    do { \
+        printf("=== Benchmark Configuration ===\n"); \
+        printf("REPS: %zu\n", EntoBench::DefaultReps); \
+        printf("INNER_REPS: %zu\n", EntoBench::DefaultInnerReps); \
+        printf("VERBOSITY: %d\n", EntoBench::DefaultVerbosity); \
+        printf("MAX_PROBLEMS: %zu\n", EntoBench::DefaultMaxProblems); \
+        printf("DO_WARMUP: %s\n", EntoBench::DefaultDoWarmup ? "true" : "false"); \
+        printf("ENABLE_CACHES: %s\n", EntoBench::DefaultEnableCaches ? "true" : "false"); \
+        printf("H7_PERFORMANCE_MULTIPLIER: %zu\n", EntoBench::H7_PERFORMANCE_MULTIPLIER); \
+        printf("===============================\n"); \
+    } while(0)
+
 #define ENTO_BENCH_HARNESS_TYPE(Problem) \
     using BenchHarness = EntoBench::DefaultHarness<Problem>
 

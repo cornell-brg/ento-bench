@@ -42,6 +42,9 @@ int main()
   // Generic cache setup via config macro
   ENTO_BENCH_SETUP();
 
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
   const char* base_path = DATASET_PATH;
   const char* rel_path = "control/robofly_lqr_linear.csv";
   char dataset_path[512];
