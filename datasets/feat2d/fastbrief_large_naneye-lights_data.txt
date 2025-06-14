@@ -1,0 +1,21 @@
+Feature Recognition Problem
+feat2d/naneye-lights/large/image0.pgm,feat2d/naneye-lights/large/image0_feats.txt,feat2d/naneye-lights/large/image0_descs.txt
+feat2d/naneye-lights/large/image1.pgm,feat2d/naneye-lights/large/image1_feats.txt,feat2d/naneye-lights/large/image1_descs.txt
+feat2d/naneye-lights/large/image2.pgm,feat2d/naneye-lights/large/image2_feats.txt,feat2d/naneye-lights/large/image2_descs.txt
+feat2d/naneye-lights/large/image3.pgm,feat2d/naneye-lights/large/image3_feats.txt,feat2d/naneye-lights/large/image3_descs.txt
+feat2d/naneye-lights/large/image4.pgm,feat2d/naneye-lights/large/image4_feats.txt,feat2d/naneye-lights/large/image4_descs.txt
+feat2d/naneye-lights/large/image5.pgm,feat2d/naneye-lights/large/image5_feats.txt,feat2d/naneye-lights/large/image5_descs.txt
+feat2d/naneye-lights/large/image6.pgm,feat2d/naneye-lights/large/image6_feats.txt,feat2d/naneye-lights/large/image6_descs.txt
+feat2d/naneye-lights/large/image7.pgm,feat2d/naneye-lights/large/image7_feats.txt,feat2d/naneye-lights/large/image7_descs.txt
+feat2d/naneye-lights/large/image8.pgm,feat2d/naneye-lights/large/image8_feats.txt,feat2d/naneye-lights/large/image8_descs.txt
+feat2d/naneye-lights/large/image9.pgm,feat2d/naneye-lights/large/image9_feats.txt,feat2d/naneye-lights/large/image9_descs.txt
+feat2d/naneye-lights/large/image10.pgm,feat2d/naneye-lights/large/image10_feats.txt,feat2d/naneye-lights/large/image10_descs.txt
+feat2d/naneye-lights/large/image11.pgm,feat2d/naneye-lights/large/image11_feats.txt,feat2d/naneye-lights/large/image11_descs.txt
+feat2d/naneye-lights/large/image12.pgm,feat2d/naneye-lights/large/image12_feats.txt,feat2d/naneye-lights/large/image12_descs.txt
+feat2d/naneye-lights/large/image13.pgm,feat2d/naneye-lights/large/image13_feats.txt,feat2d/naneye-lights/large/image13_descs.txt
+feat2d/naneye-lights/large/image14.pgm,feat2d/naneye-lights/large/image14_feats.txt,feat2d/naneye-lights/large/image14_descs.txt
+feat2d/naneye-lights/large/image15.pgm,feat2d/naneye-lights/large/image15_feats.txt,feat2d/naneye-lights/large/image15_descs.txt
+feat2d/naneye-lights/large/image16.pgm,feat2d/naneye-lights/large/image16_feats.txt,feat2d/naneye-lights/large/image16_descs.txt
+feat2d/naneye-lights/large/image17.pgm,feat2d/naneye-lights/large/image17_feats.txt,feat2d/naneye-lights/large/image17_descs.txt
+feat2d/naneye-lights/large/image18.pgm,feat2d/naneye-lights/large/image18_feats.txt,feat2d/naneye-lights/large/image18_descs.txt
+feat2d/naneye-lights/large/image19.pgm,feat2d/naneye-lights/large/image19_feats.txt,feat2d/naneye-lights/large/image19_descs.txt

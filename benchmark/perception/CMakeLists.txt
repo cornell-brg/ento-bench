@@ -6,7 +6,7 @@ include(${CMAKE_SOURCE_DIR}/entobench_helpers.cmake)
 if (STM32_BUILD)
 set(MODULES
   bench
-  mcu-util
+  ento-mcu-semihosted
   Eigen
   ento-pose
   ento_util
@@ -14,9 +14,8 @@ set(MODULES
 )
 set(BENCH_TARGETS) # List of targets
 
-
 # =============================================================================
-# FAST+BRIEF Tiny Image Benchmark
+# FAST+BRIEF Benchmarks
 # =============================================================================
 
 add_benchmark(bench-fastbrief-tiny
@@ -25,19 +24,11 @@ add_benchmark(bench-fastbrief-tiny
 )
 list(APPEND BENCH_TARGETS bench-fastbrief-tiny)
 
-# =============================================================================
-# FAST+BRIEF Small Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-fastbrief-small
   SOURCES bench_fastbrief_small.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-fastbrief-small)
-
-# =============================================================================
-# FAST+BRIEF Medium Image Benchmark
-# =============================================================================
 
 add_benchmark(bench-fastbrief-medium
   SOURCES bench_fastbrief_medium.cc
@@ -45,18 +36,65 @@ add_benchmark(bench-fastbrief-medium
 )
 list(APPEND BENCH_TARGETS bench-fastbrief-medium)
 
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-fastbrief-large
+    SOURCES bench_fastbrief_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-fastbrief-large)
+endif()
+
 # =============================================================================
-# FAST+BRIEF Large Image Benchmark
+# FAST+BRIEF Naneye Benchmarks
 # =============================================================================
 
-add_benchmark(bench-fastbrief-large
-  SOURCES bench_fastbrief_large.cc
+# Naneye Lights Dataset
+add_benchmark(bench-fastbrief-naneye-lights-small
+  SOURCES bench_fastbrief_naneye_lights_small.cc
   LIBRARIES ${MODULES}
 )
-list(APPEND BENCH_TARGETS bench-fastbrief-large)
+list(APPEND BENCH_TARGETS bench-fastbrief-naneye-lights-small)
+
+add_benchmark(bench-fastbrief-naneye-lights-medium
+  SOURCES bench_fastbrief_naneye_lights_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fastbrief-naneye-lights-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-fastbrief-naneye-lights-large
+    SOURCES bench_fastbrief_naneye_lights_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-fastbrief-naneye-lights-large)
+endif()
+
+# Naneye April Board Dataset
+add_benchmark(bench-fastbrief-naneye-april-board-small
+  SOURCES bench_fastbrief_naneye_april_board_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fastbrief-naneye-april-board-small)
+
+add_benchmark(bench-fastbrief-naneye-april-board-medium
+  SOURCES bench_fastbrief_naneye_april_board_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-fastbrief-naneye-april-board-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-fastbrief-naneye-april-board-large
+    SOURCES bench_fastbrief_naneye_april_board_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-fastbrief-naneye-april-board-large)
+endif()
 
 # =============================================================================
-# FAST Tiny Image Benchmark
+# FAST Benchmarks
 # =============================================================================
 
 add_benchmark(bench-fast-tiny
@@ -65,20 +103,11 @@ add_benchmark(bench-fast-tiny
 )
 list(APPEND BENCH_TARGETS bench-fast-tiny)
 
-
-# =============================================================================
-# Fast Small Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-fast-small
   SOURCES bench_fast_small.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-fast-small)
-
-# =============================================================================
-# Fast Medium Image Benchmark 
-# =============================================================================
 
 add_benchmark(bench-fast-medium
   SOURCES bench_fast_medium.cc
@@ -86,19 +115,17 @@ add_benchmark(bench-fast-medium
 )
 list(APPEND BENCH_TARGETS bench-fast-medium)
 
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-fast-large
+    SOURCES bench_fast_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-fast-large)
+endif()
 
 # =============================================================================
-# Fast Large Image Benchmark 
-# =============================================================================
-
-add_benchmark(bench-fast-large
-  SOURCES bench_fast_large.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-fast-large)
-
-# =============================================================================
-# Brief Tiny Image Benchmark
+# BRIEF Benchmarks
 # =============================================================================
 
 add_benchmark(bench-brief-tiny
@@ -107,20 +134,11 @@ add_benchmark(bench-brief-tiny
 )
 list(APPEND BENCH_TARGETS bench-brief-tiny)
 
-
-# =============================================================================
-# Brief Small Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-brief-small
   SOURCES bench_brief_small.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-brief-small)
-
-# =============================================================================
-# Brief Medium Image Benchmark
-# =============================================================================
 
 add_benchmark(bench-brief-medium
   SOURCES bench_brief_medium.cc
@@ -128,19 +146,17 @@ add_benchmark(bench-brief-medium
 )
 list(APPEND BENCH_TARGETS bench-brief-medium)
 
-# =============================================================================
-# Brief Large Image Benchmark
-# =============================================================================
-
-add_benchmark(bench-brief-large
-  SOURCES bench_brief_large.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-brief-large)
-
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-brief-large
+    SOURCES bench_brief_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-brief-large)
+endif()
 
 # =============================================================================
-# ORB Tiny Image Benchmark
+# ORB Benchmarks
 # =============================================================================
 
 add_benchmark(bench-orb-tiny
@@ -149,38 +165,77 @@ add_benchmark(bench-orb-tiny
 )
 list(APPEND BENCH_TARGETS bench-orb-tiny)
 
-# =============================================================================
-# ORB Small Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-orb-small
   SOURCES bench_orb_small.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-orb-small)
 
-# =============================================================================
-# ORB Medium Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-orb-medium
-  SOURCES bench_fastbrief_medium.cc
+  SOURCES bench_orb_medium.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-orb-medium)
 
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-orb-large
+    SOURCES bench_orb_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-orb-large)
+endif()
+
 # =============================================================================
-# ORB Large Image Benchmark
+# ORB Naneye Benchmarks
 # =============================================================================
 
-add_benchmark(bench-orb-large
-  SOURCES bench_orb_large.cc
+# Naneye Lights Dataset
+add_benchmark(bench-orb-naneye-lights-small
+  SOURCES bench_orb_naneye_lights_small.cc
   LIBRARIES ${MODULES}
 )
-list(APPEND BENCH_TARGETS bench-orb-large)
+list(APPEND BENCH_TARGETS bench-orb-naneye-lights-small)
+
+add_benchmark(bench-orb-naneye-lights-medium
+  SOURCES bench_orb_naneye_lights_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-orb-naneye-lights-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-orb-naneye-lights-large
+    SOURCES bench_orb_naneye_lights_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-orb-naneye-lights-large)
+endif()
+
+# Naneye April Board Dataset
+add_benchmark(bench-orb-naneye-april-board-small
+  SOURCES bench_orb_naneye_april_board_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-orb-naneye-april-board-small)
+
+add_benchmark(bench-orb-naneye-april-board-medium
+  SOURCES bench_orb_naneye_april_board_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-orb-naneye-april-board-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-orb-naneye-april-board-large
+    SOURCES bench_orb_naneye_april_board_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-orb-naneye-april-board-large)
+endif()
 
 # =============================================================================
-# Lucas Kanade OF Small Image Benchmark
+# Lucas Kanade Optical Flow Benchmarks
 # =============================================================================
 
 add_benchmark(bench-lkof-small
@@ -189,32 +244,52 @@ add_benchmark(bench-lkof-small
 )
 list(APPEND BENCH_TARGETS bench-lkof-small)
 
-
-# =============================================================================
-# Lucas Kanade OF Medium Image Benchmark
-# =============================================================================
-
 add_benchmark(bench-lkof-medium
   SOURCES bench_lkof_medium.cc
   LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-lkof-medium)
 
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-lkof-large
+    SOURCES bench_lkof_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-lkof-large)
+endif()
 
 # =============================================================================
-# Lucas Kanade OF Large Image Benchmark
+# Configure Benchmark Group with New Idioms
 # =============================================================================
 
-add_benchmark(bench-lkof-large
-  SOURCES bench_lkof_large.cc
-  LIBRARIES ${MODULES}
-)
-list(APPEND BENCH_TARGETS bench-lkof-large)
+# Config file approach with smart fallbacks
+set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/perception_benchmarks.json")
+if(EXISTS ${CONFIG_FILE})
+  add_configured_benchmark_group_from_file("perception"
+    CONFIG_FILE ${CONFIG_FILE}
+    TARGETS ${BENCH_TARGETS}
+    # Fallback configuration
+    REPS 30
+    INNER_REPS 2
+    VERBOSITY 1
+    ENABLE_CACHES
+  )
+else()
+  # Direct configuration fallback
+  add_preconfigured_benchmark_group("perception"
+    TARGETS ${BENCH_TARGETS}
+    REPS 30
+    INNER_REPS 2
+    VERBOSITY 1
+    ENABLE_CACHES
+  )
+endif()
 
 # =============================================================================
-# Add stm32 targets
+# Add STM32 targets
 # =============================================================================
-message(STATUS "Bench targets: ${BENCH_TARGETS}")
+message(STATUS "Perception bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif()

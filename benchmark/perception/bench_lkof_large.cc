@@ -13,6 +13,9 @@
 #include <ento-feature2d/image_pyramid.h>
 #include <image_io/Image.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
@@ -22,7 +25,7 @@ using namespace EntoFeature2D;
 constexpr int decimal_bits = 10;
 using fp_t = FixedPoint<32 - decimal_bits, decimal_bits, int32_t>;
 
-// Configuration for SMALL
+// Configuration for LARGE
 constexpr size_t NUM_LEVELS = 3;
 constexpr size_t IMG_WIDTH  = 320;
 constexpr size_t IMG_HEIGHT = 320;
@@ -42,13 +45,17 @@ using Prob = SparseOpticalFlowProblem<
 int main()
 {
   initialise_monitor_handles();
+
+  // Configure max clock rate and set flash latency
   sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
+
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
 
   // Dataset path
   const char* base_path = DATASET_PATH;
@@ -70,10 +77,9 @@ int main()
   LK adapter(num_good_pts, max_count, det_epsilon, criteria);
   Prob problem(adapter);
 
-  EntoBench::Harness<Prob, false, 10> harness(problem,
-    "Bench LK Optical Flow [large]",
-    dataset_path,
-    output_path);
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Prob);
+  BenchHarness harness(problem, "Bench LK Optical Flow [large]", dataset_path, output_path);
 
   harness.run();
   exit(1);

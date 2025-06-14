@@ -10,49 +10,57 @@
 #include <ento-feature2d/fast.h>
 #include <ento-feature2d/brief.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
-using namespace EntoUtil;
 using namespace EntoFeature2D;
+using namespace EntoUtil;
 
 int main()
 {
   initialise_monitor_handles();
+
+  // Configure max clock rate and set flash latency
   sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
 
-  // -------- Kernel and Problem Setup --------
-  using Kernel  = FastBriefKernel<5>;
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
+  constexpr int MaxFeats = 5;
+  using Kernel  = FastBriefKernel<MaxFeats>;
   using PixT    = uint8_t;
   constexpr int Rows = 31;
   constexpr int Cols = 31;
-  using Problem = FeatureRecognitionProblem<Kernel, 5, Rows, Cols, PixT, true, true>;
+  using Problem = FeatureRecognitionProblem<Kernel, MaxFeats, Rows, Cols, PixT, true, true>;
 
-  // -------- Dataset Path (TXT file with one line of CSV input) --------
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/test_fastbrief_tiny_dataset.txt";  // This file contains the 3-path line
+  const char* rel_path  = "feat2d/fastbrief_tiny_books_data.txt";
 
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build FAST+BRIEF dataset path.");
+    ENTO_DEBUG("ERROR! Could not build dataset path for tiny image.");
     exit(1);
   }
 
-  ENTO_DEBUG("Dataset file path: %s", dataset_path);
+  ENTO_DEBUG("FAST+BRIEF Tiny: %s", dataset_path);
 
-  // -------- Run Harness --------
   static Problem problem(Kernel{});
-  EntoBench::Harness<Problem, false, 1> harness(problem, "Test FAST+BRIEF Tiny Image",
-                                                dataset_path, output_path);
+  
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "FAST+BRIEF Tiny", dataset_path, output_path);
+  
   harness.run();
 
   exit(1);

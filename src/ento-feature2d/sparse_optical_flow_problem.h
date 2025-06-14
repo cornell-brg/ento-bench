@@ -30,6 +30,7 @@ private:
 public:
   static constexpr bool RequiresDataset_ = true;
   static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
 
   using KeypointT_ = KeypointType;
   using CoordT_ = typename KeypointType::CoordT_;

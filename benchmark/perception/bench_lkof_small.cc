@@ -13,6 +13,9 @@
 #include <ento-feature2d/image_pyramid.h>
 #include <image_io/Image.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
@@ -26,7 +29,7 @@ using fp_t = FixedPoint<64 - decimal_bits, decimal_bits, int64_t>;
 constexpr size_t NUM_LEVELS = 2;
 constexpr size_t IMG_WIDTH  = 80;
 constexpr size_t IMG_HEIGHT = 80;
-constexpr size_t WIN_DIM    = 15;
+constexpr size_t WIN_DIM    = 10;
 constexpr size_t NumFeats   = 10;
 using PixelT = uint8_t;
 using CoordT = float;
@@ -42,13 +45,17 @@ using Prob = SparseOpticalFlowProblem<
 int main()
 {
   initialise_monitor_handles();
+
+  // Configure max clock rate and set flash latency
   sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
+
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
 
   // Dataset path
   const char* base_path = DATASET_PATH;
@@ -58,6 +65,8 @@ int main()
 
   if (!build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
     ENTO_DEBUG("ERROR! Failed to construct dataset path.");
+
+  ENTO_DEBUG("Dataset file path: %s\n", dataset_path);
 
   // Params
   int max_count     = 20;
@@ -69,10 +78,9 @@ int main()
   LK adapter(num_good_pts, max_count, det_epsilon, criteria);
   Prob problem(adapter);
 
-  EntoBench::Harness<Prob, false, 10> harness(problem,
-    "Bench LK Optical Flow [small]",
-    dataset_path,
-    output_path);
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Prob);
+  BenchHarness harness(problem, "Bench LK Optical Flow [small]", dataset_path, output_path);
 
   harness.run();
   exit(1);

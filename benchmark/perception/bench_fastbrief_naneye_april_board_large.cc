@@ -34,35 +34,35 @@ int main()
   // Print benchmark configuration
   ENTO_BENCH_PRINT_CONFIG();
 
-  constexpr int MaxFeats = 50;
+  constexpr int MaxFeats = 250;
   using Kernel  = FastBriefKernel<MaxFeats>;
   using PixT    = uint8_t;
-  constexpr int Rows = 80;
-  constexpr int Cols = 80;
+  constexpr int Rows = 320;
+  constexpr int Cols = 320;
   using Problem = FeatureRecognitionProblem<Kernel, MaxFeats, Rows, Cols, PixT, true, true>;
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/fastbrief_small_books_data.txt";
+  const char* rel_path  = "feat2d/fastbrief_large_naneye-april-board_data.txt";
 
   char dataset_path[512];
   char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path, dataset_path, sizeof(dataset_path)))
   {
-    ENTO_DEBUG("ERROR! Could not build dataset path for small image.");
+    ENTO_DEBUG("ERROR! Could not build dataset path for naneye april board large.");
     exit(1);
   }
 
-  ENTO_DEBUG("FAST+BRIEF Small: %s", dataset_path);
+  ENTO_DEBUG("FAST+BRIEF Naneye April Board Large: %s", dataset_path);
 
   static Problem problem(Kernel{});
   
   // NEW IDIOM: Configuration-driven harness type
   ENTO_BENCH_HARNESS_TYPE(Problem);
-  BenchHarness harness(problem, "FAST+BRIEF Small", dataset_path, output_path);
+  BenchHarness harness(problem, "FAST+BRIEF Naneye April Board Large", dataset_path, output_path);
   
   harness.run();
 
   exit(1);
   return 0;
-}
+} 

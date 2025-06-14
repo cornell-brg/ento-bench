@@ -10,23 +10,29 @@
 #include <ento-feature2d/fast.h>
 #include <ento-feature2d/brief.h>
 
+// Include benchmark configuration
+#include <ento-bench/bench_config.h>
+
 extern "C" void initialise_monitor_handles(void);
 
 using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-
 int main()
 {
   initialise_monitor_handles();
+
+  // Configure max clock rate and set flash latency
   sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
-  enable_instruction_cache();
-  enable_instruction_cache_prefetch();
-  icache_enable();
+  // NEW IDIOM: Generic cache setup using configuration
+  ENTO_BENCH_SETUP();
+
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
 
   constexpr int MaxFeatures = 100;
   using Kernel  = FastBriefKernel<MaxFeatures>;
@@ -50,7 +56,11 @@ int main()
   ENTO_DEBUG("FAST+BRIEF Medium: %s", dataset_path);
 
   static Problem problem(Kernel{});
-  EntoBench::Harness<Problem, false, 10> harness(problem, "FAST+BRIEF Medium", dataset_path, output_path);
+  
+  // NEW IDIOM: Configuration-driven harness type
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "FAST+BRIEF Medium", dataset_path, output_path);
+  
   harness.run();
 
   exit(1);
