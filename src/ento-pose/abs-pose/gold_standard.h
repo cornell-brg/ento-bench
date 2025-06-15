@@ -48,9 +48,9 @@ int gold_standard_abs(const EntoArray<Vec3<Scalar>, N>& x,
     
     // Setup bundle adjustment options
     BundleOptions<Scalar> bundle_opt;
-    bundle_opt.max_iterations = 1;  // Reduce to just 1 iteration for debugging
+    bundle_opt.max_iterations = 20;
     bundle_opt.loss_scale = Scalar(1e-3);
-    bundle_opt.verbose = true;  // Enable verbose output for debugging
+    bundle_opt.verbose = false;
     
     ENTO_DEBUG("[Gold Standard Abs] Starting bundle adjustment with %zu points", N);
     

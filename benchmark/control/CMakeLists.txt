@@ -38,6 +38,13 @@ set(BENCH_TARGETS)
 # Create Control Benchmark Targets
 # =============================================================================
 
+# Adaptive Controller Benchmark
+add_benchmark(bench-adaptive-controller-float
+    SOURCES bench_adaptive_controller_float.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-adaptive-controller-float)
+
 # TinyMPC Solver Benchmark
 add_benchmark(bench-tinympc
     SOURCES bench_tinympc.cc
@@ -133,14 +140,29 @@ math(EXPR EFFECTIVE_INNER_REPS "${BASE_INNER_REPS} * ${H7_PERFORMANCE_MULTIPLIER
 message(STATUS "Base INNER_REPS for control: ${BASE_INNER_REPS}")
 message(STATUS "Effective INNER_REPS (with H7 scaling): ${EFFECTIVE_INNER_REPS}")
 
-# Create control benchmark configuration
-add_preconfigured_benchmark_group("control"
-  TARGETS ${BENCH_TARGETS}
-  REPS 1
-  INNER_REPS ${BASE_INNER_REPS}  # Will be automatically scaled in bench_config.h
-  VERBOSITY 1
-  ENABLE_CACHES
-)
+# =============================================================================
+# Apply Configuration Using Config File with Target-Specific Support
+# =============================================================================
+
+# Method 1: Enhanced config file approach with target-specific support
+set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/control_benchmarks.json")
+if(EXISTS ${CONFIG_FILE})
+  message(STATUS "Using enhanced config file with target-specific support: ${CONFIG_FILE}")
+  add_configured_benchmark_group_with_target_configs("control"
+    CONFIG_FILE ${CONFIG_FILE}
+    TARGETS ${BENCH_TARGETS}
+  )
+else()
+  # Method 2: Direct configuration (fallback)
+  message(STATUS "Config file not found, using direct configuration")
+  add_preconfigured_benchmark_group("control"
+    TARGETS ${BENCH_TARGETS}
+    REPS 1
+    INNER_REPS ${BASE_INNER_REPS}  # Will be automatically scaled in bench_config.h
+    VERBOSITY 1
+    ENABLE_CACHES
+  )
+endif()
 
 # Override the global config string to reflect H7 scaling in log file names
 if(H7_PERFORMANCE_MULTIPLIER GREATER 1)

@@ -113,7 +113,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
-add_compile_definitions($<$<CONFIG:Release>:DEBUG>)
+add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
   add_definitions(-DSTM32_BUILD=1)

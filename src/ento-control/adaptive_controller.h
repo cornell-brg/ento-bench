@@ -13,7 +13,7 @@ extern "C" {
 // We'll use a traits class to make it configurable, similar to other controllers
 struct AdaptiveControllerTraits {
   using Scalar = float;
-  static constexpr int N = 10;  // State dimension (RoboBee state)
+  static constexpr int N = 6;   // State dimension: [x, y, z, roll, pitch, yaw]
   static constexpr int M = 3;   // Control input dimension (thrust, roll, pitch)
 };
 
@@ -91,9 +91,9 @@ public:
     rtU.Zm = static_cast<real_T>(x0[2]);           
     
     // Orientation (roll, pitch, yaw)
-    rtU.alpharadians = static_cast<real_T>(x0[6]); 
-    rtU.betaradians = static_cast<real_T>(x0[7]);  
-    rtU.gammaradians = static_cast<real_T>(x0[8]); 
+    rtU.alpharadians = static_cast<real_T>(x0[3]); 
+    rtU.betaradians = static_cast<real_T>(x0[4]);  
+    rtU.gammaradians = static_cast<real_T>(x0[5]); 
   }
   
   void set_x_ref(const Eigen::Matrix<Scalar, N, 1>& xref) { 
@@ -131,17 +131,9 @@ public:
       next_state_[0] = static_cast<Scalar>(rtY.Xm1);           // x position
       next_state_[1] = static_cast<Scalar>(rtY.Ym1);           // y position
       next_state_[2] = static_cast<Scalar>(rtY.Zm1);           // z position
-      next_state_[6] = static_cast<Scalar>(rtY.alpharadians1); // roll
-      next_state_[7] = static_cast<Scalar>(rtY.betaradians1);  // pitch
-      next_state_[8] = static_cast<Scalar>(rtY.gammaradians1); // yaw
-      
-      // For velocity components, we can estimate from position changes
-      // This assumes the controller is updating the position according to the
-      // internal dynamics model at each step
-      next_state_[3] = (next_state_[0] - x_[0]) / dt_;  // x_dot
-      next_state_[4] = (next_state_[1] - x_[1]) / dt_;  // y_dot
-      next_state_[5] = (next_state_[2] - x_[2]) / dt_;  // z_dot
-      next_state_[9] = (next_state_[8] - x_[8]) / dt_;  // yaw_dot
+      next_state_[3] = static_cast<Scalar>(rtY.alpharadians1); // roll
+      next_state_[4] = static_cast<Scalar>(rtY.betaradians1);  // pitch
+      next_state_[5] = static_cast<Scalar>(rtY.gammaradians1); // yaw
     } else {
       // If we detect NaN values, use current state as fallback
       // This indicates a problem with the controller model

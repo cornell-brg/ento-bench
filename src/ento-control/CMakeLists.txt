@@ -60,22 +60,17 @@ target_include_directories(ento-control INTERFACE
 #target_include_directories(ento-control INTERFACE ${ROBOFLY_MPC_INCLUDE_DIRS})
 #target_link_libraries(ento-control INTERFACE ${ROBOFLY_MPC_LIBRARIES})
 #
-## =============================================================================
-## Adaptive Controller (Simulink Generated)
-## =============================================================================
-#
-## Add the Simulink-generated code as a library
-#add_library(adaptive_controller 
-#  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller.c
-#  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller_data.c
-#)
-#
-#target_include_directories(adaptive_controller PUBLIC
-#  ${CMAKE_CURRENT_SOURCE_DIR}
-#)
-#
-## Link the adaptive controller to the main interface
-#target_link_libraries(ento-control INTERFACE adaptive_controller)
+
+# =============================================================================
+# Adaptive Controller (Simulink Generated)
+# =============================================================================
+
+# Add the Simulink-generated code directly to the main ento-control interface
+target_sources(ento-control INTERFACE
+  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/robobee_adaptive_controller/integrated_controller_data.c
+)
+
 #
 ## =============================================================================
 ## Geometric Controller (FDCL-inspired, heavily templated)

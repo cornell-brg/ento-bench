@@ -1,0 +1,99 @@
+{
+  "control": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "max_problems": 10
+  },
+  "targets": {
+    "bench-adaptive-controller-float": {
+      "reps": 1,
+      "inner_reps": 5,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 50,
+      "description": "Adaptive controller benchmark with 6-state trajectory following"
+    },
+    "bench-tinympc": {
+      "reps": 1,
+      "inner_reps": 3,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 20,
+      "description": "TinyMPC solver benchmark"
+    },
+    "bench-robofly-lqr": {
+      "reps": 1,
+      "inner_reps": 2,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 30,
+      "description": "RoboFly LQR controller benchmark"
+    },
+    "bench-robofly-lqr-sparse": {
+      "reps": 1,
+      "inner_reps": 2,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 30,
+      "description": "RoboFly sparse LQR controller benchmark"
+    },
+    "bench-robofly-lqr-fixed-sparse": {
+      "reps": 1,
+      "inner_reps": 2,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 30,
+      "description": "RoboFly fixed-point sparse LQR controller benchmark"
+    },
+    "bench-robofly-tinympc": {
+      "reps": 1,
+      "inner_reps": 3,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 20,
+      "description": "RoboFly TinyMPC controller benchmark"
+    },
+    "bench-robofly-tinympc-hover": {
+      "reps": 1,
+      "inner_reps": 3,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 20,
+      "description": "RoboFly TinyMPC hover trajectory benchmark"
+    },
+    "bench-robofly-tinympc-square": {
+      "reps": 1,
+      "inner_reps": 3,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 15,
+      "description": "RoboFly TinyMPC square trajectory benchmark"
+    },
+    "bench-robofly-tinympc-circle": {
+      "reps": 1,
+      "inner_reps": 3,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 15,
+      "description": "RoboFly TinyMPC circle trajectory benchmark"
+    },
+    "bench-tinympc-paper-spec": {
+      "reps": 1,
+      "inner_reps": 4,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 25,
+      "description": "TinyMPC paper specification benchmark (10 states, 3 inputs, 5 horizon)"
+    },
+    "bench-tinympc-horizon-comparison": {
+      "reps": 1,
+      "inner_reps": 4,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 20,
+      "description": "TinyMPC horizon length comparison benchmark"
+    }
+  }
+} 

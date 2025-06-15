@@ -127,15 +127,12 @@
 
 #include <core_cm0plus.h>
 
-// GPIO pin definitions for Nucleo-64 STM32C09RC
-// Using similar pins to G0 Nucleo for consistency
 #define latency_gpio_port GPIOB
 #define  latency_gpio_pin LL_GPIO_PIN_5
 
 #define trigger_gpio_port GPIOA
 #define  trigger_gpio_pin LL_GPIO_PIN_8
 
-// C0 family RCC enable bits (similar to G0)
 #define   gpio_port_a_rcc RCC_IOPENR_GPIOAEN
 #define   gpio_port_b_rcc RCC_IOPENR_GPIOBEN
 #define   gpio_port_c_rcc RCC_IOPENR_GPIOCEN
