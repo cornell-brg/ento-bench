@@ -93,8 +93,9 @@ template <size_t NUM_LEVELS,
 class LucasKanadeOFKernel
 {
 private:
-  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
-  ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
+  // STATIC SOLUTION: Move ImagePyramids to static data section to avoid stack/heap overflow on STM32G4
+  static ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> prevPyramid_;
+  static ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> nextPyramid_;
   bool status_[NumFeats];
   int num_good_points_;
   int MAX_COUNT_;
@@ -142,5 +143,11 @@ public:
   }
 };
 
+// Static member definitions - required for static member variables
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::prevPyramid_;
+
+template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::nextPyramid_;
 
 #endif // LK_OPTICAL_FLOW_H

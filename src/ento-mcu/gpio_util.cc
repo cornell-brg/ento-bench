@@ -59,7 +59,7 @@ static uint32_t convert_af(GPIO_AltFunc af)
     case GPIO_AltFunc::AF8:  return LL_GPIO_AF_8;
     case GPIO_AltFunc::AF9:  return LL_GPIO_AF_9;
     case GPIO_AltFunc::AF10: return LL_GPIO_AF_10;
-#if !defined(STM32G0)
+#if !defined(STM32G0) || !defined(STM32C0)
     case GPIO_AltFunc::AF11: return LL_GPIO_AF_11;
     case GPIO_AltFunc::AF12: return LL_GPIO_AF_12;
     case GPIO_AltFunc::AF13: return LL_GPIO_AF_13;
@@ -135,6 +135,14 @@ bool gpio_is_clock_enabled(GPIO_TypeDef *gpio_port)
   else if (gpio_port == GPIOE) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOE);
   else if (gpio_port == GPIOF) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOF);
   else                         return false;
+#elif defined(STM32C0)
+  if      (gpio_port == GPIOA) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF) return LL_IOP_GRP1_IsEnabledClock(LL_IOP_GRP1_PERIPH_GPIOF);
+  else                         return false;
 #elif defined(STM32G4)
   if      (gpio_port == GPIOA) return LL_AHB2_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOA);
   else if (gpio_port == GPIOB) return LL_AHB2_GRP1_IsEnabledClock(LL_AHB2_GRP1_PERIPH_GPIOB);
@@ -186,6 +194,14 @@ bool gpio_is_clock_enabled(GPIO_TypeDef *gpio_port)
 void gpio_enable_clock(GPIO_TypeDef *gpio_port)
 {
 #if defined(STM32G0)
+  if      (gpio_port == GPIOA)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOF);
+  else                          return;
+#elif defined(STM32C0)
   if      (gpio_port == GPIOA)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
   else if (gpio_port == GPIOB)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOB);
   else if (gpio_port == GPIOC)  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOC);
@@ -245,6 +261,14 @@ void gpio_enable_clock(GPIO_TypeDef *gpio_port)
 void gpio_disable_clock(GPIO_TypeDef *gpio_port)
 {
 #if defined(STM32G0)
+  if      (gpio_port == GPIOA)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  else if (gpio_port == GPIOB)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  else if (gpio_port == GPIOC)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOC);
+  else if (gpio_port == GPIOD)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOD);
+  else if (gpio_port == GPIOE)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOE);
+  else if (gpio_port == GPIOF)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOF);
+  else                          return;
+#elif defined(STM32C0)
   if      (gpio_port == GPIOA)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOA);
   else if (gpio_port == GPIOB)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOB);
   else if (gpio_port == GPIOC)  LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOC);

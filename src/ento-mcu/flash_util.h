@@ -11,6 +11,8 @@
 #include <stm32f7xx_ll_system.h>
 #elif defined(STM32G0)
 #include <stm32g0xx_ll_system.h>
+#elif defined(STM32C0)
+#include <stm32c0xx_ll_system.h>
 #elif defined(STM32U5)
 #include <stm32u5xx_ll_system.h>
 #endif

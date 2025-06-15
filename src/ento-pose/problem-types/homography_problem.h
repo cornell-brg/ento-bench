@@ -24,6 +24,10 @@ public:
   using Solver_ = Solver;
   static constexpr size_t NumPts_ = NumPts;
   static constexpr Scalar tol = 1e-6;
+  static constexpr bool RequiresDataset_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
+  static constexpr size_t MaxSolns_ = Solver::MaxSolns;
 
   //////// Class Members /////////
   // Solver Callable
@@ -43,7 +47,11 @@ public:
   //  solutions even if we don't need the space depending on the current input
   //  data. Alternatively, we could always use std::vector and perform a solns.reserve().
   //  As of now it is defaulting to a std::vector.
+#ifdef NATIVE
   EntoContainer<Matrix3x3<Scalar>, 0> solns_; 
+#else
+  EntoContainer<Matrix3x3<Scalar>, MaxSolns_> solns_;
+#endif
 
   // Point-to-point correspondences
   EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, NumPts> x1_;
@@ -178,7 +186,7 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
   }
 
   int num_points;
-  if (!(iss >> num_points >> comma) || problem_type != 3 || comma != ',')
+  if (!(iss >> num_points >> comma) || comma != ',')
   {
     return false; // Parsing failed
   }
@@ -195,18 +203,23 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
     }
   }
 
-  // Parse Homography matrix (H)
-  for (int i = 0; i < 3; ++i)
+  // Parse quaternion (q) - same format as RelativePoseProblem
+  for (int i = 0; i < 4; ++i)
   {
-    for (int j = 0; j < 3; ++j)
+    if (!(iss >> pose_gt_.q[i] >> comma) || (comma != ','))
     {
-      if (!(iss >> H_gt_(i, j) >> comma) || (comma != ','))
-      {
-        return false; // Parsing failed
-      }
+      return false; // Parsing failed
     }
   }
 
+  // Parse translation (t) - same format as RelativePoseProblem
+  for (int i = 0; i < 3; ++i)
+  {
+    if (!(iss >> pose_gt_.t[i] >> comma) || (comma != ','))
+    {
+      return false; // Parsing failed
+    }
+  }
 
   // Parse scale_gt and focal_gt
   if (!(iss >> scale_gt_ >> comma) || comma != ',') 
@@ -219,7 +232,7 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
     return false; // Parsing failed
   }
 
-  // Parse x_point correspondences
+  // Parse x1_ correspondences (bearing vectors)
   Scalar x, y, z;
   for (std::size_t i = 0; i < num_points; ++i) {
     if (!(iss >> x >> comma) || comma != ',')
@@ -235,10 +248,9 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
       return false; // Parsing failed
     }
     x1_.push_back(Vec3<Scalar>(x, y, z));
-
   }
 
-  // Parse X_point correspondences
+  // Parse x2_ correspondences (bearing vectors)
   for (std::size_t i = 0; i < num_points; ++i)
   {
     if (!(iss >> x >> comma) || comma != ',')
@@ -253,7 +265,7 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
     {
       if (!(iss >> z >> comma) || comma != ',')
       {
-      return false; // Parsing failed
+        return false; // Parsing failed
       }
     }
     else
@@ -265,19 +277,28 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
     x2_.push_back(Vec3<Scalar>(x, y, z));
   }
 
+  // TODO: Compute H_gt_ from pose_gt_ if needed for validation
+  // For now, we'll compute it during solve or validation phase
+
   return true; // Successfully parsed
 #else
   // Microcontroller build: Use sscanf for parsing
   char* pos = const_cast<char*>(line);
   int problem_type;
-  if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 1) {
+  if (sscanf(pos, "%d,", &problem_type) != 1 || problem_type != 3) {
+      return false; // Parsing failed
+  }
+  pos = strchr(pos, ',') + 1;
+
+  int num_points;
+  if (sscanf(pos, "%d,", &num_points) != 1) {
       return false; // Parsing failed
   }
   pos = strchr(pos, ',') + 1;
 
   // Parse quaternion (q)
   for (int i = 0; i < 4; ++i) {
-      if (sscanf(pos, "%lf,", &pose_gt_.q[i]) != 1) {
+      if (sscanf(pos, "%f,", &pose_gt_.q[i]) != 1) {
           return false; // Parsing failed
       }
       pos = strchr(pos, ',') + 1;
@@ -285,39 +306,74 @@ bool HomographyProblem<Scalar, Solver, NumPts>::deserialize_impl(const char* lin
 
   // Parse translation (t)
   for (int i = 0; i < 3; ++i) {
-      if (sscanf(pos, "%lf,", &pose_gt_.t[i]) != 1) {
+      if (sscanf(pos, "%f,", &pose_gt_.t[i]) != 1) {
           return false; // Parsing failed
       }
       pos = strchr(pos, ',') + 1;
   }
 
   // Parse scale_gt and focal_gt
-  if (sscanf(pos, "%lf,%lf,", &scale_gt_, &focal_gt_) != 2) {
+  if (sscanf(pos, "%f,%f,", &scale_gt_, &focal_gt_) != 2) {
       return false; // Parsing failed
   }
+  pos = strchr(pos, ',') + 1;
   pos = strchr(pos, ',') + 1;
 
   // Parse x1 correspondences
   Scalar x, y, z;
-  for (std::size_t i = 0; i < x1_.capacity(); ++i) {
-      if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
+  for (std::size_t i = 0; i < num_points; ++i) {
+      if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3) {
           return false; // Parsing failed
       }
       x1_.push_back(Vec3<Scalar>(x, y, z));
       pos = strchr(pos, ',') + 1;
+      pos = strchr(pos, ',') + 1;
+      pos = strchr(pos, ',') + 1;
   }
 
   // Parse x2 correspondences
-  for (std::size_t i = 0; i < x2_.capacity(); ++i) {
-      if (sscanf(pos, "%lf,%lf,%lf,", &x, &y, &z) != 3) {
-          return false; // Parsing failed
+  for (std::size_t i = 0; i < num_points; ++i) {
+      if (i != (num_points-1)) {
+          if (sscanf(pos, "%f,%f,%f,", &x, &y, &z) != 3) {
+              return false; // Parsing failed
+          }
+          pos = strchr(pos, ',') + 1;
+          pos = strchr(pos, ',') + 1;
+          pos = strchr(pos, ',') + 1;
+      } else {
+          if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3) {
+              return false; // Parsing failed
+          }
       }
       x2_.push_back(Vec3<Scalar>(x, y, z));
-      pos = strchr(pos, ',') + 1;
   }
 
   return true; // Successfully parsed
 #endif
+}
+
+template <typename Scalar, typename Solver, size_t NumPts>
+void HomographyProblem<Scalar, Solver, NumPts>::solve_impl()
+{
+  // Clear previous solutions
+  solns_.clear();
+  
+  // Call the homography solver using the EntoArray interface
+  num_solns_ = Solver::template solve<NumPts>(x1_, x2_, &solns_);
+}
+
+template <typename Scalar, typename Solver, size_t NumPts>
+void HomographyProblem<Scalar, Solver, NumPts>::validate_impl()
+{
+  // For homography problems, we can validate using reprojection error
+  // or by comparing with ground truth homography if available
+  // For now, we'll implement basic validation
+  
+  // TODO: Implement proper homography validation
+  // This could include:
+  // 1. Reprojection error computation
+  // 2. Comparison with ground truth homography (if available)
+  // 3. Geometric consistency checks
 }
 
 } // namespace EntoPose

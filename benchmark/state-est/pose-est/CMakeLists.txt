@@ -197,6 +197,22 @@ add_benchmark(bench-upright-3pt-double
 list(APPEND BENCH_TARGETS bench-upright-3pt-double)
 
 # =============================================================================
+# Relative Pose Solvers - Homography (Planar Scenes)
+# =============================================================================
+
+add_benchmark(bench-homography-float
+  SOURCES bench_homography_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-homography-float)
+
+add_benchmark(bench-homography-double
+  SOURCES bench_homography_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-homography-double)
+
+# =============================================================================
 # Relative Pose Solvers - Upright Planar 3pt (Original + Scaling)
 # =============================================================================
 
@@ -281,29 +297,29 @@ list(APPEND BENCH_TARGETS bench-upright-planar-2pt-double)
 # Gold Standard Benchmarks (H&Z Reference Implementations)
 # Commented out to speed up builds
 
-# add_benchmark(bench-gold-standard-abs-float
-#   SOURCES bench_gold_standard_abs_float.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-gold-standard-abs-float)
+add_benchmark(bench-gold-standard-abs-float
+  SOURCES bench_gold_standard_abs_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-gold-standard-abs-float)
 
-# add_benchmark(bench-gold-standard-abs-double
-#   SOURCES bench_gold_standard_abs_double.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-gold-standard-abs-double)
+add_benchmark(bench-gold-standard-abs-double
+  SOURCES bench_gold_standard_abs_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-gold-standard-abs-double)
 
-# add_benchmark(bench-gold-standard-rel-float
-#   SOURCES bench_gold_standard_rel_float.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-gold-standard-rel-float)
+add_benchmark(bench-gold-standard-rel-float
+  SOURCES bench_gold_standard_rel_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-gold-standard-rel-float)
 
-# add_benchmark(bench-gold-standard-rel-double
-#   SOURCES bench_gold_standard_rel_double.cc
-#   LIBRARIES ${MODULES}
-# )
-# list(APPEND BENCH_TARGETS bench-gold-standard-rel-double)
+add_benchmark(bench-gold-standard-rel-double
+  SOURCES bench_gold_standard_rel_double.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-gold-standard-rel-double)
 
 # =============================================================================
 # Benchmark Group Definitions for Runners
@@ -320,6 +336,7 @@ set(RELATIVE_POSE_TARGETS
   bench-8pt-float bench-8pt-double
   bench-5pt-float bench-5pt-double
   bench-upright-3pt-float bench-upright-3pt-double
+  bench-homography-float bench-homography-double
 )
 
 set(DLT_SCALING_TARGETS
@@ -350,8 +367,8 @@ set(UPRIGHT_PLANAR_SCALING_TARGETS
 )
 
 set(GOLD_STANDARD_TARGETS
-  # bench-gold-standard-abs-float bench-gold-standard-abs-double
-  # bench-gold-standard-rel-float bench-gold-standard-rel-double
+  bench-gold-standard-abs-float bench-gold-standard-abs-double
+  bench-gold-standard-rel-float bench-gold-standard-rel-double
 )
 
 set(ALL_POSE_TARGETS ${ABSOLUTE_POSE_TARGETS} ${RELATIVE_POSE_TARGETS} ${DLT_SCALING_TARGETS} ${8PT_SCALING_TARGETS} ${UPRIGHT_PLANAR_TARGETS} ${UPRIGHT_PLANAR_SCALING_TARGETS})
@@ -415,11 +432,11 @@ add_benchmark_group_runner(upright-planar-scaling
 )
 
 # Gold standard benchmarks (longer timeout for bundle adjustment)
-# add_benchmark_group_runner(gold-standard
-#   TARGETS ${GOLD_STANDARD_TARGETS}
-#   TIMEOUT 120
-#   OUTPUT_TIMEOUT 20
-# )
+add_benchmark_group_runner(gold-standard
+  TARGETS ${GOLD_STANDARD_TARGETS}
+  TIMEOUT 120
+  OUTPUT_TIMEOUT 20
+)
 
 # All basic pose estimation benchmarks
 add_benchmark_group_runner(all-pose
@@ -455,10 +472,10 @@ add_custom_target(bench-pose-relative
   COMMENT "Alias for bench-relative-pose-run"
 )
 
-# add_custom_target(bench-pose-gold-standard
-#   DEPENDS bench-gold-standard-run
-#   COMMENT "Alias for bench-gold-standard-run"
-# )
+add_custom_target(bench-pose-gold-standard
+  DEPENDS bench-gold-standard-run
+  COMMENT "Alias for bench-gold-standard-run"
+)
 
 add_custom_target(bench-pose-all
   DEPENDS bench-all-pose-run
@@ -492,10 +509,10 @@ add_custom_target(bench-pose-help
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-upright-planar-run    Upright planar 2pt and 3pt benchmarks"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-upright-planar-scaling-run  Upright planar with different point counts (8, 16, 32)"
   COMMAND ${CMAKE_COMMAND} -E echo ""
-  #COMMAND ${CMAKE_COMMAND} -E echo "Reference Implementations:"
-  #COMMAND ${CMAKE_COMMAND} -E echo "  bench-gold-standard-run     H&Z gold standard absolute and relative pose"
-  #COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-gold-standard    Alias for bench-gold-standard-run"
-  #COMMAND ${CMAKE_COMMAND} -E echo ""
+  COMMAND ${CMAKE_COMMAND} -E echo "Reference Implementations:"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-gold-standard-run     H&Z gold standard absolute and relative pose"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-gold-standard    Alias for bench-gold-standard-run"
+  COMMAND ${CMAKE_COMMAND} -E echo ""
   COMMAND ${CMAKE_COMMAND} -E echo "Comprehensive Testing:"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-all-pose-run          All basic pose estimation benchmarks"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-performance-run       Comprehensive performance evaluation"

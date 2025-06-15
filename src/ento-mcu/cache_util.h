@@ -4,26 +4,31 @@
 #include <cstdint>
 
 #if defined(STM32G4)
-    #include <stm32g4xx.h>
-    #include <stm32g4xx_ll_bus.h>
-    #include <stm32g4xx_ll_cortex.h>
+  #include <stm32g4xx.h>
+  #include <stm32g4xx_ll_bus.h>
+  #include <stm32g4xx_ll_cortex.h>
 #elif defined(STM32H7)
-    #include <stm32h7xx.h>
-    #include <stm32h7xx_ll_cortex.h>
-    #include <core_cm7.h>
+  #include <stm32h7xx.h>
+  #include <stm32h7xx_ll_cortex.h>
+  #include <core_cm7.h>
 #elif defined(STM32F7)
-    #include <stm32f7xx.h>
-    #include <stm32f7xx_ll_cortex.h>
-    #include <core_cm7.h>
+  #include <stm32f7xx.h>
+  #include <stm32f7xx_ll_cortex.h>
+  #include <core_cm7.h>
 #elif defined(STM32G0)
-    #include <stm32g0xx.h>
-    #include <stm32g0xx_ll_cortex.h>
-    // STM32G0 might not have a cache, but we can still provide stubs if needed
+  #include <stm32g0xx.h>
+  #include <stm32g0xx_ll_cortex.h>
+  #include <stm32g0xx_ll_system.h>
+  // STM32G0 might not have a cache, but we can still provide stubs if needed
+#elif defined(STM32C0)
+  #include <stm32c0xx.h>
+  #include <stm32c0xx_ll_system.h>
+  #include <stm32c0xx_ll_cortex.h>
 #elif defined(STM32U5)
-    #include <stm32u5xx.h>
-    #include <stm32u5xx_ll_icache.h>
-    #include <stm32u5xx_ll_dcache.h>
-    #include <stm32u5xx_ll_cortex.h>
+  #include <stm32u5xx.h>
+  #include <stm32u5xx_ll_icache.h>
+  #include <stm32u5xx_ll_dcache.h>
+  #include <stm32u5xx_ll_cortex.h>
 #endif
 
 enum CacheMode

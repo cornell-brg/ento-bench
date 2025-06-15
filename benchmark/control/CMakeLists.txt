@@ -52,12 +52,61 @@ add_benchmark(bench-robofly-lqr
 )
 list(APPEND BENCH_TARGETS bench-robofly-lqr)
 
+# RoboFly Sparse LQR Controller Benchmark
+add_benchmark(bench-robofly-lqr-sparse
+    SOURCES bench_robofly_lqr_sparse.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-robofly-lqr-sparse)
+
+# RoboFly Custom Sparse LQR Controller Benchmark
+add_benchmark(bench-robofly-lqr-fixed-sparse
+    SOURCES bench_robofly_lqr_fixed_sparse.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-robofly-lqr-fixed-sparse)
+
 # RoboFly TinyMPC Controller Benchmark
 add_benchmark(bench-robofly-tinympc
     SOURCES bench_robofly_tinympc.cc
     LIBRARIES ${MODULES}
 )
 list(APPEND BENCH_TARGETS bench-robofly-tinympc)
+
+# RoboFly TinyMPC Hover Trajectory Benchmark
+add_benchmark(bench-robofly-tinympc-hover
+    SOURCES bench_robofly_tinympc_hover.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-robofly-tinympc-hover)
+
+# RoboFly TinyMPC Square Trajectory Benchmark
+add_benchmark(bench-robofly-tinympc-square
+    SOURCES bench_robofly_tinympc_square.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-robofly-tinympc-square)
+
+# RoboFly TinyMPC Circle Trajectory Benchmark
+add_benchmark(bench-robofly-tinympc-circle
+    SOURCES bench_robofly_tinympc_circle.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-robofly-tinympc-circle)
+
+# TinyMPC Paper Specification Benchmark (10 states, 3 inputs, 5 horizon)
+add_benchmark(bench-tinympc-paper-spec
+    SOURCES bench_tinympc_paper_spec.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-tinympc-paper-spec)
+
+# TinyMPC Horizon Length Comparison Benchmark
+add_benchmark(bench-tinympc-horizon-comparison
+    SOURCES bench_tinympc_horizon_comparison.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-tinympc-horizon-comparison)
 
 # =============================================================================
 # H7-specific defines (automatic scaling handled in bench_config.h)

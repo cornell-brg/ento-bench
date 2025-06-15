@@ -1,49 +1,62 @@
 #include <ento-bench/harness.h>
-#include <ento-bench/bench_config.h>
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>
+#include <ento-util/unittest.h>
+#include <ento-bench/bench_config.h>
 
 #include <ento-mcu/cache_util.h>
 #include <ento-mcu/flash_util.h>
 #include <ento-mcu/clk_util.h>
-
 #include <ento-pose/data_gen.h>
-#include <ento-pose/problem-types/relative_pose_problem.h>
-
-using namespace EntoBench;
-using namespace EntoPose;
-using namespace EntoUtil;
-
-using Problem = RelativePoseProblem<double, SolverGoldStandardRel<double>, 0>;
+#include <ento-pose/prob_gen.h>
+#include <ento-pose/pose_util.h>
+#include <ento-pose/rel-pose/gold_standard.h>
 
 extern "C" void initialise_monitor_handles(void);
 
+using namespace EntoBench;
+using namespace EntoUtil;
+
 int main()
 {
+  using Scalar  = double;
+  using Solver  = EntoPose::SolverGoldStandardRel<Scalar>;
+  using Problem = EntoPose::RelativePoseProblem<Scalar, Solver, 64>;
+  constexpr Scalar tol = 1e-4;
   initialise_monitor_handles();
 
-  ENTO_BENCH_SETUP();
+  // Configure clock
+  sys_clk_cfg();
   SysTick_Setup();
   __enable_irq();
 
+  // Generic cache setup via config macro
+  ENTO_BENCH_SETUP();
+
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
   const char* base_path = DATASET_PATH;
-  const char* rel_path = "rel-pose/8pt_double_noise1.0.csv";
+  const char* rel_path = "rel-pose/8pt64_double_noise1.0.csv";  // Use 8pt64 dataset for gold standard
   char dataset_path[512];
+  char output_path[256];
 
   if (!EntoUtil::build_file_path(base_path, rel_path,
                                  dataset_path, sizeof(dataset_path)))
   {
     ENTO_DEBUG("ERROR! Could not build file path for bench_gold_standard_rel_double!");
-    return -1;
   }
 
-  SolverGoldStandardRel<double> solver;
-  Problem problem(solver);
+  Problem problem(Solver{});
 
-  using BenchHarness = ENTO_BENCH_HARNESS_TYPE(Problem);
-  BenchHarness harness(problem, dataset_path);
+  printf("File path: %s\n", dataset_path);
+
+  ENTO_BENCH_HARNESS_TYPE(Problem);
+  BenchHarness harness(problem, "Bench Gold Standard Rel [double]",
+                       dataset_path, output_path);
 
   harness.run();
 
+  exit(1);
   return 0;
 } 

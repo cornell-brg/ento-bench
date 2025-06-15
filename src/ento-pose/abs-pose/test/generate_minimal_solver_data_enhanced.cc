@@ -40,6 +40,7 @@ struct Options {
     bool generate_p3p = true;
     bool generate_up2p = true;
     bool generate_dlt = true;
+    bool generate_gold_standard_abs = true;
     bool use_double = false;
     bool realistic = false;
     
@@ -80,6 +81,7 @@ struct Options {
         std::cout << "  --p3p-only             Generate only P3P data\n";
         std::cout << "  --up2p-only            Generate only UP2P data\n";
         std::cout << "  --dlt-only             Generate only DLT data\n";
+        std::cout << "  --gold-standard-abs-only Generate only gold standard absolute pose data\n";
         std::cout << "                         (DLT will use all --points specified)\n\n";
         
         std::cout << "Realistic Data Generation:\n";
@@ -168,6 +170,17 @@ Options parse_args(int argc, char** argv) {
             opts.generate_p3p = false;
             opts.generate_up2p = false;
             opts.generate_dlt = true;
+            opts.generate_gold_standard_abs = false;
+        } else if (strcmp(argv[i], "--gold-standard-abs-only") == 0) {
+            opts.generate_p3p = false;
+            opts.generate_up2p = false;
+            opts.generate_dlt = false;
+            opts.generate_gold_standard_abs = true;
+        } else if (strcmp(argv[i], "--all-types") == 0) {
+            opts.generate_p3p = true;
+            opts.generate_up2p = true;
+            opts.generate_dlt = true;
+            opts.generate_gold_standard_abs = true;
         } else if (strcmp(argv[i], "--double") == 0) {
             opts.use_double = true;
         } else if (strcmp(argv[i], "--realistic") == 0) {
@@ -1031,6 +1044,50 @@ auto make_dlt_solver() {
     };
 }
 
+// Gold Standard Absolute Pose solver wrapper
+template<typename Scalar, size_t N>
+auto make_gold_standard_abs_solver() {
+    return [](const EntoContainer<Vec2<Scalar>, N>& points2D,
+              const EntoContainer<Vec3<Scalar>, N>& points3D,
+              const CameraPose<Scalar>& true_pose) -> SolverResult<Scalar> {
+        
+        SolverResult<Scalar> result;
+        
+        // Convert to homogeneous coordinates for gold standard
+        EntoContainer<Vec3<Scalar>, N> points2D_homo;
+        EntoContainer<Vec3<Scalar>, N> points3D_copy;
+        convert_2d_to_homogeneous<Scalar, N>(points2D, points2D_homo);
+        
+        // Copy points3D since solver requires non-const reference
+        if constexpr (N == 0) {
+            points3D_copy.clear();
+            points3D_copy.reserve(points3D.size());
+        }
+        for (size_t i = 0; i < points3D.size(); ++i) {
+            points3D_copy.push_back(points3D[i]);
+        }
+        
+        ENTO_DEBUG("[GoldStandardAbs] Using all %zu points for gold standard system", points2D.size());
+        
+        EntoUtil::EntoArray<CameraPose<Scalar>, 1> solutions;
+        result.num_solutions = SolverGoldStandardAbs<Scalar>::template solve<N>(
+            points2D_homo, points3D_copy, &solutions);
+        
+        if (result.num_solutions > 0) {
+            result.errors = compute_pose_errors<Scalar, N>(
+                true_pose, solutions[0], points2D, points3D, false);
+            result.best_error = result.errors.max_error();
+            
+            ENTO_DEBUG("[GoldStandardAbs] Computed pose errors: rot=%f°, trans=%f m, reproj=%f", 
+                       result.errors.rotation_error_deg, result.errors.translation_error_m, result.errors.reprojection_error);
+        } else {
+            ENTO_DEBUG("[GoldStandardAbs] No solutions found");
+        }
+        
+        return result;
+    };
+}
+
 // Generic solver data generation function with parameterized noise levels
 template<typename Scalar, size_t N, typename SolverFunc>
 void generate_solver_data_for_noise_level(
@@ -1163,6 +1220,7 @@ void run_generation_specialized(const Options& opts) {
     std::cout << "  Generate P3P: " << (opts.generate_p3p ? "yes" : "no") << std::endl;
     std::cout << "  Generate UP2P: " << (opts.generate_up2p ? "yes" : "no") << std::endl;
     std::cout << "  Generate DLT: " << (opts.generate_dlt ? "yes" : "no") << std::endl;
+    std::cout << "  Generate Gold Standard Abs: " << (opts.generate_gold_standard_abs ? "yes" : "no") << std::endl;
     std::cout << std::endl;
     
     // Linear solver: DLT supports overdetermined systems
@@ -1170,9 +1228,16 @@ void run_generation_specialized(const Options& opts) {
         if (opts.generate_dlt) {
             generate_solver_data_parameterized<Scalar, N>(opts, "dlt", make_dlt_solver<Scalar, N>());
         }
+        
+        if (opts.generate_gold_standard_abs) {
+            generate_solver_data_parameterized<Scalar, N>(opts, "gold_standard_abs", make_gold_standard_abs_solver<Scalar, N>());
+        }
     } else {
         if (opts.generate_dlt) {
             std::cout << "Skipping DLT for N=" << N << " (requires N >= 6)" << std::endl;
+        }
+        if (opts.generate_gold_standard_abs) {
+            std::cout << "Skipping Gold Standard Abs for N=" << N << " (requires N >= 6)" << std::endl;
         }
     }
     
@@ -1248,6 +1313,9 @@ int main(int argc, char** argv)
         }
         if (opts.generate_dlt) {
             std::cout << "  - dlt_" << opts.num_points << "pt_noise_" << std::fixed << std::setprecision(3) << noise_level << ".csv" << std::endl;
+        }
+        if (opts.generate_gold_standard_abs) {
+            std::cout << "  - gold_standard_abs_noise_" << std::fixed << std::setprecision(3) << noise_level << ".csv" << std::endl;
         }
     }
     

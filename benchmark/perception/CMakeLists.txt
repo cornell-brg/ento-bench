@@ -260,6 +260,56 @@ if(NOT STM_FAMILY STREQUAL "G4")
 endif()
 
 # =============================================================================
+# Image Interpolation Optical Flow Benchmarks
+# =============================================================================
+
+add_benchmark(bench-image-interp-of-small
+  SOURCES bench_image_interp_of_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-image-interp-of-small)
+
+add_benchmark(bench-image-interp-of-medium
+  SOURCES bench_image_interp_of_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-image-interp-of-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-image-interp-of-large
+    SOURCES bench_image_interp_of_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-image-interp-of-large)
+endif()
+
+# =============================================================================
+# Block-Based Optical Flow Benchmarks
+# =============================================================================
+
+add_benchmark(bench-block-of-small
+  SOURCES bench_block_of_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-block-of-small)
+
+add_benchmark(bench-block-of-medium
+  SOURCES bench_block_of_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-block-of-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-block-of-large
+    SOURCES bench_block_of_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-block-of-large)
+endif()
+
+# =============================================================================
 # Configure Benchmark Group with New Idioms
 # =============================================================================
 
@@ -274,6 +324,7 @@ if(EXISTS ${CONFIG_FILE})
     INNER_REPS 2
     VERBOSITY 1
     ENABLE_CACHES
+    ENABLE_VECTORIZATION
   )
 else()
   # Direct configuration fallback
@@ -283,6 +334,7 @@ else()
     INNER_REPS 2
     VERBOSITY 1
     ENABLE_CACHES
+    ENABLE_VECTORIZATION
   )
 endif()
 

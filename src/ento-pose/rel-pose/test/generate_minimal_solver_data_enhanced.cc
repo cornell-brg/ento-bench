@@ -37,6 +37,8 @@ struct Options {
     bool generate_upright_3pt = true;
     bool generate_upright_planar_3pt = true;
     bool generate_upright_planar_2pt = true;
+    bool generate_gold_standard_rel = true;  
+    bool generate_homography = true;         
     bool use_double = false;
     std::vector<double> noise_levels = {0.0, 0.01}; // Default noise levels
     bool use_realistic_generation = false; // NEW: Enable realistic data generation
@@ -56,6 +58,8 @@ struct Options {
         std::cout << "  --upright-3pt-only    Generate only upright 3pt data\n";
         std::cout << "  --upright-planar-3pt-only Generate only upright planar 3pt data\n";
         std::cout << "  --upright-planar-2pt-only Generate only upright planar 2pt data\n";
+        std::cout << "  --gold-standard-rel-only Generate only gold standard relative pose data\n";  // ADD THIS LINE
+        std::cout << "  --homography-only     Generate only homography data\n";                      // ADD THIS LINE
         std::cout << "  --all-types           Run all solver types\n";
         std::cout << "  --double              Use double precision (default: float)\n";
         std::cout << "  --realistic           Use realistic data generation (paper methodology)\n";
@@ -71,6 +75,10 @@ struct Options {
         std::cout << "  ./generate_minimal_solver_data_rel_enhanced --noise-levels \"0.0,0.05,0.1,0.2\"\n";
         std::cout << "  # Test 5pt solver with realistic 8° and 16° rotations:\n";
         std::cout << "  ./generate_minimal_solver_data_rel_enhanced --5pt-only --realistic --rotation-deg 8\n";
+        std::cout << "  # Generate gold standard data only:\n";
+        std::cout << "  ./generate_minimal_solver_data_rel_enhanced --gold-standard-rel-only\n";
+        std::cout << "  # Generate homography data only:\n";
+        std::cout << "  ./generate_minimal_solver_data_rel_enhanced --homography-only\n";
     }
 };
 
@@ -123,12 +131,30 @@ Options parse_args(int argc, char** argv) {
             opts.generate_upright_3pt = false;
             opts.generate_upright_planar_3pt = false;
             opts.generate_upright_planar_2pt = true;
+        } else if (strcmp(argv[i], "--gold-standard-rel-only") == 0) {
+            opts.generate_8pt = false;
+            opts.generate_5pt = false;
+            opts.generate_upright_3pt = false;
+            opts.generate_upright_planar_3pt = false;
+            opts.generate_upright_planar_2pt = false;
+            opts.generate_gold_standard_rel = true;
+            opts.generate_homography = false;
+        } else if (strcmp(argv[i], "--homography-only") == 0) {
+            opts.generate_8pt = false;
+            opts.generate_5pt = false;
+            opts.generate_upright_3pt = false;
+            opts.generate_upright_planar_3pt = false;
+            opts.generate_upright_planar_2pt = false;
+            opts.generate_gold_standard_rel = false;
+            opts.generate_homography = true;
         } else if (strcmp(argv[i], "--all-types") == 0) {
             opts.generate_8pt = true;
             opts.generate_5pt = true;
             opts.generate_upright_3pt = true;
             opts.generate_upright_planar_3pt = true;
             opts.generate_upright_planar_2pt = true;
+            opts.generate_gold_standard_rel = true;  // ADD THIS LINE
+            opts.generate_homography = true;         // ADD THIS LINE
         } else if (strcmp(argv[i], "--double") == 0) {
             opts.use_double = true;
         } else if (strcmp(argv[i], "--realistic") == 0) {
@@ -177,6 +203,126 @@ struct PoseErrors {
         return std::max(rotation_error_deg, translation_error_deg);
     }
 };
+
+// Homography-specific error structure
+template<typename Scalar>
+struct HomographyErrors {
+    Scalar matrix_error;           // Frobenius norm of H_est - H_true
+    Scalar reprojection_error;     // RMS pixel reprojection error
+    
+    // Default constructor for no-solution cases
+    HomographyErrors() : matrix_error(std::numeric_limits<Scalar>::max()),
+                        reprojection_error(std::numeric_limits<Scalar>::max()) {}
+    
+    // Constructor with values
+    HomographyErrors(Scalar mat_err, Scalar reproj_err)
+        : matrix_error(mat_err), reprojection_error(reproj_err) {}
+    
+    Scalar max_error() const {
+        return std::max(matrix_error, reprojection_error);
+    }
+};
+
+// Compute true homography matrix from pose for planar scene
+template<typename Scalar, size_t N>
+Matrix3x3<Scalar> compute_true_homography(
+    const CameraPose<Scalar>& pose,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x1)
+{
+    using Vec3 = Eigen::Matrix<Scalar,3,1>;
+    using Mat3 = Eigen::Matrix<Scalar,3,3>;
+    
+    // For planar scenes, we need to estimate the plane normal and distance
+    // Use the first few 3D points to fit a plane
+    
+    // Assume points lie on a plane at z = mean_depth in camera 1
+    Scalar mean_depth = Scalar(0.0);
+    int valid_points = 0;
+    
+    for (size_t i = 0; i < std::min(size_t(4), x1.size()); ++i) {
+        // Back-project bearing vector to estimate depth
+        // For planar scenes, we can assume a reasonable depth
+        Scalar depth = Scalar(5.0); // Assume 5m depth for planar scene
+        mean_depth += depth;
+        valid_points++;
+    }
+    
+    if (valid_points > 0) {
+        mean_depth /= valid_points;
+    } else {
+        mean_depth = Scalar(5.0); // Default depth
+    }
+    
+    // Plane normal (assume Z=constant plane in camera 1)
+    Vec3 n = Vec3(0, 0, 1); // Normal pointing towards camera
+    Scalar d = mean_depth;   // Distance to plane
+    
+    // Homography formula: H = R + (t * n^T) / d
+    Mat3 H = pose.R() + (pose.t * n.transpose()) / d;
+    
+    return H;
+}
+
+// Compute homography errors
+template<typename Scalar, size_t N>
+HomographyErrors<Scalar> compute_homography_errors(
+    const Matrix3x3<Scalar>& true_H,
+    const Matrix3x3<Scalar>& estimated_H,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x1,
+    const EntoUtil::EntoContainer<Eigen::Matrix<Scalar,3,1>, N>& x2,
+    Scalar focal_length = Scalar(500.0))
+{
+    HomographyErrors<Scalar> errors;
+    
+    // 1. Matrix error (Frobenius norm of difference after normalization)
+    // FIXED: Normalize both matrices since homography is only defined up to scale
+    Matrix3x3<Scalar> true_H_normalized = true_H / true_H.norm();
+    Matrix3x3<Scalar> estimated_H_normalized = estimated_H / estimated_H.norm();
+    
+    // Handle sign ambiguity: H and -H represent the same transformation
+    Matrix3x3<Scalar> H_diff_pos = estimated_H_normalized - true_H_normalized;
+    Matrix3x3<Scalar> H_diff_neg = estimated_H_normalized + true_H_normalized;
+    
+    Scalar error_pos = H_diff_pos.norm();
+    Scalar error_neg = H_diff_neg.norm();
+    
+    errors.matrix_error = std::min(error_pos, error_neg); // Take the smaller error
+    
+    // 2. Reprojection error (RMS pixel error)
+    Scalar total_reproj_error = Scalar(0.0);
+    size_t valid_points = 0;
+    
+    for (size_t i = 0; i < x1.size(); ++i) {
+        // Convert bearing vectors to image coordinates
+        Eigen::Matrix<Scalar,3,1> x1_img = x1[i] * focal_length;
+        Eigen::Matrix<Scalar,3,1> x2_img = x2[i] * focal_length;
+        
+        // Apply estimated homography to x1
+        Eigen::Matrix<Scalar,3,1> x2_pred = estimated_H * x1_img;
+        
+        // Convert to inhomogeneous coordinates
+        if (std::abs(x2_pred(2)) > Scalar(1e-8) && std::abs(x2_img(2)) > Scalar(1e-8)) {
+            Scalar u2_pred = x2_pred(0) / x2_pred(2);
+            Scalar v2_pred = x2_pred(1) / x2_pred(2);
+            Scalar u2_true = x2_img(0) / x2_img(2);
+            Scalar v2_true = x2_img(1) / x2_img(2);
+            
+            // Pixel reprojection error
+            Scalar pixel_error = std::sqrt((u2_pred - u2_true) * (u2_pred - u2_true) + 
+                                          (v2_pred - v2_true) * (v2_pred - v2_true));
+            total_reproj_error += pixel_error * pixel_error;
+            valid_points++;
+        }
+    }
+    
+    if (valid_points > 0) {
+        errors.reprojection_error = std::sqrt(total_reproj_error / valid_points);
+    } else {
+        errors.reprojection_error = std::numeric_limits<Scalar>::max();
+    }
+    
+    return errors;
+}
 
 // Compute Sampson distance (reprojection error for relative pose)
 template<typename Scalar, size_t N>
@@ -532,6 +678,122 @@ struct SolverStats {
     }
 };
 
+// Homography-specific statistics tracker
+template<typename Scalar>
+struct HomographyStats {
+    int total_problems = 0;
+    int successful_solves = 0;
+    int failed_solves = 0;
+    
+    // Error tracking - SUCCESSFUL CASES ONLY
+    std::vector<Scalar> successful_matrix_errors;
+    std::vector<Scalar> successful_reprojection_errors;
+    std::vector<Scalar> successful_combined_errors;
+    
+    // Error tracking - ALL SOLUTIONS
+    std::vector<Scalar> all_matrix_errors;
+    std::vector<Scalar> all_reprojection_errors;
+    std::vector<Scalar> all_combined_errors;
+    
+    void add_success(const HomographyErrors<Scalar>& errors) {
+        successful_solves++;
+        
+        // Add to successful-only statistics
+        successful_matrix_errors.push_back(errors.matrix_error);
+        successful_reprojection_errors.push_back(errors.reprojection_error);
+        successful_combined_errors.push_back(errors.max_error());
+        
+        // Also add to all-solutions statistics
+        all_matrix_errors.push_back(errors.matrix_error);
+        all_reprojection_errors.push_back(errors.reprojection_error);
+        all_combined_errors.push_back(errors.max_error());
+    }
+    
+    void add_failure() {
+        failed_solves++;
+    }
+    
+    void add_failure_with_solution(const HomographyErrors<Scalar>& errors) {
+        failed_solves++;
+        
+        // Failed cases still go into all-solutions statistics
+        all_matrix_errors.push_back(errors.matrix_error);
+        all_reprojection_errors.push_back(errors.reprojection_error);
+        all_combined_errors.push_back(errors.max_error());
+    }
+    
+    void add_problem() {
+        total_problems++;
+    }
+    
+    // Reuse statistics functions from SolverStats
+    Scalar mean(const std::vector<Scalar>& values) const {
+        if (values.empty()) return Scalar(0);
+        return std::accumulate(values.begin(), values.end(), Scalar(0)) / values.size();
+    }
+    
+    Scalar median(const std::vector<Scalar>& values) const {
+        if (values.empty()) return Scalar(0);
+        std::vector<Scalar> sorted_values = values;
+        std::sort(sorted_values.begin(), sorted_values.end());
+        size_t n = sorted_values.size();
+        if (n % 2 == 0) {
+            return (sorted_values[n/2-1] + sorted_values[n/2]) / Scalar(2);
+        } else {
+            return sorted_values[n/2];
+        }
+    }
+    
+    Scalar percentile(const std::vector<Scalar>& values, Scalar p) const {
+        if (values.empty()) return Scalar(0);
+        std::vector<Scalar> sorted_values = values;
+        std::sort(sorted_values.begin(), sorted_values.end());
+        size_t n = sorted_values.size();
+        Scalar index = p * (n - 1);
+        size_t lower = static_cast<size_t>(std::floor(index));
+        size_t upper = static_cast<size_t>(std::ceil(index));
+        if (lower == upper) {
+            return sorted_values[lower];
+        } else {
+            Scalar weight = index - lower;
+            return sorted_values[lower] * (1 - weight) + sorted_values[upper] * weight;
+        }
+    }
+    
+    Scalar p90(const std::vector<Scalar>& values) const { return percentile(values, 0.90); }
+    Scalar p95(const std::vector<Scalar>& values) const { return percentile(values, 0.95); }
+    
+    void print_stats(const std::string& solver_name, double noise_level) const {
+        std::cout << "\n=== " << solver_name << " Statistics (noise=" << noise_level << ") ===" << std::endl;
+        std::cout << "  Total problems: " << total_problems << std::endl;
+        std::cout << "  Successful solves: " << successful_solves << " (" 
+                  << (100.0 * successful_solves / total_problems) << "%)" << std::endl;
+        std::cout << "  Failed solves: " << failed_solves << " (" 
+                  << (100.0 * failed_solves / total_problems) << "%)" << std::endl;
+        
+        if (successful_solves > 0) {
+            std::cout << "  \n=== SUCCESSFUL CASES ONLY ===" << std::endl;
+            
+            // Matrix Error Statistics
+            std::cout << "  Matrix Error Statistics (Frobenius norm):" << std::endl;
+            std::cout << "    Mean: " << mean(successful_matrix_errors) << std::endl;
+            std::cout << "    Median: " << median(successful_matrix_errors) << std::endl;
+            std::cout << "    P90: " << p90(successful_matrix_errors) << ", P95: " << p95(successful_matrix_errors) << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_matrix_errors.begin(), successful_matrix_errors.end()) 
+                      << ", " << *std::max_element(successful_matrix_errors.begin(), successful_matrix_errors.end()) << "]" << std::endl;
+            
+            // Reprojection Error Statistics
+            std::cout << "  \nReprojection Error Statistics (RMS pixels):" << std::endl;
+            std::cout << "    Mean: " << mean(successful_reprojection_errors) << " pixels" << std::endl;
+            std::cout << "    Median: " << median(successful_reprojection_errors) << " pixels" << std::endl;
+            std::cout << "    P90: " << p90(successful_reprojection_errors) << ", P95: " << p95(successful_reprojection_errors) << " pixels" << std::endl;
+            std::cout << "    Range: [" << *std::min_element(successful_reprojection_errors.begin(), successful_reprojection_errors.end()) 
+                      << ", " << *std::max_element(successful_reprojection_errors.begin(), successful_reprojection_errors.end()) << "] pixels" << std::endl;
+        }
+        std::cout << "================================" << std::endl;
+    }
+};
+
 // CSV line generation function
 template <typename Scalar, size_t N>
 std::string make_csv_line_relative_pose(
@@ -836,6 +1098,10 @@ void generate_realistic_relpose_data(
     Scalar baseline_magnitude = Scalar(1.0), // Fixed baseline magnitude
     Scalar rotation_magnitude_deg = Scalar(16.0)) // Controlled rotation magnitude
 {
+    // Suppress unused parameter warnings
+    (void)baseline_magnitude;
+    (void)rotation_magnitude_deg;
+    
     using Vec2 = Eigen::Matrix<Scalar,2,1>;
     using Vec3 = Eigen::Matrix<Scalar,3,1>;
     using Quaternion = Eigen::Quaternion<Scalar>;
@@ -942,6 +1208,75 @@ void generate_realistic_relpose_data(
         x2_bear.reserve(num_points);
     }
     
+    // FIXED: For planar scenes (homography), generate all points on the same plane
+    if (planar_only) {
+        // Define a plane in camera 1 coordinate system
+        // Use a tilted plane to make it more interesting than just Z=constant
+        Vec3 plane_normal = Vec3(0.1, 0.2, 1.0).normalized(); // Slightly tilted plane
+        Scalar plane_distance = Scalar(5.0); // 5m from origin
+        
+        // Generate points on this plane
+        std::uniform_real_distribution<Scalar> plane_coord_gen(-2.0, 2.0); // ±2m spread on plane
+        
+        size_t valid_points = 0;
+        int safety_counter = 0;
+        const int max_safety_attempts = 50000;
+        
+        while (valid_points < num_points && safety_counter < max_safety_attempts) {
+            safety_counter++;
+            
+            // Generate random point on the plane
+            // Plane equation: n·X = d, so X = (d/n_z) * [u, v, 1] - (n_x*u + n_y*v)/n_z * [0, 0, 1]
+            // Simplified: generate (u,v) and solve for z
+            Scalar u = plane_coord_gen(rng);
+            Scalar v = plane_coord_gen(rng);
+            
+            // Solve plane equation: n_x*u + n_y*v + n_z*z = d
+            Scalar z = (plane_distance - plane_normal(0)*u - plane_normal(1)*v) / plane_normal(2);
+            
+            Vec3 X = Vec3(u, v, z);
+            
+            // Project to first camera (identity pose)
+            Vec3 x1_cam = X;
+            if (x1_cam(2) <= Scalar(0.1)) continue; // Skip if behind camera
+            
+            // Project to second camera
+            Vec3 x2_cam = true_pose.R() * X + true_pose.t;
+            if (x2_cam(2) <= Scalar(0.1)) continue; // Skip if behind camera
+            
+            // Project to image coordinates (pinhole camera model)
+            Vec2 x1_img = Vec2(
+                focal_length * x1_cam(0) / x1_cam(2),
+                focal_length * x1_cam(1) / x1_cam(2)
+            );
+            Vec2 x2_img = Vec2(
+                focal_length * x2_cam(0) / x2_cam(2),
+                focal_length * x2_cam(1) / x2_cam(2)
+            );
+            
+            // Add realistic pixel noise (this is the key improvement!)
+            x1_img(0) += pixel_noise_gen(rng);
+            x1_img(1) += pixel_noise_gen(rng);
+            x2_img(0) += pixel_noise_gen(rng);
+            x2_img(1) += pixel_noise_gen(rng);
+            
+            // Convert back to bearing vectors (normalized camera coordinates)
+            Vec3 f1 = Vec3(x1_img(0) / focal_length, x1_img(1) / focal_length, Scalar(1.0)).normalized();
+            Vec3 f2 = Vec3(x2_img(0) / focal_length, x2_img(1) / focal_length, Scalar(1.0)).normalized();
+            
+            x1_bear.push_back(f1);
+            x2_bear.push_back(f2);
+            ++valid_points;
+        }
+        
+        if (safety_counter >= max_safety_attempts) {
+            std::cout << "    Warning: Hit safety limit generating planar homography data for problem " << problem_id << std::endl;
+        }
+        
+        return; // Early return for planar case
+    }
+    
+    // NON-PLANAR case: use the original 3D point generation
     size_t valid_points = 0;
     int safety_counter = 0;
     const int max_safety_attempts = 50000;
@@ -1127,6 +1462,237 @@ auto make_upright_planar_2pt_solver() {
     };
 }
 
+// Gold Standard Relative Pose solver wrapper (only for N >= 8)
+template<typename Scalar, size_t N>
+typename std::enable_if<N >= 8, std::function<int(const EntoContainer<Vec3<Scalar>, N>&, const EntoContainer<Vec3<Scalar>, N>&, std::vector<CameraPose<Scalar>>*)>>::type
+make_gold_standard_rel_solver() {
+    return [](const EntoContainer<Vec3<Scalar>, N>& x1, 
+              const EntoContainer<Vec3<Scalar>, N>& x2,
+              std::vector<CameraPose<Scalar>>* solutions) -> int {
+        
+        ENTO_DEBUG("[GoldStandardRel] Using all %zu points for gold standard system", x1.size());
+        
+        // Create non-const copies since the solver requires non-const references
+        EntoContainer<Vec3<Scalar>, N> x1_copy = x1;
+        EntoContainer<Vec3<Scalar>, N> x2_copy = x2;
+        
+        EntoUtil::EntoArray<CameraPose<Scalar>, 1> solutions_array;
+        int num_solutions = SolverGoldStandardRel<Scalar>::template solve<N>(x1_copy, x2_copy, &solutions_array);
+        
+        // Convert to vector
+        solutions->clear();
+        for (int i = 0; i < num_solutions; ++i) {
+            solutions->push_back(solutions_array[i]);
+        }
+        
+        ENTO_DEBUG("[GoldStandardRel] Found %d solutions", num_solutions);
+        
+        return num_solutions;
+    };
+}
+
+// Dummy function for N < 8 (will never be called due to conditional check)
+template<typename Scalar, size_t N>
+typename std::enable_if<N < 8, std::function<int(const EntoContainer<Vec3<Scalar>, N>&, const EntoContainer<Vec3<Scalar>, N>&, std::vector<CameraPose<Scalar>>*)>>::type
+make_gold_standard_rel_solver() {
+    return [](const EntoContainer<Vec3<Scalar>, N>&, const EntoContainer<Vec3<Scalar>, N>&, std::vector<CameraPose<Scalar>>*) -> int {
+        return 0; // Never called
+    };
+}
+
+// Homography solver wrapper (for planar scenes) - returns actual homography matrix
+template<typename Scalar, size_t N>
+auto make_homography_solver() {
+    return [](const EntoContainer<Vec3<Scalar>, N>& x1, 
+              const EntoContainer<Vec3<Scalar>, N>& x2,
+              Matrix3x3<Scalar>* H_out) -> int {
+        
+        // Use first 4 points for homography solver
+        std::vector<Vec3<Scalar>> x1_4pt, x2_4pt;
+        for (size_t j = 0; j < 4; ++j) {
+            x1_4pt.push_back(x1[j]);
+            x2_4pt.push_back(x2[j]);
+        }
+        
+        Matrix3x3<Scalar> H_est;
+        int num_solutions = homography_4pt<Scalar, false, 0>(x1_4pt, x2_4pt, &H_est);
+        
+        if (num_solutions > 0 && H_out != nullptr) {
+            *H_out = H_est;
+        }
+        
+        ENTO_DEBUG("[Homography] Found %d solutions", num_solutions);
+        
+        return num_solutions;
+    };
+}
+
+// Adapter wrapper for homography solver to work with existing generation pattern
+template<typename Scalar, size_t N>
+auto make_homography_solver_adapter() {
+    return [](const EntoContainer<Vec3<Scalar>, N>& x1, 
+              const EntoContainer<Vec3<Scalar>, N>& x2,
+              Matrix3x3<Scalar>* H_out) -> int {
+        
+        auto homography_solver = make_homography_solver<Scalar, N>();
+        return homography_solver(x1, x2, H_out);
+    };
+}
+
+// Special homography data generation function with proper accuracy metrics
+template<typename Scalar, size_t N, typename SolverFunc>
+void generate_homography_data_for_noise_level(
+    const Options& opts,
+    const std::string& solver_name,
+    SolverFunc solver_func,
+    double noise_level)
+{
+    std::cout << "  Generating " << solver_name << " data (noise=" << noise_level << ")..." << std::endl;
+    
+    // Convert noise level based on generation method
+    Scalar actual_noise_level;
+    if (opts.use_realistic_generation) {
+        actual_noise_level = static_cast<Scalar>(noise_level);
+    } else {
+        actual_noise_level = static_cast<Scalar>(noise_level);
+    }
+    
+    std::string filename = solver_name + "_" + 
+                          (noise_level == 0.0 ? "clean" : 
+                           "noise_" + std::to_string(noise_level).substr(0, 6)) + ".csv";
+    
+    std::ofstream file(filename);
+    HomographyStats<Scalar> stats;
+    
+    for (int i = 0; i < opts.num_problems; ++i) {
+        std::cout << "    Generating " << solver_name << " problem " << i 
+                  << " (noise=" << noise_level << ")..." << std::endl;
+        stats.add_problem();
+        
+        EntoContainer<Vec3<Scalar>, N> x1_bear, x2_bear;
+        CameraPose<Scalar> true_pose;
+        
+        // Generate planar scene data (homography requires planar scenes)
+        if (opts.use_realistic_generation) {
+            generate_realistic_relpose_data<Scalar, N>(
+                x1_bear, x2_bear, true_pose, opts.num_points,
+                actual_noise_level,  // pixel noise std dev
+                i,  // problem_id
+                false,  // upright_only
+                true,   // planar_only (FORCE PLANAR for homography)
+                static_cast<Scalar>(opts.focal_length),
+                static_cast<Scalar>(opts.baseline_magnitude),
+                static_cast<Scalar>(opts.rotation_magnitude_deg)
+            );
+        } else {
+            generate_unified_relpose_data<Scalar, N>(
+                x1_bear, x2_bear, true_pose, opts.num_points,
+                actual_noise_level,  // bearing vector noise
+                i,  // problem_id
+                false,  // upright_only
+                true    // planar_only (FORCE PLANAR for homography)
+            );
+        }
+        
+        // FIXED: Store the actual 3D points used for homography computation
+        std::vector<Vec3<Scalar>> points3D_cam1, points3D_cam2;
+        points3D_cam1.reserve(opts.num_points);
+        points3D_cam2.reserve(opts.num_points);
+        
+        // Back-project bearing vectors to get 3D points on the plane
+        // For homography, we need the actual 3D points that were used to generate the data
+        const Scalar focal_length = static_cast<Scalar>(opts.focal_length);
+        const Scalar plane_depth = Scalar(5.0); // Fixed depth for planar scene
+        
+        for (size_t j = 0; j < x1_bear.size(); ++j) {
+            // Convert bearing vectors back to 3D points at fixed depth
+            Vec3<Scalar> X_cam1 = x1_bear[j] * plane_depth;
+            Vec3<Scalar> X_cam2 = true_pose.R() * X_cam1 + true_pose.t;
+            
+            points3D_cam1.push_back(X_cam1);
+            points3D_cam2.push_back(X_cam2);
+        }
+        
+        // FIXED: Compute true homography from actual 3D points and camera poses
+        // For a planar scene: x2 = H * x1, where H = R + (t * n^T) / d
+        // But we need to compute this from the actual 3D points, not assumptions
+        
+        // Fit plane to 3D points in camera 1 coordinate system
+        Vec3<Scalar> plane_normal;
+        Scalar plane_distance;
+        
+        if (points3D_cam1.size() >= 3) {
+            // Use first 3 points to define the plane
+            Vec3<Scalar> v1 = points3D_cam1[1] - points3D_cam1[0];
+            Vec3<Scalar> v2 = points3D_cam1[2] - points3D_cam1[0];
+            plane_normal = v1.cross(v2).normalized();
+            plane_distance = plane_normal.dot(points3D_cam1[0]);
+        } else {
+            // Fallback: assume Z=constant plane
+            plane_normal = Vec3<Scalar>(0, 0, 1);
+            plane_distance = plane_depth;
+        }
+        
+        // Compute true homography: H = R + (t * n^T) / d
+        Matrix3x3<Scalar> true_H = true_pose.R() + (true_pose.t * plane_normal.transpose()) / plane_distance;
+        
+        // Test homography solver
+        Matrix3x3<Scalar> estimated_H;
+        int num_solutions = solver_func(x1_bear, x2_bear, &estimated_H);
+        
+        if (num_solutions > 0) {
+            // Compute homography errors
+            HomographyErrors<Scalar> errors = compute_homography_errors<Scalar, N>(
+                true_H, estimated_H, x1_bear, x2_bear, 
+                static_cast<Scalar>(opts.focal_length));
+            
+            // Use adaptive error threshold
+            Scalar matrix_threshold = (noise_level == 0.0) ? Scalar(1.0) : Scalar(5.0);
+            Scalar reproj_threshold = (noise_level == 0.0) ? Scalar(1.0) : Scalar(5.0); // pixels
+            
+            if (errors.matrix_error < matrix_threshold && errors.reprojection_error < reproj_threshold) {
+                stats.add_success(errors);
+                std::cout << "      " << solver_name << " solved! Matrix error: " << errors.matrix_error 
+                          << ", Reproj error: " << errors.reprojection_error << " pixels" << std::endl;
+            } else {
+                stats.add_failure_with_solution(errors);
+                std::cout << "      " << solver_name << " solution too inaccurate: Matrix=" 
+                          << errors.matrix_error << ", Reproj=" << errors.reprojection_error << " pixels" << std::endl;
+            }
+        } else {
+            stats.add_failure();
+            std::cout << "      " << solver_name << " failed to find solution" << std::endl;
+        }
+        
+        std::string csv_line = make_csv_line_relative_pose<Scalar, N>(
+            true_pose, x1_bear, x2_bear);
+        
+        file << csv_line << std::endl;
+        std::cout << "    " << solver_name << " problem " << i << " complete." << std::endl;
+    }
+    
+    file.close();
+    std::cout << "  " << filename << " complete." << std::endl;
+    
+    // Print homography-specific statistics
+    stats.print_stats(solver_name + " (noise=" + std::to_string(noise_level) + " pixels)", noise_level);
+}
+
+// Special function to generate homography data across all noise levels
+template<typename Scalar, size_t N, typename SolverFunc>
+void generate_homography_data_parameterized(
+    const Options& opts,
+    const std::string& solver_name,
+    SolverFunc solver_func)
+{
+    std::cout << "Generating " << solver_name << " data..." << std::endl;
+    
+    // Generate data for each noise level
+    for (double noise_level : opts.noise_levels) {
+        generate_homography_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
+    }
+}
+
 // Generic solver data generation function with parameterized noise levels
 template<typename Scalar, size_t N, typename SolverFunc>
 void generate_solver_data_for_noise_level(
@@ -1271,6 +1837,8 @@ void run_generation_specialized(const Options& opts) {
     std::cout << "  Generate upright 3pt: " << (opts.generate_upright_3pt ? "yes" : "no") << std::endl;
     std::cout << "  Generate upright planar 3pt: " << (opts.generate_upright_planar_3pt ? "yes" : "no") << std::endl;
     std::cout << "  Generate upright planar 2pt: " << (opts.generate_upright_planar_2pt ? "yes" : "no") << std::endl;
+    std::cout << "  Generate Gold Standard Rel: " << (opts.generate_gold_standard_rel ? "yes" : "no") << std::endl;  // ADD THIS LINE
+    std::cout << "  Generate Homography: " << (opts.generate_homography ? "yes" : "no") << std::endl;               // ADD THIS LINE
     std::cout << std::endl;
     
     // Linear solvers: support overdetermined systems
@@ -1278,8 +1846,18 @@ void run_generation_specialized(const Options& opts) {
         generate_solver_data_parameterized<Scalar, N>(opts, "8pt", make_8pt_solver<Scalar, N>());
     }
     
+    // Gold Standard Rel: requires at least 8 points
+    if (opts.generate_gold_standard_rel && N >= 8) {
+        generate_solver_data_parameterized<Scalar, N>(opts, "gold_standard_rel", make_gold_standard_rel_solver<Scalar, N>());
+    }
+    
     if (opts.generate_upright_planar_3pt && N >= 3) {
         generate_solver_data_parameterized<Scalar, N>(opts, "upright_planar_3pt", make_upright_planar_3pt_solver<Scalar, N>());
+    }
+    
+    // Homography: requires at least 4 points (uses special generation function)
+    if (opts.generate_homography && N >= 4) {
+        generate_homography_data_parameterized<Scalar, N>(opts, "homography", make_homography_solver_adapter<Scalar, N>());
     }
     
     // Non-linear solvers: only exact minimal sizes

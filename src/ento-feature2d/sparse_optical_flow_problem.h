@@ -375,6 +375,7 @@ deserialize_features(const char* feats_path, const char* gt_path)
     return false;
   }
 
+  ENTO_DEBUG("Using format string: %s", format_str);
 
   if (!feats_path || *feats_path == '\0')
   {
@@ -387,6 +388,8 @@ deserialize_features(const char* feats_path, const char* gt_path)
     ENTO_ERROR("Invalid or empty feature file path.");
     return false;
   }
+
+  ENTO_DEBUG("Opening feature files - feats: %s, gt: %s", feats_path, gt_path);
 
   FILE* feats_file = fopen(feats_path, "r");
   FILE* gt_file = fopen(gt_path, "r");
@@ -419,6 +422,8 @@ deserialize_features(const char* feats_path, const char* gt_path)
     return false;
   }
 
+  ENTO_DEBUG("Feature counts - feats file: %d, gt file: %d, expected: %zu", num_feats, num_feats_gt, NumFeats);
+
   if (num_feats <= 0 || num_feats != NumFeats || num_feats != num_feats_gt)
   {
     ENTO_ERROR("Invalid feature count in file: %d (file) vs %d (NumFeats template param)", num_feats, NumFeats);
@@ -429,11 +434,12 @@ deserialize_features(const char* feats_path, const char* gt_path)
   // Read features
   for (int i = 0; i < num_feats; ++i)
   {
-    int x1, y1, x2_gt, y2_gt;
+    typename Kernel::CoordT_ x1, y1, x2_gt, y2_gt;
     char comma;
 
-    ENTO_DEBUG("Num feats in feats_: %i", feats_.size());
-    ENTO_DEBUG("Num feats in feats_gt_: %i", feats_next_gt_.size());
+    ENTO_DEBUG("Reading feature pair %d/%d", i+1, num_feats);
+    ENTO_DEBUG("Current feats_ size: %i, feats_next_gt_ size: %i", feats_.size(), feats_next_gt_.size());
+    
     if (fscanf(feats_file, format_str, &x1, &comma, &y1) != 3 || comma != ',')
     {
       ENTO_ERROR("Error parsing feature at index %d", i);
@@ -441,11 +447,23 @@ deserialize_features(const char* feats_path, const char* gt_path)
       return false;
     }
     
+    if constexpr (std::is_same_v<typename Kernel::CoordT_, float>) {
+      ENTO_DEBUG("Parsed current feature[%d]: x1=%.4f, y1=%.4f (comma='%c')", i, x1, y1, comma);
+    } else {
+      ENTO_DEBUG("Parsed current feature[%d]: x1=%d, y1=%d (comma='%c')", i, (int)x1, (int)y1, comma);
+    }
+    
     if (fscanf(gt_file, format_str, &x2_gt, &comma, &y2_gt) != 3 || comma != ',')
     {
       ENTO_ERROR("Error parsing gt feature (next) at index %d", i);
       fclose(gt_file);
       return false;
+    }
+
+    if constexpr (std::is_same_v<typename Kernel::CoordT_, float>) {
+      ENTO_DEBUG("Parsed next feature[%d]: x2_gt=%.4f, y2_gt=%.4f (comma='%c')", i, x2_gt, y2_gt, comma);
+    } else {
+      ENTO_DEBUG("Parsed next feature[%d]: x2_gt=%d, y2_gt=%d (comma='%c')", i, (int)x2_gt, (int)y2_gt, comma);
     }
 
     if (!feats_.add_keypoint(KeypointType(x1, y1)) )
@@ -461,9 +479,15 @@ deserialize_features(const char* feats_path, const char* gt_path)
       fclose(feats_file);
       return false;
     }
+
+    if constexpr (std::is_same_v<typename Kernel::CoordT_, float>) {
+      ENTO_DEBUG("Added optical flow pair[%d]: (%.4f,%.4f) -> (%.4f,%.4f)", i, x1, y1, x2_gt, y2_gt);
+    } else {
+      ENTO_DEBUG("Added optical flow pair[%d]: (%d,%d) -> (%d,%d)", i, (int)x1, (int)y1, (int)x2_gt, (int)y2_gt);
+    }
   }
 
-  ENTO_DEBUG("Successfully deserialized %d features", num_feats);
+  ENTO_DEBUG("Successfully deserialized %d optical flow feature pairs", num_feats);
   fclose(feats_file);
   return true;
 }

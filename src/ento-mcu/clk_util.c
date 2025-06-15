@@ -47,18 +47,31 @@ uint32_t get_sys_clk_freq(void)
   // TODO: Implement STM32C0 specific clock configuration
   // C0 family typically runs at 48MHz max with internal RC oscillator
   // Configure PLL from HSI16 (16MHz) to get 48MHz system clock
-  
-  // For now, use default HSI16 clock (16MHz)
-  // This stub maintains compatibility while requiring proper implementation
-  
-  // Configure flash latency for target frequency
-  // LL_FLASH_SetLatency(LL_FLASH_LATENCY_1); // For 48MHz operation
-  
-  // Configure PLL: HSI16 / 1 * 3 = 48MHz (typical for C0)
-  // Configure system clock source to PLL
-  // Update SystemCoreClock variable
-  
-  SystemCoreClockUpdate();
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_1);
+
+  /* HSI configuration and activation */
+  LL_RCC_HSI_Enable();
+  while(LL_RCC_HSI_IsReady() != 1)
+  {
+  }
+
+  LL_RCC_HSI_SetCalibTrimming(64);
+  LL_RCC_SetHSIDiv(LL_RCC_HSI_DIV_1);
+  /* Set AHB prescaler*/
+  LL_RCC_SetAHBPrescaler(LL_RCC_HCLK_DIV_1);
+
+  LL_RCC_SetSYSDivider(LL_RCC_SYSCLK_DIV_1);
+  /* Sysclk activation on the HSI */
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_HSI);
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_HSI)
+  {
+  }
+
+  /* Set APB1 prescaler*/
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_Init1msTick(48000000);
+  /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
+  LL_SetSystemCoreClock(48000000);
 
 #else
 

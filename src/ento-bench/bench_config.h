@@ -81,6 +81,28 @@ constexpr bool DefaultEnableCaches = true;
 constexpr bool DefaultEnableCaches = (ENABLE_CACHES != 0);
 #endif
 
+#ifndef ENABLE_VECTORIZATION
+constexpr bool DefaultEnableVectorization = true;
+#else
+constexpr bool DefaultEnableVectorization = (ENABLE_VECTORIZATION != 0);
+#endif
+
+//=============================================================================
+// Vectorization Control for Perception Algorithms
+// Controls ARM SIMD optimizations (e.g., USADA8 for SAD computation)
+//=============================================================================
+
+#if defined(__ARM_ARCH) && !defined(NATIVE)
+// Only enable vectorization on ARM targets, not on native builds
+#ifndef ENABLE_VECTORIZATION
+// Default to enabled if not specified
+#define ENTO_USE_VECTORIZED_SAD
+#elif ENABLE_VECTORIZATION
+// Enable if explicitly set to true
+#define ENTO_USE_VECTORIZED_SAD
+#endif
+#endif
+
 //=============================================================================
 // Standardized Harness Type Alias Template
 // Usage: using BenchHarness = DefaultHarness<Problem>;
@@ -120,6 +142,7 @@ using CustomHarness = Harness<Problem, DoWarmup, Reps, InnerReps, MaxProblems, V
         printf("MAX_PROBLEMS: %zu\n", EntoBench::DefaultMaxProblems); \
         printf("DO_WARMUP: %s\n", EntoBench::DefaultDoWarmup ? "true" : "false"); \
         printf("ENABLE_CACHES: %s\n", EntoBench::DefaultEnableCaches ? "true" : "false"); \
+        printf("ENABLE_VECTORIZATION: %s\n", EntoBench::DefaultEnableVectorization ? "true" : "false"); \
         printf("H7_PERFORMANCE_MULTIPLIER: %zu\n", EntoBench::H7_PERFORMANCE_MULTIPLIER); \
         printf("===============================\n"); \
     } while(0)

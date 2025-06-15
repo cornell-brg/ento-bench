@@ -402,7 +402,15 @@ struct SolverHomography4pt
                           EntoUtil::EntoArray<Matrix3x3<Scalar>, MaxSolns>* solutions)
   {
     Matrix3x3<Scalar> H;
-    size_t sols = homography_4pt<Scalar, CheiralCheck, Method>(x1, x2, &H);
+    
+    // Extract first 4 points for homography_4pt
+    EntoArray<Vec3<Scalar>, 4> x1_4pt, x2_4pt;
+    for (size_t i = 0; i < 4; ++i) {
+      x1_4pt[i] = x1[i];
+      x2_4pt[i] = x2[i];
+    }
+    
+    size_t sols = homography_4pt<Scalar, CheiralCheck, Method>(x1_4pt, x2_4pt, &H);
     solutions->clear();
     if (sols == 1) {
       solutions->push_back(H);

@@ -1,0 +1,10 @@
+{
+  "perception": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "enable_sad_computation": true
+  }
+} 
