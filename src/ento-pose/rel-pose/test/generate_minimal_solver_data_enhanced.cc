@@ -47,6 +47,10 @@ struct Options {
     double baseline_magnitude = 1.0;      // NEW: Fixed baseline magnitude
     double rotation_magnitude_deg = 16.0; // NEW: Controlled rotation magnitude
     
+    // Outlier support
+    bool generate_outliers = false;
+    std::vector<double> outlier_ratios = {0.05, 0.10, 0.25, 0.50}; // 5%, 10%, 25%, 50%
+    
     void print_help() {
         std::cout << "Usage: generate_minimal_solver_data_rel_enhanced [options]\n";
         std::cout << "Options:\n";
@@ -67,6 +71,8 @@ struct Options {
         std::cout << "  --focal-length N      Camera focal length for realistic mode (default: 500)\n";
         std::cout << "  --baseline N          Fixed baseline magnitude (default: 1.0)\n";
         std::cout << "  --rotation-deg N      Rotation magnitude in degrees (default: 16.0)\n";
+        std::cout << "  --with-outliers       Generate datasets with outliers for robust estimation\n";
+        std::cout << "  --outlier-ratios \"X,Y,Z\" Comma-separated outlier ratios (default: \"0.05,0.10,0.25,0.50\")\n";
         std::cout << "  --help                Show this help message\n";
         std::cout << "\nExamples:\n";
         std::cout << "  # Use realistic data generation with 0.1 pixel noise:\n";
@@ -79,6 +85,8 @@ struct Options {
         std::cout << "  ./generate_minimal_solver_data_rel_enhanced --gold-standard-rel-only\n";
         std::cout << "  # Generate homography data only:\n";
         std::cout << "  ./generate_minimal_solver_data_rel_enhanced --homography-only\n";
+        std::cout << "  # Generate LO-RANSAC datasets with outliers:\n";
+        std::cout << "  ./generate_minimal_solver_data_rel_enhanced --with-outliers --outlier-ratios \"0.10,0.25,0.50\"\n";
     }
 };
 
@@ -167,6 +175,16 @@ Options parse_args(int argc, char** argv) {
             opts.baseline_magnitude = std::stod(argv[++i]);
         } else if (strcmp(argv[i], "--rotation-deg") == 0 && i + 1 < argc) {
             opts.rotation_magnitude_deg = std::stod(argv[++i]);
+        } else if (strcmp(argv[i], "--with-outliers") == 0) {
+            opts.generate_outliers = true;
+        } else if (strcmp(argv[i], "--outlier-ratios") == 0 && i + 1 < argc) {
+            std::string outlier_str = argv[++i];
+            opts.outlier_ratios.clear();
+            std::stringstream ss(outlier_str);
+            std::string item;
+            while (std::getline(ss, item, ',')) {
+                opts.outlier_ratios.push_back(std::stod(item));
+            }
         } else {
             std::cout << "Unknown option: " << argv[i] << std::endl;
             opts.print_help();
@@ -203,6 +221,43 @@ struct PoseErrors {
         return std::max(rotation_error_deg, translation_error_deg);
     }
 };
+
+// Outlier injection for relative pose correspondences
+template<typename Scalar, size_t N>
+void inject_relative_pose_outliers(EntoUtil::EntoContainer<Vec2<Scalar>, N>& x1_img,
+                                   EntoUtil::EntoContainer<Vec2<Scalar>, N>& x2_img,
+                                   EntoUtil::EntoContainer<bool, N>& inlier_mask,
+                                   double outlier_ratio,
+                                   std::default_random_engine& rng) {
+    size_t num_outliers = static_cast<size_t>(x1_img.size() * outlier_ratio);
+    
+    // Initialize all as inliers
+    inlier_mask.clear();
+    for (size_t i = 0; i < x1_img.size(); ++i) {
+        inlier_mask.push_back(true);
+    }
+    
+    if (num_outliers == 0) return;
+    
+    // Generate random indices to replace with outliers
+    std::vector<size_t> indices(x1_img.size());
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), rng);
+    
+    // Replace first num_outliers correspondences with random ones
+    std::uniform_real_distribution<Scalar> coord_dist(-2.0, 2.0);
+    
+    for (size_t i = 0; i < num_outliers; ++i) {
+        size_t idx = indices[i];
+        
+        // Generate random correspondence
+        x1_img[idx] = Vec2<Scalar>(coord_dist(rng), coord_dist(rng));
+        x2_img[idx] = Vec2<Scalar>(coord_dist(rng), coord_dist(rng));
+        
+        // Mark as outlier
+        inlier_mask[idx] = false;
+    }
+}
 
 // Homography-specific error structure
 template<typename Scalar>
@@ -834,6 +889,70 @@ std::string make_csv_line_relative_pose(
         const Vec3& pt = x2[i];
         oss << pt(0) << ',' << pt(1) << ',' << pt(2);
         if (i < N - 1) oss << ',';
+    }
+
+    return oss.str();
+}
+
+// Robust CSV line generation function with inlier mask
+template <typename Scalar, size_t N>
+std::string make_csv_line_robust_relative_pose(
+    const CameraPose<Scalar>& pose,
+    const EntoContainer<Vec2<Scalar>, N>& x1_img,
+    const EntoContainer<Vec2<Scalar>, N>& x2_img,
+    const EntoContainer<bool, N>& inliers,
+    Scalar scale = Scalar{1},
+    Scalar focal = Scalar{1})
+{
+    using Vec2 = Eigen::Matrix<Scalar,2,1>;
+    std::ostringstream oss;
+
+    // 1) problem_type (3 for relative pose), N
+    oss << 3 << ',' << N << ',';
+
+    // 2) quaternion (w, x, y, z)
+    oss << pose.q.w() << ','
+        << pose.q.x() << ','
+        << pose.q.y() << ','
+        << pose.q.z() << ',';
+
+    // 3) translation (tx, ty, tz)
+    oss << pose.t.x() << ','
+        << pose.t.y() << ','
+        << pose.t.z() << ',';
+
+    // 4) camera parameters (scale, focal)
+    oss << scale << ',' << focal << ',';
+
+    // 5) x1_img: dump N 2D image points (x, y)
+    for (size_t i = 0; i < N; ++i) {
+        const Vec2& pt = x1_img[i];
+        oss << pt(0) << ',' << pt(1) << ',';
+    }
+
+    // 6) x2_img: dump N 2D image points (x, y)
+    for (size_t i = 0; i < N; ++i) {
+        const Vec2& pt = x2_img[i];
+        oss << pt(0) << ',' << pt(1) << ',';
+    }
+
+    // 7) pack "inliers" (bool flags) into bytes
+    constexpr size_t kNumBytes = (N + 7) / 8;
+    std::array<uint8_t, kNumBytes> mask_bytes{};
+    for (size_t i = 0; i < N; ++i) {
+        if (inliers[i]) {
+            size_t byte_idx = i / 8;
+            size_t bit_idx  = i % 8; // LSB = point‐0, next bit = point‐1, etc.
+            mask_bytes[byte_idx] |= static_cast<uint8_t>(1u << bit_idx);
+        }
+    }
+
+    // 8) append each byte in decimal.  If N<=8, that's one byte; otherwise multiple.
+    for (size_t b = 0; b < kNumBytes; ++b) {
+        oss << static_cast<uint32_t>(mask_bytes[b]);
+        if (b + 1 < kNumBytes) {
+            oss << ',';  // comma‐separate multiple inlier‐bytes
+        }
     }
 
     return oss.str();
@@ -1818,9 +1937,18 @@ void generate_solver_data_parameterized(
 {
     std::cout << "Generating " << solver_name << " data..." << std::endl;
     
-    // Generate data for each noise level
-    for (double noise_level : opts.noise_levels) {
-        generate_solver_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
+    if (opts.generate_outliers) {
+        // Generate robust data with outliers for each noise level AND outlier ratio
+        for (double noise_level : opts.noise_levels) {
+            for (double outlier_ratio : opts.outlier_ratios) {
+                generate_solver_data_for_noise_level_robust<Scalar, N>(opts, solver_name, solver_func, noise_level, outlier_ratio);
+            }
+        }
+    } else {
+        // Generate clean data for each noise level
+        for (double noise_level : opts.noise_levels) {
+            generate_solver_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
+        }
     }
 }
 
@@ -1906,6 +2034,131 @@ void run_generation_with_size(const Options& opts, int N) {
 template<typename Scalar>
 void run_generation(const Options& opts) {
     run_generation_with_size<Scalar>(opts, opts.num_points);
+}
+
+// Robust solver data generation function with outlier injection
+template<typename Scalar, size_t N, typename SolverFunc>
+void generate_solver_data_for_noise_level_robust(
+    const Options& opts,
+    const std::string& solver_name,
+    SolverFunc solver_func,
+    double noise_level,
+    double outlier_ratio)
+{
+    std::cout << "  Generating " << solver_name << " robust data (noise=" << noise_level 
+              << ", outliers=" << outlier_ratio << ")..." << std::endl;
+    
+    // Convert noise level based on generation method
+    Scalar actual_noise_level = static_cast<Scalar>(noise_level);
+    
+    std::string filename = solver_name + "_noise_" + 
+                          std::to_string(noise_level).substr(0, 6) + "_outliers_" +
+                          std::to_string(outlier_ratio).substr(0, 5) + ".csv";
+    
+    std::ofstream file(filename);
+    SolverStats<Scalar> stats;
+    
+    // Use different seed for robust data generation
+    std::default_random_engine rng(12345 + static_cast<int>(noise_level * 1000) + static_cast<int>(outlier_ratio * 1000));
+    
+    for (int i = 0; i < opts.num_problems; ++i) {
+        std::cout << "    Generating " << solver_name << " robust problem " << i 
+                  << " (noise=" << noise_level << ", outliers=" << outlier_ratio << ")..." << std::endl;
+        stats.add_problem();
+        
+        EntoContainer<Vec3<Scalar>, N> x1_bear, x2_bear;
+        EntoContainer<Vec2<Scalar>, N> x1_img, x2_img;
+        EntoContainer<bool, N> inlier_mask;
+        CameraPose<Scalar> true_pose;
+        
+        // Generate clean data first
+        if (opts.use_realistic_generation) {
+            generate_realistic_relpose_data<Scalar, N>(
+                x1_bear, x2_bear, true_pose, opts.num_points,
+                actual_noise_level,
+                i + static_cast<int>(outlier_ratio * 10000), // Different seed per outlier ratio
+                solver_name.find("upright") != std::string::npos,
+                solver_name.find("planar") != std::string::npos,
+                static_cast<Scalar>(opts.focal_length),
+                static_cast<Scalar>(opts.baseline_magnitude),
+                static_cast<Scalar>(opts.rotation_magnitude_deg)
+            );
+        } else {
+            generate_unified_relpose_data<Scalar, N>(
+                x1_bear, x2_bear, true_pose, opts.num_points,
+                actual_noise_level,
+                i + static_cast<int>(outlier_ratio * 10000),
+                solver_name.find("upright") != std::string::npos,
+                solver_name.find("planar") != std::string::npos
+            );
+        }
+        
+        // Convert bearing vectors to 2D image points for outlier injection
+        const Scalar focal_length = static_cast<Scalar>(opts.focal_length);
+        x1_img.clear();
+        x2_img.clear();
+        
+        for (size_t j = 0; j < x1_bear.size(); ++j) {
+            // Convert bearing vectors to image coordinates
+            Vec2<Scalar> img1(focal_length * x1_bear[j](0) / x1_bear[j](2), 
+                              focal_length * x1_bear[j](1) / x1_bear[j](2));
+            Vec2<Scalar> img2(focal_length * x2_bear[j](0) / x2_bear[j](2), 
+                              focal_length * x2_bear[j](1) / x2_bear[j](2));
+            x1_img.push_back(img1);
+            x2_img.push_back(img2);
+        }
+        
+        // Inject outliers
+        inject_relative_pose_outliers<Scalar, N>(x1_img, x2_img, inlier_mask, outlier_ratio, rng);
+        
+        // Test solver (this is just for statistics - robust solvers would be tested separately)
+        std::vector<CameraPose<Scalar>> solutions;
+        int num_solutions = solver_func(x1_bear, x2_bear, &solutions);
+        
+        if (num_solutions > 0) {
+            // Find best solution (closest to ground truth)
+            PoseErrors<Scalar> best_error = compute_pose_errors<Scalar, N>(true_pose, solutions[0], x1_bear, x2_bear);
+            for (size_t s = 1; s < solutions.size(); ++s) {
+                PoseErrors<Scalar> error = compute_pose_errors<Scalar, N>(true_pose, solutions[s], x1_bear, x2_bear);
+                if (error.max_error() < best_error.max_error()) {
+                    best_error = error;
+                }
+            }
+            
+            // More lenient thresholds for robust data (outliers make it harder)
+            Scalar error_threshold = Scalar(30.0); // Higher threshold for outlier data
+            
+            if (best_error.max_error() < error_threshold) {
+                stats.add_success(best_error, num_solutions);
+                std::cout << "      " << solver_name << " solved! Error: " << best_error.max_error() 
+                          << "° (rot:" << best_error.rotation_error_deg 
+                          << "°, trans:" << best_error.translation_error_deg 
+                          << "°), Solutions: " << num_solutions << std::endl;
+            } else {
+                stats.add_failure_with_solution(best_error);
+                std::cout << "      " << solver_name << " solution too inaccurate: " 
+                          << best_error.max_error() << "°" << std::endl;
+            }
+        } else {
+            stats.add_failure();
+            std::cout << "      " << solver_name << " failed to find solution" << std::endl;
+        }
+        
+        // Generate robust CSV line with inlier mask
+        std::string csv_line = make_csv_line_robust_relative_pose<Scalar, N>(
+            true_pose, x1_img, x2_img, inlier_mask);
+        
+        file << csv_line << std::endl;
+        std::cout << "    " << solver_name << " robust problem " << i << " complete." << std::endl;
+    }
+    
+    file.close();
+    std::cout << "  " << filename << " complete." << std::endl;
+    
+    // Print statistics for this noise level and outlier ratio
+    std::string stats_name = solver_name + " (noise=" + std::to_string(noise_level) + 
+                             ", outliers=" + std::to_string(outlier_ratio * 100) + "%)";
+    stats.print_stats(stats_name, noise_level);
 }
 
 int main(int argc, char** argv)
