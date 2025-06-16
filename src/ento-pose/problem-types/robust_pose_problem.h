@@ -154,42 +154,245 @@ public:
 // --- Robust Problem Specializations (namespace scope, no shadowing) ---
 template <typename Scalar, typename Solver, size_t NumPts = 0>
 struct RobustAbsolutePoseProblem : 
-  public AbsolutePoseProblem<Scalar, Solver, NumPts>,
-  public RobustPoseProblem<Scalar, NumPts>
+  public EntoBench::EntoProblem<RobustAbsolutePoseProblem<Scalar, Solver, NumPts>>
 {
-  using AbsBase    = AbsolutePoseProblem<Scalar, Solver, NumPts>;
-  using RobustBase = RobustPoseProblem <Scalar,             NumPts>;
+  // Type aliases
+  using Scalar_ = Scalar;
+  using Solver_ = Solver;
+  static constexpr size_t NumPts_ = NumPts;
+  static constexpr bool RequiresDataset_ = true;
+  static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresSetup_ = false;
+  static constexpr size_t MaxSolns_ = Solver::MaxSolns;
 
+  // From AbsolutePoseProblem
+  Solver solver_;
+  CameraPose<Scalar> pose_gt_;
+  Scalar scale_gt_;
+  Scalar focal_gt_;
+  std::size_t n_point_point_ = NumPts;
+  size_t num_solns_;
+
+#ifdef NATIVE
+  EntoUtil::EntoContainer<EntoPose::CameraPose<Scalar>, 0> solns_; 
+#else
+  EntoUtil::EntoContainer<EntoPose::CameraPose<Scalar>, MaxSolns_> solns_; 
+#endif
+
+  EntoUtil::EntoContainer<Vec3<Scalar>, NumPts> x_point_;
+  EntoUtil::EntoContainer<Vec3<Scalar>, NumPts> X_point_;
+  const Scalar tol_ = 1e-6;
+
+  // From RobustPoseProblem
+  static constexpr size_t calculate_inlier_container_size(size_t num_points) {
+    return (num_points + 7) / 8;
+  }
+  static constexpr size_t StaticInlierFlagSize = (NumPts > 0) ? calculate_inlier_container_size(NumPts) : 0;
+  size_t dyn_inlier_flag_size_ = 0;
+  Scalar inlier_ratio_;
+  using InlierFlagsContainer = EntoUtil::EntoContainer<uint8_t, StaticInlierFlagSize>;
+  InlierFlagsContainer inlier_flags_;
+  CameraPose<Scalar> best_model_;
+  RansacStats<Scalar> ransac_stats_;
+  EntoUtil::EntoContainer<uint8_t, NumPts> inliers_;
+
+  // Current additional members
   EntoUtil::EntoContainer<Vec2<Scalar>, NumPts> x_img_;
   EntoUtil::EntoContainer<Vec3<Scalar>, NumPts> X_world_;
 
+  // Constructors
   explicit RobustAbsolutePoseProblem(Solver solver)
-    : AbsBase(std::move(solver)), RobustBase{}, x_img_(), X_world_() {}
-  
-#ifdef NATIVE
-  std::string serialize() const
-  {
-    return AbsBase::serialize() + "," + RobustBase::serialize();
+    : solver_(std::move(solver)), 
+      pose_gt_(), scale_gt_(), focal_gt_(), 
+      inlier_ratio_(), best_model_(), ransac_stats_(),
+      x_img_(), X_world_() {}
+
+  RobustAbsolutePoseProblem(Solver solver, Scalar inlier_ratio)
+    : solver_(std::move(solver)), 
+      pose_gt_(), scale_gt_(), focal_gt_(), 
+      inlier_ratio_(inlier_ratio), best_model_(), ransac_stats_(),
+      x_img_(), X_world_() {}
+
+  // Required EntoProblem methods
+  static constexpr const char* header_impl() {
+    return "problem_type,num_points,pose_gt,scale_gt,focal_gt,x_point,X_point,inlier_mask";
   }
-  bool deserialize_impl(const std::string& line)
-  {
-    char* pos = const_cast<char*>(line.c_str());
-    if (!AbsBase::deserialize_impl(pos)) return false;
-    if constexpr (NumPts == 0) {
-      this->initialize_inliers(this->n_point_point_);
-    } else {
-      this->initialize_inliers();
+
+  void solve_impl() {
+    this->ransac_stats_ = this->solver_.solve(x_img_, X_world_, &this->best_model_, &this->inliers_);
+  }
+
+  bool validate_impl() {
+    using validator_ = CalibratedAbsolutePoseValidator<Scalar>;
+    Scalar pose_error = validator_::compute_pose_error(best_model_, pose_gt_, 1.0, scale_gt_);
+    return pose_error < tol_;
+  }
+
+  void clear_impl() {
+    x_point_.clear();
+    X_point_.clear();
+    x_img_.clear();
+    X_world_.clear();
+    solns_.clear();
+    inlier_flags_.clear();
+    inliers_.clear();
+    n_point_point_ = 0;
+    num_solns_ = 0;
+  }
+
+#ifdef NATIVE
+  std::string serialize_impl() const {
+    std::ostringstream oss;
+    constexpr int precision = std::numeric_limits<Scalar>::max_digits10;
+
+    // Problem type ID for Robust Absolute Pose
+    oss << 1 << "," << n_point_point_ << ",";
+
+    // Serialize quaternion and translation
+    for (int i = 0; i < 4; ++i) {
+      oss << std::fixed << std::setprecision(precision) << pose_gt_.q[i] << ",";
     }
-    size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
-    if (!RobustBase::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
+    for (int i = 0; i < 3; ++i) {
+      oss << std::fixed << std::setprecision(precision) << pose_gt_.t[i] << ",";
+    }
+
+    // Serialize scale and focal length
+    oss << scale_gt_ << "," << focal_gt_;
+
+    // Serialize x_img (2D points)
+    for (const auto &x : x_img_) {
+      oss << "," << x.x() << "," << x.y(); 
+    }
+    
+    // Serialize X_world (3D points)
+    for (const auto &X : X_world_) {
+      oss << "," << X.x() << "," << X.y() << "," << X.z();
+    }
+
+    // Serialize inlier mask as bytes
+    for (size_t i = 0; i < inlier_flags_.size(); ++i) {
+      oss << "," << static_cast<uint32_t>(inlier_flags_[i]);
+    }
+
+    return oss.str();
+  }
+
+  bool deserialize_impl(const std::string& line) {
+    return deserialize_impl(line.c_str());
+  }
+#endif
+
+  // Robust helper methods
+  void initialize_inliers() {
+    std::fill(inlier_flags_.begin(), inlier_flags_.end(), 0);
+  }
+
+  void initialize_inliers(size_t num_pts) {
+    if constexpr (NumPts == 0) {
+      dyn_inlier_flag_size_ = calculate_inlier_container_size(num_pts);
+      inlier_flags_.resize(dyn_inlier_flag_size_);
+    }
+    std::fill(inlier_flags_.begin(), inlier_flags_.end(), 0);
+  }
+
+  bool is_inlier(size_t index) const {
+    size_t byte_index = index / 8;
+    uint8_t bit_mask = (1 << (index % 8));
+    return (inlier_flags_[byte_index] & bit_mask) != 0;
+  }
+
+  void set_inlier(size_t index, bool flag) {
+    size_t byte_index = index / 8;
+    uint8_t bit_mask = (1 << (index % 8));
+    if (flag) inlier_flags_[byte_index] |= bit_mask;
+    else inlier_flags_[byte_index] &= ~bit_mask;
+  }
+
+  Scalar get_inlier_ratio() const { return inlier_ratio_; }
+
+  // Absolute pose helper methods
+  void set_num_pts(size_t num_pts) {
+    if constexpr (NumPts == 0)
+      n_point_point_ = num_pts;
+  }
+
+  void set_tolerance(Scalar tol) {
+    const_cast<Scalar&>(tol_) = tol;
+  }
+
+#ifdef NATIVE
+  // Deserialize inlier mask methods (copied from RobustPoseProblem)
+  bool deserialize_inlier_mask(const std::string& line) {
+    inlier_flags_.clear();
+    std::istringstream iss(line);
+    std::string token;
+    while (std::getline(iss, token, ',')) {
+      try {
+        uint8_t byte_value = static_cast<uint8_t>(std::stoi(token));
+        inlier_flags_.push_back(byte_value);
+      } catch (const std::exception& e) {
+        ENTO_DEBUG("Error: Failed to parse token '%s' as a byte.", token.c_str());
+        return false;
+      }
+    }
     return true;
   }
 #endif
 
-  void solve_impl()
-  {
-    this->ransac_stats_ = this->solver_.solve(x_img_, X_world_, &this->best_model_, &this->inliers_);
+  // MCU version: takes a const char*
+  bool deserialize_inlier_mask(const char* line) {
+    inlier_flags_.clear();
+    uint8_t byte_value;
+    while (sscanf(line, "%hhu,", &byte_value) == 1) {
+      inlier_flags_.push_back(byte_value);
+      line = strchr(line, ',');
+      if (!line) break;
+      line += 1;
+    }
+    return true;
   }
+
+#ifdef NATIVE
+  // Pointer-advancing deserializer for inlier mask (native)
+  bool deserialize_inlier_mask(char*& pos, size_t num_inlier_bytes) {
+    inlier_flags_.clear();
+    for (size_t i = 0; i < num_inlier_bytes; ++i) {
+      int byte_value = 0;
+      int n = 0;
+      if (sscanf(pos, "%d,%n", &byte_value, &n) == 1) {
+        inlier_flags_.push_back(static_cast<uint8_t>(byte_value));
+        pos += n;
+      } else if (sscanf(pos, "%d%n", &byte_value, &n) == 1) {
+        inlier_flags_.push_back(static_cast<uint8_t>(byte_value));
+        pos += n;
+      } else {
+        // Not enough bytes in input
+        return false;
+      }
+    }
+    return true;
+  }
+#else
+  // Pointer-advancing deserializer for inlier mask (MCU)
+  bool deserialize_inlier_mask(char*& pos, size_t num_inlier_bytes) {
+    inlier_flags_.clear();
+    for (size_t i = 0; i < num_inlier_bytes; ++i) {
+      uint8_t byte_value = 0;
+      int n = 0;
+      if (sscanf(pos, "%hhu,%n", &byte_value, &n) == 1) {
+        inlier_flags_.push_back(byte_value);
+        pos += n;
+      } else if (sscanf(pos, "%hhu%n", &byte_value, &n) == 1) {
+        inlier_flags_.push_back(byte_value);
+        pos += n;
+      } else {
+        // Not enough bytes in input
+        return false;
+      }
+    }
+    return true;
+  }
+#endif
 
   bool deserialize_impl(const char* line)
   {
@@ -300,17 +503,10 @@ struct RobustAbsolutePoseProblem :
 
     ENTO_DEBUG("[abspose] pos after parsing: %s", pos);
 
-
-    //// Skip through the commas
-    //for (size_t i = 0; i < num_commas; ++i) {
-    //  pos = strchr(pos, ',');
-    size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
-    if (!RobustBase::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
-    return true;
+    size_t num_inlier_bytes = calculate_inlier_container_size(this->n_point_point_);
+    bool mask_ok = deserialize_inlier_mask(pos, num_inlier_bytes);
+    return mask_ok;
   } 
-
-  bool validate_impl();
-  void clear_impl();
 };
 
 template <typename Scalar, typename Solver, size_t NumPts = 0>
@@ -490,7 +686,7 @@ struct RobustRelativePoseProblem :
     ENTO_DEBUG("[deserialize_impl] pos after skipping commas: %s", pos);
 
     ENTO_DEBUG("[deserialize_impl] inlier_flags_ size after initialize_inliers: %zu", this->inlier_flags().size());
-    size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
+    size_t num_inlier_bytes = RobustBase::calculate_inlier_container_size(this->n_point_point_);
     bool mask_ok = RobustBase::deserialize_inlier_mask(pos, num_inlier_bytes);
     ENTO_DEBUG("[deserialize_impl] inlier_flags_ size after mask: %zu", this->inlier_flags().size());
     for (size_t i = 0; i < this->inlier_flags().size(); ++i) {
@@ -523,8 +719,8 @@ struct RobustHomographyProblem :
     } else {
       this->initialize_inliers();
     }
-    size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
-    if (!RobustProblem::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
+    size_t num_inlier_bytes = calculate_inlier_container_size(this->n_point_point_);
+    if (!RobustPoseProblem<Scalar, NumPts>::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
     return true;
   }
 #endif
@@ -537,8 +733,8 @@ struct RobustHomographyProblem :
     } else {
       this->initialize_inliers();
     }
-    size_t num_inlier_bytes = RobustPoseProblem<Scalar, NumPts>::calculate_inlier_container_size(this->n_point_point_);
-    if (!RobustProblem::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
+    size_t num_inlier_bytes = calculate_inlier_container_size(this->n_point_point_);
+    if (!RobustPoseProblem<Scalar, NumPts>::deserialize_inlier_mask(pos, num_inlier_bytes)) return false;
     return true;
   }
 };
