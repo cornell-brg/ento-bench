@@ -11,7 +11,7 @@ if(STM32_BUILD)
 
 # Detect H7 and set performance multiplier (same logic as in bench_config.h)
 if(STM_PRODUCT MATCHES "H7")
-  set(H7_PERFORMANCE_MULTIPLIER 2)  # H7 is ~2x faster than other STM32s
+  set(H7_PERFORMANCE_MULTIPLIER 1)  # H7 is ~2x faster than other STM32s
 else()
   set(H7_PERFORMANCE_MULTIPLIER 1)  # No scaling for non-H7
 endif()
