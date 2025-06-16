@@ -348,7 +348,6 @@ void sys_clk_cfg()
 
 #elif defined(STM32C0)
 
-  /* STM32C0 clock configuration - 48MHz system clock */
   LL_FLASH_SetLatency(LL_FLASH_LATENCY_1);
 
   /* HSI configuration and activation */
@@ -362,7 +361,8 @@ void sys_clk_cfg()
   /* Set AHB prescaler*/
   LL_RCC_SetAHBPrescaler(LL_RCC_HCLK_DIV_1);
 
-  LL_RCC_SetSYSDivider(LL_RCC_SYSCLK_DIV_1);
+  //LL_RCC_SetSYSDivider(LL_RCC_SYSCLK_DIV_1);
+  MODIFY_REG(RCC->CR, RCC_CR_SYSDIV, LL_RCC_SYSCLK_DIV_1);
   /* Sysclk activation on the HSI */
   LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_HSI);
   while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_HSI)
@@ -371,7 +371,6 @@ void sys_clk_cfg()
 
   /* Set APB1 prescaler*/
   LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
-  LL_Init1msTick(48000000);
   /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
   LL_SetSystemCoreClock(48000000);
 

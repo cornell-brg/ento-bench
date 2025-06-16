@@ -415,10 +415,21 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS_FAMILIES})
         endif()
         target_link_libraries(CMSIS::STM32::${DEVICE}${CORE_C} INTERFACE CMSIS::STM32::${TYPE}${CORE_C})
         
-        # Use vendor linker script for H7 devices, fall back to generated script otherwise
+        # Use vendor linker script for H7 and C0 devices, fall back to generated script otherwise
         if(${FAMILY} STREQUAL "H7")
             message(STATUS "Attempting to use vendor linker script for H7 device: ${FAMILY}, ${DEVICE}, ${CORE}")
             stm32h7_use_vendor_linker_script(${FAMILY} ${DEVICE} "${CORE}")
+            
+            # Check if vendor script was successfully configured
+            if(VENDOR_SCRIPT_CONFIGURED)
+                message(STATUS "Vendor linker script configured successfully for ${DEVICE}${CORE_U}")
+            else()
+                message(STATUS "Vendor linker script not available, generating default linker script for ${FAMILY}, ${DEVICE}, ${CORE}")
+                cmsis_generate_default_linker_script(${FAMILY} ${DEVICE} "${CORE}")
+            endif()
+        elseif(${FAMILY} STREQUAL "C0")
+            message(STATUS "Attempting to use vendor linker script for C0 device: ${FAMILY}, ${DEVICE}, ${CORE}")
+            stm32c0_use_vendor_linker_script(${FAMILY} ${DEVICE} "${CORE}")
             
             # Check if vendor script was successfully configured
             if(VENDOR_SCRIPT_CONFIGURED)

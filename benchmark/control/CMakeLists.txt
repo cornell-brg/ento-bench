@@ -45,6 +45,20 @@ add_benchmark(bench-adaptive-controller-float
 )
 list(APPEND BENCH_TARGETS bench-adaptive-controller-float)
 
+# Geometric Controller Benchmark
+add_benchmark(bench-geometric-controller-float
+    SOURCES bench_geometric_controller_float.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-geometric-controller-float)
+
+# Template MPC Benchmark
+add_benchmark(bench-template-mpc-float
+    SOURCES bench_template_mpc_float.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-template-mpc-float)
+
 # TinyMPC Solver Benchmark
 add_benchmark(bench-tinympc
     SOURCES bench_tinympc.cc

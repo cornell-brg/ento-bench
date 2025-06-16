@@ -8,9 +8,12 @@ void icache_enable()
   LL_ICACHE_Enable();
 #elif defined(STM32F7) || defined(STM32H7)
   SCB_EnableICache();
-#elif defined(STM32C0) || defined(STM32G0)
+#elif defined(STM32G0)
   LL_FLASH_EnablePrefetch();   // PRFTEN – hide 1 WS above 24 MHz
-  LL_ICACHE_Enable();          // ICEN – 16 B(C0) / 32 B(G0) line fill
+  LL_ICACHE_Enable();          // ICEN – 32 B(G0) line fill
+#elif defined(STM32C0)
+  LL_FLASH_EnablePrefetch();   // PRFTEN – hide 1 WS above 24 MHz
+  LL_FLASH_EnableInstCache();  // ICEN – 16 B(C0) line fill
 #endif
 }
 
@@ -20,8 +23,10 @@ bool icache_is_enabled()
   return LL_ICACHE_IsEnabled();
 #elif defined(STM32F7) || defined(STM32H7)
   return (SCB->CCR & SCB_CCR_IC_Msk) != 0;
-#elif defined(STM32C0) || defined(STM32G0)
+#elif defined(STM32G0)
   return LL_ICACHE_IsEnabled();
+#elif defined(STM32C0)
+  return LL_FLASH_IsPrefetchEnabled();  // C0 doesn't have separate IsInstCacheEnabled
 #endif
   return 0;
 }
@@ -33,8 +38,11 @@ void icache_disable()
   LL_ICACHE_Disable();
 #elif defined(STM32F7) || defined(STM32H7)
   SCB_DisableICache();
-#elif defined(STM32C0) || defined(STM32G0)
+#elif defined(STM32G0)
   LL_ICACHE_Disable();
+  LL_FLASH_DisablePrefetch();
+#elif defined(STM32C0)
+  LL_FLASH_DisableInstCache();
   LL_FLASH_DisablePrefetch();
 #endif
 }
@@ -296,7 +304,7 @@ void disable_all_caches()
 #endif
 
 #if defined(STM32C0) || defined(STM32G0)
-  icache_enable();
+  icache_disable();
 
 #endif
 #endif // NATIVE

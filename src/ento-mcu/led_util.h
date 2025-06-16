@@ -49,6 +49,19 @@ extern "C" {
 #define USER_LED_GREEN_PIN LL_GPIO_PIN_5
 
 #define USER_LED_PORT_CLK_ENABLE() LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+
+#elif defined(STM32C0)
+// C0 family configuration - using C0 specific headers
+#include <stm32c0xx_ll_gpio.h>
+#include <stm32c0xx_ll_cortex.h>
+#include <stm32c0xx_ll_rcc.h>
+#include <stm32c0xx_ll_bus.h>
+
+// C092RC LED configuration (assuming PA5 like many STM32 boards)
+#define USER_LED_GREEN_PORT      GPIOA
+#define USER_LED_GREEN_PIN LL_GPIO_PIN_5
+
+#define USER_LED_PORT_CLK_ENABLE() LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
  
 #elif defined(STM32U5)
 #include <stm32u5xx_ll_gpio.h>

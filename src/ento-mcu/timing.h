@@ -20,7 +20,7 @@ extern volatile uint32_t exc_overflow_count;
 // Initialization functions to enable counters
 static inline void enable_dwt()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 #if defined(STM32F7)
   DWT->LAR = 0xC5ACCE55; 
@@ -30,14 +30,14 @@ static inline void enable_dwt()
 
 static inline void disable_dwt()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   CoreDebug->DEMCR &= ~CoreDebug_DEMCR_TRCENA_Msk;
 #endif
 }
 
 static inline void enable_all_counters()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   __asm__ volatile ("");
   enable_dwt();
   __asm__ volatile ("");
@@ -54,7 +54,7 @@ static inline void enable_all_counters()
 static inline void disable_all_counters()
 {
   __asm__ volatile ("");
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   DWT->CTRL = 0;
   __asm__ volatile ("");
 #endif
@@ -62,7 +62,7 @@ static inline void disable_all_counters()
 
 static inline void disable_and_reset_all_counters()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   DWT->CTRL = 0;
   DWT->CPICNT = 0;
   DWT->CYCCNT = 0;
@@ -117,7 +117,7 @@ inline void init_systick(void)
 static inline
 bool is_dwt_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   bool en = (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk);
 #if defined(STM32F7)
   en &= ( DWT->LAR == 0xC5ACCE55 ); 
@@ -131,7 +131,7 @@ bool is_dwt_enabled()
 static inline
 bool is_cycle_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CYCCNTENA_Msk);
 #else
   return false;
@@ -141,7 +141,7 @@ bool is_cycle_counter_enabled()
 static inline
 bool is_cpi_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_CPIEVTENA_Msk);
 #else
   return false;
@@ -151,7 +151,7 @@ bool is_cpi_counter_enabled()
 static inline
 bool is_fold_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_FOLDEVTENA_Msk);
 #else
   return false;
@@ -161,7 +161,7 @@ bool is_fold_counter_enabled()
 static inline
 bool is_lsu_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_LSUEVTENA_Msk);
 #else
   return false;
@@ -171,7 +171,7 @@ bool is_lsu_counter_enabled()
 static inline
 bool is_sleep_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_SLEEPEVTENA_Msk);
 #else
   return false;
@@ -181,7 +181,7 @@ bool is_sleep_counter_enabled()
 static inline
 bool is_exc_counter_enabled()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk) && (DWT->CTRL & DWT_CTRL_EXCEVTENA_Msk);
 #else
   return false;
@@ -190,7 +190,7 @@ bool is_exc_counter_enabled()
 
 static inline
 void init_cycle_counter() {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->CYCCNT = 0;                                // Reset cycle counter
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // Enable cycle counter
@@ -199,7 +199,7 @@ void init_cycle_counter() {
 
 static inline
 void init_cpi_counter() {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->CPICNT = 0;                                // Reset CPI counter
   DWT->CTRL |= DWT_CTRL_CPIEVTENA_Msk;            // Enable CPI tracking
@@ -208,7 +208,7 @@ void init_cpi_counter() {
 
 static inline
 void init_fold_counter() {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->FOLDCNT = 0;                               // Reset folded instruction counter
   DWT->CTRL |= DWT_CTRL_FOLDEVTENA_Msk;           // Enable folded instruction tracking
@@ -217,7 +217,7 @@ void init_fold_counter() {
 
 static inline
 void init_lsu_counter() {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->LSUCNT = 0;                                // Reset LSU counter
   DWT->CTRL |= DWT_CTRL_LSUEVTENA_Msk;            // Enable LSU tracking
@@ -227,7 +227,7 @@ void init_lsu_counter() {
 static inline
 void init_sleep_counter()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->SLEEPCNT = 0;                              // Reset sleep counter
   DWT->CTRL |= DWT_CTRL_SLEEPEVTENA_Msk;          // Enable sleep tracking
@@ -237,7 +237,7 @@ void init_sleep_counter()
 static inline
 void init_exc_counter()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   enable_dwt();
   DWT->EXCCNT = 0;                                // Reset exception counter
   DWT->CTRL |= DWT_CTRL_EXCEVTENA_Msk;            // Enable exception tracking
@@ -248,7 +248,7 @@ void init_exc_counter()
 static inline
 uint32_t get_cycle_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->CYCCNT;
 #else
   return 0;
@@ -258,7 +258,7 @@ uint32_t get_cycle_count()
 static inline
 uint32_t get_cpi_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->CPICNT;
 #else
   return 0;
@@ -268,7 +268,7 @@ uint32_t get_cpi_count()
 static inline
 uint32_t get_fold_count()
 { 
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->FOLDCNT;
 #else
   return 0;
@@ -278,7 +278,7 @@ uint32_t get_fold_count()
 static inline
 uint32_t get_lsu_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->LSUCNT;
 #else
   return 0;
@@ -288,7 +288,7 @@ uint32_t get_lsu_count()
 static inline
 uint32_t get_sleep_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->SLEEPCNT;
 #else
   return 0;
@@ -297,7 +297,7 @@ uint32_t get_sleep_count()
 static inline
 uint32_t get_exc_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return DWT->EXCCNT;
 #else
   return 0;
@@ -307,7 +307,7 @@ uint32_t get_exc_count()
 static inline
 uint32_t get_total_lsu_count(void)
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (lsu_overflow_count * 256) + DWT->LSUCNT;
 #else
   return 0;
@@ -317,7 +317,7 @@ uint32_t get_total_lsu_count(void)
 static inline
 uint32_t get_total_cpi_count(void)
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (cpi_overflow_count * 256) + DWT->CPICNT;
 #else
   return 0;
@@ -327,7 +327,7 @@ uint32_t get_total_cpi_count(void)
 static inline
 uint32_t get_total_fold_count(void)
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (fold_overflow_count * 256) + DWT->FOLDCNT;
 #else
   return 0;
@@ -337,7 +337,7 @@ uint32_t get_total_fold_count(void)
 static inline
 uint32_t get_total_sleep_count(void)
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (sleep_overflow_count * 256) + DWT->SLEEPCNT;
 #else
   return 0;
@@ -347,7 +347,7 @@ uint32_t get_total_sleep_count(void)
 static inline
 uint32_t get_total_exc_count(void)
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   return (exc_overflow_count * 256) + DWT->EXCCNT;
 #else
   return 0;
@@ -357,7 +357,7 @@ uint32_t get_total_exc_count(void)
 static inline
 void reset_lsu_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   DWT->LSUCNT = 0;
 #endif
 }
@@ -365,7 +365,7 @@ void reset_lsu_count()
 static inline
 void reset_cpi_count()
 {
-#if !defined(STM32G0)
+#if !defined(STM32G0) && !defined(STM32C0)
   DWT->CPICNT = 0;
 #endif
 }

@@ -15,6 +15,22 @@
       "max_problems": 50,
       "description": "Adaptive controller benchmark with 6-state trajectory following"
     },
+    "bench-geometric-controller-float": {
+      "reps": 1,
+      "inner_reps": 4,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 10,
+      "description": "Geometric controller benchmark with 13-state quaternion trajectory following"
+    },
+    "bench-template-mpc-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "Template MPC benchmark with 12-state helix trajectory following (horizon=3)"
+    },
     "bench-tinympc": {
       "reps": 1,
       "inner_reps": 3,

@@ -204,12 +204,28 @@ if(STM32_BUILD)
   find_file(OPENOCD_INTERFACE
     NAMES stlink.cfg
     PATHS ${OPENOCD_ROOT}/interface
+          ~/openocd-latest/share/openocd/scripts/interface
           ~/research/openocd/tcl/interface
           /usr/share/openocd/scripts/interface
           /opt/local/share/openocd/scripts/interface
           /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/interface
           /opt/homebrew/Cellar/open-ocd/HEAD-1f3f635_1/share/openocd/scripts/interface
   )
+
+  # Find the OpenOCD binary
+  find_program(OPENOCD_EXECUTABLE
+    NAMES openocd
+    PATHS ~/openocd-latest/bin
+          /usr/local/bin
+          /opt/homebrew/bin
+          /usr/bin
+  )
+
+  if(NOT OPENOCD_EXECUTABLE)
+    message(FATAL_ERROR "Could not find OpenOCD executable. Please install OpenOCD or set OPENOCD_EXECUTABLE manually.")
+  else()
+    message(STATUS "Using OpenOCD executable: ${OPENOCD_EXECUTABLE}")
+  endif()
 
   if(NOT OPENOCD_INTERFACE)
     message(FATAL_ERROR "Could not find OpenOCD interface configuration (stlink.cfg). Please set OPENOCD_INTERFACE manually.")
