@@ -127,7 +127,7 @@ void fast(const ImageType& img,
 {
   // Compile-time access to number of columns
   constexpr int img_width   = ImageType::cols;
-  constexpr int img_height  = ImageType::rows;
+  constexpr int img_height  = ImageType::rows_;
   constexpr int max_dim     = (img_width > img_height) ? img_width : img_height;
 
   // Extract pixel type info

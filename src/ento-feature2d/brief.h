@@ -162,7 +162,7 @@ void compute_brief_descriptors(const ImageT& img,
 template <typename ImageT>
 void gaussian_blur_3x3_inplace(ImageT& img)
 {
-  using Pixel = typename ImageT::pixel_type;
+  using Pixel = typename ImageT::pixel_type_;
   const int H = img.rows;
   const int W = img.cols;
 

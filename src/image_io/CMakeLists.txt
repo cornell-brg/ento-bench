@@ -54,9 +54,14 @@ include (CTest)
 
 set(TEST_FILES
   test_image.cc
+  test_image_util.cc
 )
 
 set(LIBRARIES_test_image
+  m image_io ento_util
+)
+
+set(LIBRARIES_test_image_util
   m image_io ento_util
 )
 
