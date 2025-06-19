@@ -49,6 +49,34 @@ target_link_libraries(generate_minimal_solver_data_rel_enhanced
   ento_util ento-rel-pose ento-pose
 )
 
+# Focused robust relative pose data generator and tester
+add_executable(generate_robust_relative_pose_data
+  test/generate_robust_relative_pose_data.cc
+)
+
+target_include_directories(generate_robust_relative_pose_data
+  PRIVATE
+  ${EIGEN_DIR}
+)
+
+target_link_libraries(generate_robust_relative_pose_data
+  ento_util ento-rel-pose ento-pose
+)
+
+# Standalone upright planar 3pt test to compare different data generation methods
+add_executable(test_upright_planar_3pt_standalone
+  test/test_upright_planar_3pt_standalone.cc
+)
+
+target_include_directories(test_upright_planar_3pt_standalone
+  PRIVATE
+  ${EIGEN_DIR}
+)
+
+target_link_libraries(test_upright_planar_3pt_standalone
+  ento_util ento-rel-pose ento-pose
+)
+
 #=========================================
 # Testing
 #=========================================

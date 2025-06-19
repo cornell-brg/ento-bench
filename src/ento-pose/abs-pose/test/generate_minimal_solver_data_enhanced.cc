@@ -47,6 +47,10 @@ struct Options {
     // Noise level specification
     std::vector<double> noise_levels = {0.0, 0.01};
     
+    // Outlier support for LO-RANSAC benchmarks
+    bool generate_outliers = false;
+    std::vector<double> outlier_ratios = {0.25}; // Default 25% outliers
+    
     // Realistic camera parameters
     double focal_length = 500.0;
     double baseline = 1.0;
@@ -84,6 +88,10 @@ struct Options {
         std::cout << "  --gold-standard-abs-only Generate only gold standard absolute pose data\n";
         std::cout << "                         (DLT will use all --points specified)\n\n";
         
+        std::cout << "LO-RANSAC Outlier Support:\n";
+        std::cout << "  --with-outliers        Generate datasets with outliers for robust estimation\n";
+        std::cout << "  --outlier-ratios \"X,Y\" Comma-separated outlier ratios (default: \"0.25\")\n\n";
+        
         std::cout << "Realistic Data Generation:\n";
         std::cout << "  --realistic            Use realistic camera parameters and methodology\n";
         std::cout << "  --focal-length F       Camera focal length in pixels (default: 500)\n";
@@ -98,8 +106,8 @@ struct Options {
         std::cout << "  ./generate_minimal_solver_data_abs_enhanced --noise-levels \"0.0,0.005,0.01,0.02\"\n\n";
         std::cout << "  # Generate realistic data with research paper methodology:\n";
         std::cout << "  ./generate_minimal_solver_data_abs_enhanced --realistic --focal-length 500 --pixel-noise 0.1\n\n";
-        std::cout << "  # DLT solver with 32 minimum points:\n";
-        std::cout << "  ./generate_minimal_solver_data_abs_enhanced --dlt-only --dlt-min 32 --points 128\n\n";
+        std::cout << "  # Generate P3P data with 25% outliers for LO-RANSAC:\n";
+        std::cout << "  ./generate_minimal_solver_data_abs_enhanced --p3p-only --with-outliers --outlier-ratios \"0.25\"\n\n";
         std::cout << "  # Double precision with all solvers:\n";
         std::cout << "  ./generate_minimal_solver_data_abs_enhanced --double --problems 200\n\n";
     }
@@ -185,6 +193,10 @@ Options parse_args(int argc, char** argv) {
             opts.use_double = true;
         } else if (strcmp(argv[i], "--realistic") == 0) {
             opts.realistic = true;
+        } else if (strcmp(argv[i], "--with-outliers") == 0) {
+            opts.generate_outliers = true;
+        } else if (strcmp(argv[i], "--outlier-ratios") == 0 && i + 1 < argc) {
+            opts.outlier_ratios = parse_noise_levels(argv[++i]);
         } else {
             std::cout << "Unknown option: " << argv[i] << std::endl;
             opts.print_help();
@@ -203,6 +215,57 @@ Options parse_args(int argc, char** argv) {
     }
     
     return opts;
+}
+
+// Outlier injection function for absolute pose LO-RANSAC
+template<typename Scalar, size_t N>
+void inject_outliers(EntoContainer<Vec2<Scalar>, N>& points2D,
+                     EntoContainer<Vec3<Scalar>, N>& points3D,
+                     EntoContainer<bool, N>& inlier_mask,
+                     double outlier_ratio,
+                     std::default_random_engine& rng) {
+    const size_t num_points = points2D.size();
+    const size_t num_outliers = static_cast<size_t>(num_points * outlier_ratio);
+    
+    ENTO_DEBUG("Injecting %zu outliers out of %zu points (ratio=%.2f)", 
+               num_outliers, num_points, outlier_ratio);
+    
+    // Initialize inlier mask - everyone starts as inlier
+    if constexpr (N == 0) {
+        inlier_mask.clear();
+        inlier_mask.resize(num_points, true);
+    } else {
+        std::fill(inlier_mask.begin(), inlier_mask.end(), true);
+    }
+    
+    // Generate random indices to replace with outliers
+    std::vector<size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::shuffle(indices.begin(), indices.end(), rng);
+    
+    // Replace first num_outliers correspondences with random ones
+    std::uniform_real_distribution<Scalar> coord_dist(-2.0, 2.0);
+    std::uniform_real_distribution<Scalar> depth_dist(0.5, 8.0);
+    
+    for (size_t i = 0; i < num_outliers; ++i) {
+        size_t idx = indices[i];
+        
+        // Generate random 2D point (normalized coordinates)
+        points2D[idx] = Vec2<Scalar>(coord_dist(rng), coord_dist(rng));
+        
+        // Generate random 3D point 
+        points3D[idx] = Vec3<Scalar>(coord_dist(rng), coord_dist(rng), depth_dist(rng));
+        
+        // Mark as outlier
+        inlier_mask[idx] = false;
+        
+        ENTO_DEBUG("Outlier %zu: idx=%zu, 2D=(%f,%f), 3D=(%f,%f,%f)", 
+                   i, idx, points2D[idx](0), points2D[idx](1),
+                   points3D[idx](0), points3D[idx](1), points3D[idx](2));
+    }
+    
+    ENTO_DEBUG("Outlier injection complete: %zu outliers, %zu inliers", 
+               num_outliers, num_points - num_outliers);
 }
 
 // Enhanced pose error computation with separate rotation and translation tracking
@@ -476,6 +539,76 @@ std::string make_csv_line_absolute_pose(
         const Vec3& pt = points3D[i];
         oss << pt(0) << ',' << pt(1) << ',' << pt(2);
         if (i < N - 1) oss << ',';
+    }
+
+    return oss.str();
+}
+
+// CSV line generation for robust absolute pose problems (with outlier masks)
+template <typename Scalar, size_t N>
+std::string make_csv_line_robust_absolute_pose(
+    const CameraPose<Scalar>& pose,
+    const EntoContainer<Vec2<Scalar>, N>& points2D,
+    const EntoContainer<Vec3<Scalar>, N>& points3D,
+    const EntoContainer<bool, N>& inlier_mask,
+    Scalar scale = Scalar{1},
+    Scalar focal = Scalar{1})
+{
+    using Vec2 = Eigen::Matrix<Scalar,2,1>;
+    using Vec3 = Eigen::Matrix<Scalar,3,1>;
+    std::ostringstream oss;
+    
+    const size_t num_points = points2D.size();
+
+    // 1) problem_type (1 for absolute pose), N
+    oss << 1 << ',' << num_points << ',';
+
+    // 2) quaternion (w, x, y, z)
+    oss << pose.q.w() << ','
+        << pose.q.x() << ','
+        << pose.q.y() << ','
+        << pose.q.z() << ',';
+
+    // 3) translation (tx, ty, tz)
+    oss << pose.t.x() << ','
+        << pose.t.y() << ','
+        << pose.t.z() << ',';
+
+    // 4) camera parameters (scale, focal)
+    oss << scale << ',' << focal << ',';
+
+    // 5) x: dump N points (x, y)
+    for (size_t i = 0; i < num_points; ++i) {
+        const Vec2& pt = points2D[i];
+        oss << pt(0) << ',' << pt(1) << ',';
+    }
+
+    // 6) X: dump N points (x, y, z)
+    for (size_t i = 0; i < num_points; ++i) {
+        const Vec3& pt = points3D[i];
+        oss << pt(0) << ',' << pt(1) << ',' << pt(2) << ',';
+    }
+
+    // 7) pack "inliers" (bool flags) into bytes
+    constexpr size_t kNumBytes = (N > 0) ? ((N + 7) / 8) : 0;
+    size_t dyn_num_bytes = (N == 0) ? ((num_points + 7) / 8) : 0;
+    size_t actual_num_bytes = (N > 0) ? kNumBytes : dyn_num_bytes;
+    
+    std::vector<uint8_t> mask_bytes(actual_num_bytes, 0);
+    for (size_t i = 0; i < num_points; ++i) {
+        if (inlier_mask[i]) {
+            size_t byte_idx = i / 8;
+            size_t bit_idx = i % 8; // LSB = point-0, next bit = point-1, etc.
+            mask_bytes[byte_idx] |= static_cast<uint8_t>(1u << bit_idx);
+        }
+    }
+
+    // 8) append each byte in decimal. If N<=8, that's one byte; otherwise multiple.
+    for (size_t b = 0; b < actual_num_bytes; ++b) {
+        oss << static_cast<uint32_t>(mask_bytes[b]);
+        if (b + 1 < actual_num_bytes) {
+            oss << ','; // comma-separate multiple inlier-bytes
+        }
     }
 
     return oss.str();
@@ -1194,6 +1327,72 @@ void generate_solver_data_for_noise_level(
     stats.print_stats(solver_name, noise_level);
 }
 
+// Generic solver data generation function WITH OUTLIER INJECTION for LO-RANSAC
+template<typename Scalar, size_t N, typename SolverFunc>
+void generate_solver_data_for_noise_level_robust(
+    const Options& opts,
+    const std::string& solver_name,
+    SolverFunc solver_func,
+    double noise_level,
+    double outlier_ratio)
+{
+    std::cout << "  Generating " << solver_name << " ROBUST data (noise=" << noise_level 
+              << ", outliers=" << outlier_ratio << ")..." << std::endl;
+    
+    SolverStats<Scalar> stats;
+    
+    // Create filename with outlier ratio
+    std::ostringstream filename;
+    filename << solver_name << "_noise_" << std::fixed << std::setprecision(3) << noise_level 
+             << "_outliers_" << std::setprecision(3) << outlier_ratio << ".csv";
+    
+    std::cout << "    Creating " << filename.str() << "..." << std::endl;
+    std::ofstream file(filename.str());
+    
+    // Fixed seed for reproducible outlier injection
+    std::default_random_engine outlier_rng(42);
+    
+    for (int i = 0; i < opts.num_problems; ++i) {
+        std::cout << "      Problem " << i << "..." << std::flush;
+        stats.add_problem();
+        
+        // Generate clean data first
+        EntoContainer<Vec2<Scalar>, N> points2D;
+        EntoContainer<Vec3<Scalar>, N> points3D;
+        CameraPose<Scalar> true_pose;
+        
+        if (opts.realistic) {
+            generate_realistic_abspose_data<Scalar, N>(points2D, points3D, true_pose, opts, 
+                                                      opts.num_points, Scalar(noise_level), i, 
+                                                      solver_name.find("up2p") != std::string::npos);
+        } else {
+            generate_unified_abspose_data<Scalar, N>(points2D, points3D, true_pose, 
+                                                    opts.num_points, Scalar(noise_level), i,
+                                                    solver_name.find("up2p") != std::string::npos);
+        }
+        
+        // Inject outliers 
+        EntoContainer<bool, N> inlier_mask;
+        inject_outliers<Scalar, N>(points2D, points3D, inlier_mask, outlier_ratio, outlier_rng);
+        
+        // For robust benchmarks, we don't run the solver here - just generate data
+        // The benchmark will run LO-RANSAC during execution
+        std::cout << " ✓ (data generated with " << static_cast<int>(outlier_ratio * 100) << "% outliers)" << std::endl;
+        
+        // Write robust CSV line with inlier mask
+        std::string csv_line = make_csv_line_robust_absolute_pose<Scalar, N>(
+            true_pose, points2D, points3D, inlier_mask, Scalar(1.0), Scalar(opts.focal_length));
+        file << csv_line << std::endl;
+    }
+    
+    file.close();
+    std::cout << "    " << filename.str() << " complete." << std::endl;
+    
+    // Note: No solver statistics for robust data generation - that happens in benchmarks
+    std::cout << "    Generated " << opts.num_problems << " problems with " 
+              << static_cast<int>(outlier_ratio * 100) << "% outliers." << std::endl;
+}
+
 // Generic function to generate data for any solver across all noise levels (parameterized)
 template<typename Scalar, size_t N, typename SolverFunc>
 void generate_solver_data_parameterized(
@@ -1203,9 +1402,18 @@ void generate_solver_data_parameterized(
 {
     std::cout << "Generating " << solver_name << " data..." << std::endl;
     
-    // Generate data for each noise level
+    if (opts.generate_outliers) {
+        // Generate robust data with outliers for each noise level AND outlier ratio
+        for (double noise_level : opts.noise_levels) {
+            for (double outlier_ratio : opts.outlier_ratios) {
+                generate_solver_data_for_noise_level_robust<Scalar, N>(opts, solver_name, solver_func, noise_level, outlier_ratio);
+            }
+        }
+    } else {
+        // Generate clean data for each noise level
     for (double noise_level : opts.noise_levels) {
         generate_solver_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
+        }
     }
 }
 
@@ -1301,8 +1509,33 @@ int main(int argc, char** argv)
     }
     
     std::cout << "\n=== Data Generation Complete! ===" << std::endl;
-    std::cout << "Generated files for each noise level:" << std::endl;
     
+    if (opts.generate_outliers) {
+        std::cout << "Generated ROBUST files with outliers:" << std::endl;
+        for (double noise_level : opts.noise_levels) {
+            for (double outlier_ratio : opts.outlier_ratios) {
+                std::cout << "\nNoise level " << noise_level << ", Outlier ratio " << outlier_ratio << ":" << std::endl;
+                if (opts.generate_p3p) {
+                    std::cout << "  - p3p_noise_" << std::fixed << std::setprecision(3) << noise_level 
+                              << "_outliers_" << std::setprecision(3) << outlier_ratio << ".csv" << std::endl;
+                }
+                if (opts.generate_up2p) {
+                    std::cout << "  - up2p_noise_" << std::fixed << std::setprecision(3) << noise_level 
+                              << "_outliers_" << std::setprecision(3) << outlier_ratio << ".csv" << std::endl;
+                }
+                if (opts.generate_dlt) {
+                    std::cout << "  - dlt_noise_" << std::fixed << std::setprecision(3) << noise_level 
+                              << "_outliers_" << std::setprecision(3) << outlier_ratio << ".csv" << std::endl;
+                }
+                if (opts.generate_gold_standard_abs) {
+                    std::cout << "  - gold_standard_abs_noise_" << std::fixed << std::setprecision(3) << noise_level 
+                              << "_outliers_" << std::setprecision(3) << outlier_ratio << ".csv" << std::endl;
+                }
+            }
+        }
+        std::cout << "\nAll robust files are ready for LO-RANSAC benchmarking!" << std::endl;
+    } else {
+        std::cout << "Generated files for each noise level:" << std::endl;
     for (double noise_level : opts.noise_levels) {
         std::cout << "\nNoise level " << noise_level << ":" << std::endl;
         if (opts.generate_p3p) {
@@ -1318,7 +1551,7 @@ int main(int argc, char** argv)
             std::cout << "  - gold_standard_abs_noise_" << std::fixed << std::setprecision(3) << noise_level << ".csv" << std::endl;
         }
     }
-    
     std::cout << "\nAll files are ready for microcontroller benchmarking!" << std::endl;
+    }
     return 0;
 } 

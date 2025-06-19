@@ -11,6 +11,7 @@
 #include <Eigen/Geometry>
 #include <random>
 #include <cstring>
+#include <chrono>
 
 #include <ento-util/containers.h>
 #include <ento-util/debug.h>
@@ -20,6 +21,10 @@
 #include <ento-pose/camera_models.h>
 #include <ento-pose/data_gen.h>
 #include <ento-pose/prob_gen.h>
+#include <ento-pose/synthetic_relpose.h>
+#include <ento-pose/robust-est/robust_pose_solver.h>
+#include <ento-pose/robust-est/ransac_util.h>
+#include <ento-pose/robust.h>
 
 
 // Include the solver interfaces from data_gen.h
@@ -51,6 +56,13 @@ struct Options {
     bool generate_outliers = false;
     std::vector<double> outlier_ratios = {0.05, 0.10, 0.25, 0.50}; // 5%, 10%, 25%, 50%
     
+    // Robust solver testing
+    bool test_robust_solver = false;
+    std::string robust_solver_type = "5pt"; // "5pt", "8pt", "upright_3pt"
+    double outlier_ratio = 0.25;
+    std::string refinement_type = "linear"; // "linear", "nonlinear", "none"
+    double robust_noise_level = 1.0; // Noise level for robust solver testing
+    
     void print_help() {
         std::cout << "Usage: generate_minimal_solver_data_rel_enhanced [options]\n";
         std::cout << "Options:\n";
@@ -73,6 +85,11 @@ struct Options {
         std::cout << "  --rotation-deg N      Rotation magnitude in degrees (default: 16.0)\n";
         std::cout << "  --with-outliers       Generate datasets with outliers for robust estimation\n";
         std::cout << "  --outlier-ratios \"X,Y,Z\" Comma-separated outlier ratios (default: \"0.05,0.10,0.25,0.50\")\n";
+        std::cout << "  --robust-solver       Test robust solver\n";
+        std::cout << "  --robust-type \"T\"     Robust solver type (5pt, 8pt, upright_3pt, upright_planar_3pt, upright_planar_2pt)\n";
+        std::cout << "  --robust-outliers \"R\" Robust outlier ratio (default: 0.25)\n";
+        std::cout << "  --robust-refinement \"R\" Robust refinement type (linear, nonlinear, none)\n";
+        std::cout << "  --robust-noise \"N\"    Noise level for robust solver testing (default: 1.0)\n";
         std::cout << "  --help                Show this help message\n";
         std::cout << "\nExamples:\n";
         std::cout << "  # Use realistic data generation with 0.1 pixel noise:\n";
@@ -133,6 +150,8 @@ Options parse_args(int argc, char** argv) {
             opts.generate_upright_3pt = false;
             opts.generate_upright_planar_3pt = true;
             opts.generate_upright_planar_2pt = false;
+            opts.generate_gold_standard_rel = false;  // ADD THIS LINE
+            opts.generate_homography = false;         // ADD THIS LINE
         } else if (strcmp(argv[i], "--upright-planar-2pt-only") == 0) {
             opts.generate_8pt = false;
             opts.generate_5pt = false;
@@ -185,6 +204,16 @@ Options parse_args(int argc, char** argv) {
             while (std::getline(ss, item, ',')) {
                 opts.outlier_ratios.push_back(std::stod(item));
             }
+        } else if (strcmp(argv[i], "--robust-solver") == 0) {
+            opts.test_robust_solver = true;
+        } else if (strcmp(argv[i], "--robust-type") == 0 && i + 1 < argc) {
+            opts.robust_solver_type = argv[++i];
+        } else if (strcmp(argv[i], "--robust-outliers") == 0 && i + 1 < argc) {
+            opts.outlier_ratio = std::stod(argv[++i]);
+        } else if (strcmp(argv[i], "--robust-refinement") == 0 && i + 1 < argc) {
+            opts.refinement_type = argv[++i];
+        } else if (strcmp(argv[i], "--robust-noise") == 0 && i + 1 < argc) {
+            opts.robust_noise_level = std::stod(argv[++i]);
         } else {
             std::cout << "Unknown option: " << argv[i] << std::endl;
             opts.print_help();
@@ -1946,8 +1975,8 @@ void generate_solver_data_parameterized(
         }
     } else {
         // Generate clean data for each noise level
-        for (double noise_level : opts.noise_levels) {
-            generate_solver_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
+    for (double noise_level : opts.noise_levels) {
+        generate_solver_data_for_noise_level<Scalar, N>(opts, solver_name, solver_func, noise_level);
         }
     }
 }
@@ -2093,20 +2122,9 @@ void generate_solver_data_for_noise_level_robust(
             );
         }
         
-        // Convert bearing vectors to 2D image points for outlier injection
-        const Scalar focal_length = static_cast<Scalar>(opts.focal_length);
-        x1_img.clear();
-        x2_img.clear();
-        
-        for (size_t j = 0; j < x1_bear.size(); ++j) {
-            // Convert bearing vectors to image coordinates
-            Vec2<Scalar> img1(focal_length * x1_bear[j](0) / x1_bear[j](2), 
-                              focal_length * x1_bear[j](1) / x1_bear[j](2));
-            Vec2<Scalar> img2(focal_length * x2_bear[j](0) / x2_bear[j](2), 
-                              focal_length * x2_bear[j](1) / x2_bear[j](2));
-            x1_img.push_back(img1);
-            x2_img.push_back(img2);
-        }
+        // Convert bearing vectors to 2D normalized points (same as working test)
+        EntoPose::bearing_vectors_to_normalized_points<Scalar, N>(x1_bear, x1_img);
+        EntoPose::bearing_vectors_to_normalized_points<Scalar, N>(x2_bear, x2_img);
         
         // Inject outliers
         inject_relative_pose_outliers<Scalar, N>(x1_img, x2_img, inlier_mask, outlier_ratio, rng);
@@ -2161,9 +2179,210 @@ void generate_solver_data_for_noise_level_robust(
     stats.print_stats(stats_name, noise_level);
 }
 
+//// Robust solver testing function
+//template<typename Solver, size_t N>
+//void test_robust_solver(const Options& opt) {
+//    using Scalar = float;
+//    
+//    std::cout << "=== Robust Solver Test ===" << std::endl;
+//    std::cout << "Solver: " << opt.robust_solver_type << std::endl;
+//    std::cout << "Outlier ratio: " << opt.outlier_ratio << std::endl;
+//    std::cout << "Refinement: " << opt.refinement_type << std::endl;
+//    std::cout << "Testing with " << N << " points" << std::endl;
+//    
+//    // 1. Generate synthetic data with outliers
+//    constexpr size_t num_points = N;
+//    EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_img, x2_img;
+//    EntoUtil::EntoContainer<bool, N> inlier_mask;
+//    CameraPose<Scalar> pose_gt;
+//    
+//    // Generate clean relative pose data
+//    EntoContainer<Vec3<Scalar>, N> x1_bear, x2_bear;
+//    
+//    if (opt.use_realistic_generation) {
+//        // Use realistic generation method (paper-based)
+//        generate_realistic_relpose_data<Scalar, N>(
+//            x1_bear, x2_bear, pose_gt, num_points,
+//            opt.robust_noise_level, // Use configured noise level
+//            opt.focal_length,    // Use configured focal length
+//            opt.baseline_magnitude,
+//            opt.rotation_magnitude_deg,
+//            12345, // Fixed seed for reproducibility
+//            opt.robust_solver_type.find("upright") != std::string::npos,
+//            opt.robust_solver_type.find("planar") != std::string::npos
+//        );
+//    } else {
+//        // Use traditional generation method
+//        generate_unified_relpose_data<Scalar, N>(
+//            x1_bear, x2_bear, pose_gt, num_points,
+//            opt.robust_noise_level, // Use configured noise level
+//            12345, // Fixed seed
+//            opt.robust_solver_type.find("upright") != std::string::npos,
+//            opt.robust_solver_type.find("planar") != std::string::npos
+//        );
+//    }
+//    
+//    // Convert bearing vectors to 2D image points
+//    const Scalar focal_length = opt.use_realistic_generation ? opt.focal_length : 500.0;
+//    
+//    for (size_t j = 0; j < x1_bear.size(); ++j) {
+//        Vec2<Scalar> img1(focal_length * x1_bear[j](0) / x1_bear[j](2), 
+//                          focal_length * x1_bear[j](1) / x1_bear[j](2));
+//        Vec2<Scalar> img2(focal_length * x2_bear[j](0) / x2_bear[j](2), 
+//                          focal_length * x2_bear[j](1) / x2_bear[j](2));
+//        x1_img.push_back(img1);
+//        x2_img.push_back(img2);
+//    }
+//    
+//    // Inject outliers
+//    std::default_random_engine rng(54321);
+//    inject_relative_pose_outliers<Scalar, N>(x1_img, x2_img, inlier_mask, opt.outlier_ratio, rng);
+//    
+//    // Count actual inliers
+//    size_t num_inliers = 0;
+//    for (size_t i = 0; i < inlier_mask.size(); ++i) {
+//        if (inlier_mask[i]) num_inliers++;
+//    }
+//    
+//    std::cout << "Generated " << x1_img.size() << " correspondences with " 
+//              << num_inliers << " inliers (" << (100.0 * num_inliers / x1_img.size()) << "%)" << std::endl;
+//    
+//    // 2. Test robust solver
+//    std::cout << "Testing robust solver..." << std::endl;
+//    
+//    // Create robust solver based on type
+//    if (opt.robust_solver_type == "5pt") {
+//        using MinimalSolver = EntoPose::SolverRel5pt<Scalar>;
+//        using RobustSolver = EntoPose::RobustRelativePoseSolver<MinimalSolver, N>;
+//        
+//        // Configure RANSAC options
+//        EntoPose::RansacOptions<Scalar> ransac_opt;
+//        ransac_opt.max_iters = 10000;
+//        ransac_opt.max_epipolar_error = 0.1; // Use epipolar error like the tests
+//        ransac_opt.success_prob = 0.99;
+//        
+//        // Configure refinement based on user choice
+//        EntoPose::LocalRefinementType refinement_type;
+//        if (opt.refinement_type == "linear") {
+//            refinement_type = EntoPose::LocalRefinementType::Linear;
+//        } else if (opt.refinement_type == "nonlinear") {
+//            refinement_type = EntoPose::LocalRefinementType::BundleAdjust;
+//        } else {
+//            refinement_type = EntoPose::LocalRefinementType::None;
+//        }
+//        ransac_opt.lo_type = refinement_type;
+//        
+//        // Bundle adjustment options
+//        EntoPose::BundleOptions<Scalar> bundle_opt;
+//        bundle_opt.loss_type = EntoPose::BundleOptions<Scalar>::LossType::TRUNCATED;
+//        bundle_opt.max_iterations = 20;
+//        
+//        // Create cameras (identity cameras with focal=1.0 for normalized coordinates like working test)
+//        using CameraModel = EntoPose::IdentityCameraModel<Scalar>;
+//        using Params = std::array<Scalar, 0>;
+//        Params params;
+//        EntoPose::Camera<Scalar, CameraModel> camera1(1.0, 1.0, params);
+//        EntoPose::Camera<Scalar, CameraModel> camera2(1.0, 1.0, params);
+//        
+//        // Create solver
+//        RobustSolver solver(ransac_opt, bundle_opt, camera1, camera2);
+//        
+//        // Solve
+//        CameraPose<Scalar> estimated_pose;
+//        EntoUtil::EntoContainer<uint8_t, N> estimated_inliers;
+//        EntoPose::RansacStats<Scalar> stats = solver.solve(x1_img, x2_img, &estimated_pose, &estimated_inliers);
+//        
+//        // Evaluate results
+//        std::cout << "RANSAC completed:" << std::endl;
+//        std::cout << "  Iterations: " << stats.iters << std::endl;
+//        std::cout << "  Inliers found: " << stats.num_inliers << " / " << x1_img.size() << std::endl;
+//        std::cout << "  Success: " << (stats.num_inliers > 5 ? "YES" : "NO") << std::endl;
+//        
+//        if (stats.num_inliers > 5) {
+//            // Compute pose error
+//            PoseErrors<Scalar> error = compute_pose_errors<Scalar, N>(pose_gt, estimated_pose, x1_bear, x2_bear);
+//            std::cout << "  Pose error: " << error.max_error() << "° (rot: " << error.rotation_error_deg 
+//                      << "°, trans: " << error.translation_error_deg << "°)" << std::endl;
+//            
+//            // Check inlier detection accuracy
+//            size_t correct_inliers = 0;
+//            size_t false_positives = 0;
+//            size_t false_negatives = 0;
+//            
+//            for (size_t i = 0; i < inlier_mask.size(); ++i) {
+//                bool gt_inlier = inlier_mask[i];
+//                bool est_inlier = estimated_inliers[i] > 0;
+//                
+//                if (gt_inlier && est_inlier) {
+//                    correct_inliers++;
+//                } else if (!gt_inlier && est_inlier) {
+//                    false_positives++;
+//                } else if (gt_inlier && !est_inlier) {
+//                    false_negatives++;
+//                }
+//            }
+//            
+//            double precision = (double)correct_inliers / (correct_inliers + false_positives);
+//            double recall = (double)correct_inliers / (correct_inliers + false_negatives);
+//            
+//            std::cout << "  Inlier detection:" << std::endl;
+//            std::cout << "    Correct: " << correct_inliers << std::endl;
+//            std::cout << "    False positives: " << false_positives << std::endl;
+//            std::cout << "    False negatives: " << false_negatives << std::endl;
+//            std::cout << "    Precision: " << (precision * 100) << "%" << std::endl;
+//            std::cout << "    Recall: " << (recall * 100) << "%" << std::endl;
+//            
+//            if (error.max_error() < 5.0) {
+//                std::cout << "✓ Robust solver test PASSED!" << std::endl;
+//            } else {
+//                std::cout << "✗ Robust solver test FAILED - pose error too high" << std::endl;
+//            }
+//        } else {
+//            std::cout << "✗ Robust solver test FAILED - no solution found" << std::endl;
+//        }
+//        
+//    } else {
+//        std::cout << "Robust solver type '" << opt.robust_solver_type << "' not yet implemented in test" << std::endl;
+//        std::cout << "Available: 5pt" << std::endl;
+//    }
+//}
+
+//// Dispatch function for different solver types
+//void run_robust_solver_test(const Options& opt) {
+//    std::cout << "Testing robust solver dispatch..." << std::endl;
+//    
+//    // Use fixed number of points for testing
+//    constexpr size_t test_points = 64;
+//    
+//    if (opt.robust_solver_type == "5pt") {
+//        test_robust_solver<EntoPose::SolverRel5pt<float>, test_points>(opt);
+//    } else if (opt.robust_solver_type == "8pt") {
+//        test_robust_solver<EntoPose::SolverRel8pt<float>, test_points>(opt);
+//    } else if (opt.robust_solver_type == "upright_3pt") {
+//        test_robust_solver<EntoPose::SolverRelUpright3pt<float>, test_points>(opt);
+//    } else if (opt.robust_solver_type == "upright_planar_3pt") {
+//        std::cout << "upright_planar_3pt robust solver test not yet implemented" << std::endl;
+//    } else if (opt.robust_solver_type == "upright_planar_2pt") {
+//        std::cout << "upright_planar_2pt robust solver test not yet implemented" << std::endl;
+//    } else {
+//        std::cerr << "Unknown robust solver type: " << opt.robust_solver_type << std::endl;
+//        std::exit(1);
+//    }
+//}
+
 int main(int argc, char** argv)
 {
     Options opts = parse_args(argc, argv);
+    
+    // Check if we're in robust solver test mode
+    // COMMENTED OUT: Robust solver testing is not working properly
+    /*
+    if (opts.test_robust_solver) {
+        std::cout << "Running robust solver test mode..." << std::endl;
+        run_robust_solver_test(opts);
+        return 0;
+    }
+    */
     
     std::cout << "Enhanced Relative Pose Data Generation Tool" << std::endl;
     std::cout << "Generation method: " << (opts.use_realistic_generation ? "Realistic (paper-based)" : "Traditional") << std::endl;

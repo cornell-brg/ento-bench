@@ -111,6 +111,45 @@ add_benchmark(bench-dlt64-double
 list(APPEND BENCH_TARGETS bench-dlt64-double)
 
 # =============================================================================
+# LO-RANSAC Robust Pose Estimation Benchmarks
+# =============================================================================
+
+# LO-RANSAC P3P with Linear Refinement
+add_benchmark(bench-lo-ransac-p3p-float
+  SOURCES bench_lo_ransac_p3p_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lo-ransac-p3p-float)
+
+# LO-RANSAC P3P with Nonlinear Refinement (Bundle Adjustment)
+add_benchmark(bench-lo-ransac-p3p-nonlinear-float
+  SOURCES bench_lo_ransac_p3p_nonlinear_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lo-ransac-p3p-nonlinear-float)
+
+# LO-RANSAC DLT with Linear Refinement
+add_benchmark(bench-lo-ransac-dlt-float
+  SOURCES bench_lo_ransac_dlt_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lo-ransac-dlt-float)
+
+# LO-RANSAC 5pt with Linear Refinement
+add_benchmark(bench-lo-ransac-5pt-float
+  SOURCES bench_lo_ransac_5pt_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lo-ransac-5pt-float)
+
+# LO-RANSAC 8pt with Linear Refinement
+add_benchmark(bench-lo-ransac-8pt-float
+  SOURCES bench_lo_ransac_8pt_float.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-lo-ransac-8pt-float)
+
+# =============================================================================
 # Relative Pose Solvers - 8pt (Original + Scaling)
 # =============================================================================
 
@@ -371,6 +410,15 @@ set(GOLD_STANDARD_TARGETS
   bench-gold-standard-rel-float bench-gold-standard-rel-double
 )
 
+# LO-RANSAC robust pose estimation targets
+set(LO_RANSAC_TARGETS
+  bench-lo-ransac-p3p-float
+  bench-lo-ransac-p3p-nonlinear-float
+  bench-lo-ransac-dlt-float
+  bench-lo-ransac-5pt-float
+  bench-lo-ransac-8pt-float
+)
+
 set(ALL_POSE_TARGETS ${ABSOLUTE_POSE_TARGETS} ${RELATIVE_POSE_TARGETS} ${DLT_SCALING_TARGETS} ${8PT_SCALING_TARGETS} ${UPRIGHT_PLANAR_TARGETS} ${UPRIGHT_PLANAR_SCALING_TARGETS})
 set(QUICK_TEST_TARGETS bench-p3p-float bench-8pt-float bench-dlt-float)
 set(PERFORMANCE_TARGETS ${ALL_POSE_TARGETS})
@@ -438,6 +486,13 @@ add_benchmark_group_runner(gold-standard
   OUTPUT_TIMEOUT 20
 )
 
+# LO-RANSAC robust pose estimation benchmarks (longer timeout for RANSAC iterations)
+add_benchmark_group_runner(lo-ransac
+  TARGETS ${LO_RANSAC_TARGETS}
+  TIMEOUT 180
+  OUTPUT_TIMEOUT 30
+)
+
 # All basic pose estimation benchmarks
 add_benchmark_group_runner(all-pose
   TARGETS ${ALL_POSE_TARGETS}
@@ -477,6 +532,11 @@ add_custom_target(bench-pose-gold-standard
   COMMENT "Alias for bench-gold-standard-run"
 )
 
+add_custom_target(bench-pose-lo-ransac
+  DEPENDS bench-lo-ransac-run
+  COMMENT "Alias for bench-lo-ransac-run"
+)
+
 add_custom_target(bench-pose-all
   DEPENDS bench-all-pose-run
   COMMENT "Alias for bench-all-pose-run"
@@ -512,6 +572,10 @@ add_custom_target(bench-pose-help
   COMMAND ${CMAKE_COMMAND} -E echo "Reference Implementations:"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-gold-standard-run     H&Z gold standard absolute and relative pose"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-gold-standard    Alias for bench-gold-standard-run"
+  COMMAND ${CMAKE_COMMAND} -E echo ""
+  COMMAND ${CMAKE_COMMAND} -E echo "Robust Pose Estimation (LO-RANSAC):"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-lo-ransac-run         LO-RANSAC P3P and DLT with linear/nonlinear refinement"
+  COMMAND ${CMAKE_COMMAND} -E echo "  bench-pose-lo-ransac        Alias for bench-lo-ransac-run"
   COMMAND ${CMAKE_COMMAND} -E echo ""
   COMMAND ${CMAKE_COMMAND} -E echo "Comprehensive Testing:"
   COMMAND ${CMAKE_COMMAND} -E echo "  bench-all-pose-run          All basic pose estimation benchmarks"

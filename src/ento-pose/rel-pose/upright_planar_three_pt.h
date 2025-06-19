@@ -39,13 +39,15 @@ int relpose_upright_planar_3pt(const EntoContainer<Vec3<Scalar>, N> &x1,
             A.col(i) << bearing_a_i.x() * bearing_b_i.y(), -bearing_a_i.z() * bearing_b_i.y(),
                 -bearing_b_i.x() * bearing_a_i.y(), -bearing_b_i.z() * bearing_a_i.y();
         }
-
+        
         const Eigen::Matrix<Scalar, 4, 4> Q = A.householderQr().householderQ();
         const Vec4<Scalar> nullspace = Q.col(3);
         
         motion_from_essential_planar<Scalar, N>(nullspace(2), nullspace(3), -nullspace(0), nullspace(1), x1, x2, output);
+        
+        return static_cast<int>(output->size());
     } else {
-        // OVERDETERMINED CASE: Use ALL points with SVD (like linear refinement)
+        // OVERDETERMINED CASE: Use least squares
         // Build constraint matrix A where each row corresponds to one point correspondence
         // Each point gives us one constraint: a_x * b_y * c1 - a_z * b_y * c2 - b_x * a_y * c3 - b_z * a_y * c4 = 0
         
@@ -67,9 +69,9 @@ int relpose_upright_planar_3pt(const EntoContainer<Vec3<Scalar>, N> &x1,
         Vec4<Scalar> nullspace = svd.matrixV().col(3);
         
         motion_from_essential_planar<Scalar, N>(nullspace(2), nullspace(3), -nullspace(0), nullspace(1), x1, x2, output);
+        
+        return static_cast<int>(output->size());
     }
-    
-    return output->size();
 }
 
 } // namespace EntoPose

@@ -206,8 +206,16 @@ RansacStats<Scalar> ransac(Solver &estimator, const RansacOptions<Scalar> &opt, 
     EntoUtil::EntoContainer<Model, Solver::MaxSolns> models;
     for (stats.iters = 0; stats.iters < opt.max_iters; stats.iters++) {
         if (stats.iters > opt.min_iters && stats.iters > state.dynamic_max_iter) {
+            ENTO_DEBUG("[RANSAC] Early termination at iteration %zu (dynamic_max_iter=%zu)", stats.iters, state.dynamic_max_iter);
             break;
         }
+        
+        // DEBUG: Print progress every 1000 iterations for debugging
+        if (stats.iters % 1000 == 0 && stats.iters > 0) {
+            ENTO_DEBUG("[RANSAC] Iteration %zu: best_inliers=%zu, dynamic_max_iter=%zu, inlier_ratio=%f", 
+                       stats.iters, stats.num_inliers, state.dynamic_max_iter, stats.inlier_ratio);
+        }
+        
         models.clear();
         estimator.generate_models(&models);
         score_models(estimator, models, opt, state, stats, best_model);

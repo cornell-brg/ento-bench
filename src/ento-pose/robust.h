@@ -109,12 +109,12 @@ RansacStats<typename Solver::scalar_type> estimate_absolute_pose(
 
 // Estimates relative pose using LO-RANSAC followed by non-linear refinement  
 // Threshold for Sampson error is set by RansacOptions.max_epipolar_error
-template <typename Solver, size_t N = 0>
+template <typename Solver, size_t N = 0, typename CameraModel = IdentityCameraModel<typename Solver::scalar_type>>
 RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     const EntoUtil::EntoContainer<Vec2<typename Solver::scalar_type>, N> &points2D_1,
     const EntoUtil::EntoContainer<Vec2<typename Solver::scalar_type>, N> &points2D_2,
-    const Camera<typename Solver::scalar_type> &camera1,
-    const Camera<typename Solver::scalar_type> &camera2,
+    const Camera<typename Solver::scalar_type, CameraModel> &camera1,
+    const Camera<typename Solver::scalar_type, CameraModel> &camera2,
     const RansacOptions<typename Solver::scalar_type> &ransac_opt,
     const BundleOptions<typename Solver::scalar_type> &bundle_opt,
     CameraPose<typename Solver::scalar_type> *relative_pose,
@@ -123,7 +123,6 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
   using Scalar = typename Solver::scalar_type;
   const size_t num_pts = points2D_1.size();
 
-  ENTO_DEBUG("Hello...");
   // Normalize image points for both cameras
   EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_calib, x2_calib;
   if constexpr (N == 0) 
@@ -150,15 +149,22 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     }
   }
 
+  // DEBUG: Print first few points after normalization
+  ENTO_DEBUG("DEBUG: First 5 points after normalization:");
+  for (size_t i = 0; i < std::min(size_t(5), x1_calib.size()); ++i) {
+    ENTO_DEBUG("  Point %zu: x1_calib=(%f,%f) x2_calib=(%f,%f)", i, 
+               x1_calib[i](0), x1_calib[i](1), x2_calib[i](0), x2_calib[i](1));
+  }
+  ENTO_DEBUG("DEBUG: Total points: %zu, RANSAC threshold: %f", x1_calib.size(), ransac_opt.max_epipolar_error);
+
+  // Run RANSAC
   ENTO_DEBUG("Hello...");
-  // Scale threshold for normalized coordinates
+  // The threshold is already in the right units since camera.unproject() handles the conversion
   RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
-  ransac_opt_scaled.max_epipolar_error = 
-      ransac_opt.max_epipolar_error * Scalar(0.5) * (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+  ransac_opt_scaled.max_epipolar_error = ransac_opt.max_epipolar_error / camera1.focal();
 
   // Run RANSAC
   RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);
-  ENTO_DEBUG("Hello...");
 
   if (ransac_opt.final_refinement) {
     EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
@@ -170,8 +176,7 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     }
 
     BundleOptions<Scalar> scaled_bundle_opt = bundle_opt;
-    scaled_bundle_opt.loss_scale = bundle_opt.loss_scale * Scalar(0.5) * 
-        (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+    scaled_bundle_opt.loss_scale = bundle_opt.loss_scale / camera1.focal();
     using WeightT = UniformWeightVector<Scalar>;
     using LossFn = TruncatedLoss<Scalar>;
     refine_relpose<Scalar, WeightT, LossFn, N>(x1_inliers, x2_inliers, relative_pose, scaled_bundle_opt);
@@ -222,8 +227,7 @@ RansacStats<typename Solver::scalar_type> estimate_homography(
 
     // Scale threshold for normalized coordinates
     RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
-    ransac_opt_scaled.max_reproj_error = 
-        ransac_opt.max_reproj_error * Scalar(0.5) * (Scalar(1.0) / camera1.focal() + Scalar(1.0) / camera2.focal());
+    ransac_opt_scaled.max_reproj_error = ransac_opt.max_reproj_error / camera1.focal();
 
     // Run RANSAC on normalized coordinates
     Matrix3x3<Scalar> H_normalized;

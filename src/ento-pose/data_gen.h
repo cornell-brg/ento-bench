@@ -163,7 +163,9 @@ struct SolverRel8pt
 {
   using scalar_type = Scalar;
   static constexpr size_t MaxSolns = 4;
-  static constexpr size_t MinSampleSize = 8;
+  static constexpr size_t MinSampleSize = 8;    // Original minimal sample size
+  // static constexpr size_t MinSampleSize = 12;    // Test overdetermined system
+  // static constexpr size_t MinSampleSize = 16;    // Test highly overdetermined system
 
   static inline int solve(const RelativePoseProblem<Scalar, SolverRel8pt<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>> *solutions) {
@@ -320,12 +322,13 @@ struct SolverRelUprightPlanar2pt
 };
 
 template <typename Scalar>
-struct SolverRelUprightPlanar3pt {
+struct SolverRelUprightPlanar3pt
+{
   using scalar_type = Scalar;
   static constexpr size_t MaxSolns = 2;
   static constexpr size_t MinSampleSize = 3;
 
-  static inline int solve(const RelativePoseProblem<Scalar, SolverRelUprightPlanar2pt<Scalar>, 0>& instance,
+  static inline int solve(const RelativePoseProblem<Scalar, SolverRelUprightPlanar3pt<Scalar>, 0>& instance,
                           std::vector<CameraPose<Scalar>> *solutions)
   {
     EntoArray<CameraPose<Scalar>, 2> solutions_;
@@ -342,11 +345,17 @@ struct SolverRelUprightPlanar3pt {
                           EntoContainer<Vec3<Scalar>, N>& x2,
                           std::vector<CameraPose<Scalar>>* solutions)
   {
+    ENTO_DEBUG("[SOLVER] SolverRelUprightPlanar3pt::solve called with %zu points", x1.size());
+    
     EntoArray<CameraPose<Scalar>, 2> solutions_;
     size_t sols = relpose_upright_planar_3pt<Scalar, N>(x1, x2, &solutions_);
+    
+    ENTO_DEBUG("[SOLVER] SolverRelUprightPlanar3pt::solve returned %zu solutions", sols);
     for (size_t i = 0; i < sols; i++)
     {
       solutions->emplace_back(solutions_[i]);
+      ENTO_DEBUG("[SOLVER] Solution %zu: t=(%f,%f,%f)", i,
+                 solutions_[i].t(0), solutions_[i].t(1), solutions_[i].t(2));
     }
     return sols;
   }
@@ -357,8 +366,19 @@ struct SolverRelUprightPlanar3pt {
                           EntoContainer<Vec3<Scalar>, N>& x2,
                           EntoUtil::EntoArray<CameraPose<Scalar>, MaxSolns>* solutions)
   {
-    return relpose_upright_planar_3pt<Scalar, N>(x1, x2, solutions);
+    ENTO_DEBUG("[SOLVER] SolverRelUprightPlanar3pt::solve (EntoArray) called with %zu points", x1.size());
+    
+    int sols = relpose_upright_planar_3pt<Scalar, N>(x1, x2, solutions);
+    
+    ENTO_DEBUG("[SOLVER] SolverRelUprightPlanar3pt::solve (EntoArray) returned %d solutions", sols);
+    for (int i = 0; i < sols; i++)
+    {
+      ENTO_DEBUG("[SOLVER] Solution %d: t=(%f,%f,%f)", i,
+                 (*solutions)[i].t(0), (*solutions)[i].t(1), (*solutions)[i].t(2));
+    }
+    return sols;
   }
+
   typedef CalibratedRelativePoseValidator<Scalar> validator;
   typedef CameraPose<Scalar> Solution;
   static std::string name() { return "RelUprightPlanar3pt"; }

@@ -109,8 +109,9 @@ void essential_matrix_8pt(const std::vector<Vec3<Scalar>> &x1,
                           const std::vector<Vec3<Scalar>> &x2,
                           Matrix3x3<Scalar>* essential_matrix)
 {
-  // COMMENTED OUT: Isotropic normalization for numerical stability
+  // Temporarily disable normalization to debug
   /*
+  // Isotropic normalization for numerical stability
   std::vector<Vec3<Scalar>> x1_norm, x2_norm;
   Matrix3x3<Scalar> T1, T2;
   
@@ -128,9 +129,14 @@ void essential_matrix_8pt(const std::vector<Vec3<Scalar>> &x1,
   x2_norm.reserve(x2.size());
   for (const auto& x : x1_norm_container) x1_norm.push_back(x);
   for (const auto& x : x2_norm_container) x2_norm.push_back(x);
+  
+  // Use normalized coordinates
+  using MatX9 = Eigen::Matrix<Scalar, Eigen::Dynamic, 9>;
+  MatX9 epipolar_constraint(x1_norm.size(), 9);
+  encode_epipolar_equation<Scalar>(x1_norm, x2_norm, &epipolar_constraint);
   */
   
-  // Original logic with original coordinates (no normalization)
+  // Use original coordinates (no normalization)  
   using MatX9 = Eigen::Matrix<Scalar, Eigen::Dynamic, 9>;
   MatX9 epipolar_constraint(x1.size(), 9);
   encode_epipolar_equation<Scalar>(x1, x2, &epipolar_constraint);
@@ -159,7 +165,7 @@ void essential_matrix_8pt(const std::vector<Vec3<Scalar>> &x1,
   d << (a + b) / 2., (a + b) / 2., 0.0;
   E = USV.matrixU() * d.asDiagonal() * USV.matrixV().transpose();
 
-  // No denormalization needed since we're not using normalization
+  // No denormalization since we didn't normalize
   (*essential_matrix) = E;
 }
 
@@ -168,8 +174,9 @@ void essential_matrix_8pt(const EntoArray<Vec3<Scalar>, N> &x1,
                           const EntoArray<Vec3<Scalar>, N> &x2,
                           Matrix3x3<Scalar>* essential_matrix)
 {
-  // COMMENTED OUT: Isotropic normalization for numerical stability
+  // Temporarily disable normalization to debug
   /*
+  // Isotropic normalization for numerical stability
   EntoUtil::EntoContainer<Vec3<Scalar>, N> x1_norm, x2_norm;
   Matrix3x3<Scalar> T1, T2;
   
@@ -182,9 +189,14 @@ void essential_matrix_8pt(const EntoArray<Vec3<Scalar>, N> &x1,
   
   iso_normalize_bearing_vectors<Scalar, N>(x1_container, x1_norm, T1);
   iso_normalize_bearing_vectors<Scalar, N>(x2_container, x2_norm, T2);
+  
+  // Use normalized coordinates
+  using MatX9 = Eigen::Matrix<Scalar, N, 9>;
+  MatX9 epipolar_constraint;
+  encode_epipolar_equation<Scalar, N>(x1_norm, x2_norm, &epipolar_constraint);
   */
   
-  // Original logic with original coordinates (no normalization)
+  // Use original coordinates (no normalization)
   using MatX9 = Eigen::Matrix<Scalar, N, 9>;
   MatX9 epipolar_constraint;
   encode_epipolar_equation<Scalar, N>(x1, x2, &epipolar_constraint);
@@ -213,7 +225,7 @@ void essential_matrix_8pt(const EntoArray<Vec3<Scalar>, N> &x1,
   d << (a + b) / 2., (a + b) / 2., 0.0;
   E = USV.matrixU() * d.asDiagonal() * USV.matrixV().transpose();
 
-  // No denormalization needed since we're not using normalization
+  // No denormalization since we didn't normalize
   (*essential_matrix) = E;
 }
 

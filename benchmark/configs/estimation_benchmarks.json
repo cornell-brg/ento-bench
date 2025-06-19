@@ -431,15 +431,39 @@
 
     "bench-ekf-sync-update-float": {
       "reps": 1,
-      "inner_reps": 20,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": false,
       "max_problems": 100
     },
 
+    "bench-lo-ransac-p3p-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": false,
+      "max_problems": 100
+    },
+
+    "bench-lo-ransac-8pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
+    "bench-lo-ransac-5pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
     "bench-ekf-seq-update-float": {
       "reps": 1,
-      "inner_reps": 20,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": false,
       "max_problems": 100
@@ -447,7 +471,7 @@
 
     "bench-ekf-truncated-update-float": {
       "reps": 1,
-      "inner_reps": 20,
+      "inner_reps": 50,
       "verbosity": 1,
       "enable_caches": false,
       "max_problems": 100

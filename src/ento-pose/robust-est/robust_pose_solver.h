@@ -14,6 +14,7 @@ template <typename Solver, size_t N = 0>
 class RobustRelativePoseSolver {
 public:
     using Scalar = typename Solver::scalar_type;
+    static constexpr size_t MaxSolns = 1;  // Robust solvers return 1 best solution
     
     RobustRelativePoseSolver(const RansacOptions<Scalar>& options, 
                             const BundleOptions<Scalar>& bundle_options,
@@ -57,6 +58,7 @@ template <typename Solver, size_t N = 0>
 class RobustAbsolutePoseSolver {
 public:
     using Scalar = typename Solver::scalar_type;
+    static constexpr size_t MaxSolns = 1;  // Robust solvers return 1 best solution
     
     RobustAbsolutePoseSolver(const RansacOptions<Scalar>& options,
                             const BundleOptions<Scalar>& bundle_options,

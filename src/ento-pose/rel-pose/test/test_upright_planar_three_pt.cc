@@ -212,7 +212,7 @@ void test_linear_refine_upright_planar_3pt_float() {
     x2[i].normalize();
   }
   CameraPose<Scalar> refined_pose;
-  EntoPose::linear_refine_upright_planar_3pt<Scalar, N>(x1, x2, &refined_pose);
+  EntoPose::linear_refine_upright_planar_3pt<Scalar, N>(x1_2d, x2_2d, &refined_pose);
   float trace_val = (refined_pose.R().transpose() * true_pose.R()).trace();
   float angle_rad = std::acos(std::clamp((trace_val - 1.0f) / 2.0f, -1.0f, 1.0f));
   float angle_deg = angle_rad * 180.0f / static_cast<float>(M_PI);

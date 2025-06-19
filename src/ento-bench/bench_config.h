@@ -27,7 +27,7 @@ class Harness;
 #if defined(STM32H7) || defined(STM32H7xx) || defined(STM32H743xx) || defined(STM32H753xx) || defined(STM32H750xx)
 constexpr std::size_t H7_PERFORMANCE_MULTIPLIER = 1;  // @TODO: Fix this in cmake before making 2. H7 is ~2x faster than other STM32s
 #else
-constexpr std::size_t H7_PERFORMANCE_MULTIPLIER = 1;  // No scaling for non-H7
+constexpr std::size_t H7_PERFORMANCE_MULTIPLIER = 1;  // No scaling for non-H8
 #endif
 
 // Compile-time verification that CMake and C++ multipliers are in sync

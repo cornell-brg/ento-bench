@@ -42,7 +42,7 @@ int main()
   using Problem = FeatureRecognitionProblem<Kernel, MaxFeats, Rows, Cols, PixT, true, true>;
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/test_orb_medium_naneye-lights_dataset.txt";
+  const char* rel_path  = "feat2d/orb_medium_naneye-lights_data.txt";
 
   char dataset_path[512];
   char output_path[256];

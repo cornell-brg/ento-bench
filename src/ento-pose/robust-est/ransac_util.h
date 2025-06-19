@@ -127,6 +127,9 @@ Scalar compute_sampson_msac_score(const CameraPose<Scalar> &pose,
   const Scalar E2_0 = E(2, 0), E2_1 = E(2, 1), E2_2 = E(2, 2);
 
   Scalar score = 0.0;
+  size_t sampson_passed = 0;
+  size_t cheirality_failed = 0;
+  
   for (size_t k = 0; k < x1.size(); ++k) {
     const Scalar x1_0 = x1[k](0), x1_1 = x1[k](1);
     const Scalar x2_0 = x2[k](0), x2_1 = x2[k](1);
@@ -144,24 +147,30 @@ Scalar compute_sampson_msac_score(const CameraPose<Scalar> &pose,
     const Scalar Cy = Ex2_0 * Ex2_0 + Ex2_1 * Ex2_1;
     const Scalar r2 = C * C / (Cx + Cy);
 
-    //ENTO_DEBUG("Point %zu - Sampson error: %f, threshold: %f", k, r2, sq_threshold);
-
     if (r2 < sq_threshold) {
+        sampson_passed++;
         bool cheirality =
             check_cheirality(pose, x1[k].homogeneous().normalized(), x2[k].homogeneous().normalized(), Scalar(0.01));
         if (cheirality) {
             (*inlier_count)++;
             score += r2;
-            //ENTO_DEBUG("Point %zu - ACCEPTED as inlier", k);
         } else {
+            cheirality_failed++;
             score += sq_threshold;
-            //ENTO_DEBUG("Point %zu - REJECTED by cheirality check", k);
         }
     } else {
         score += sq_threshold;
-        //ENTO_DEBUG("Point %zu - REJECTED by Sampson error", k);
     }
   }
+  
+  // Debug output for first few scoring calls
+  static int debug_call_count = 0;
+  if (debug_call_count < 3) {
+    ENTO_DEBUG("[SCORE] Threshold: %e, Sampson passed: %zu/%zu, Cheirality failed: %zu, Final inliers: %zu", 
+               sq_threshold, sampson_passed, x1.size(), cheirality_failed, *inlier_count);
+    debug_call_count++;
+  }
+  
   return score;
 }
 
@@ -420,3 +429,4 @@ int get_inliers(const Matrix3x3<Scalar> &E,
 }
 
 #endif // ENTO_RANSAC_UTIL_H
+

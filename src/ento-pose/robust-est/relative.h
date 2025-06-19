@@ -23,7 +23,7 @@ public:
   RelativePoseRobustEstimator(const RansacOptions<Scalar, UsePROSAC, PROSACIters> &opt,
                               const EntoContainer<Vec2<Scalar>, N_> &points2d_1,
                               const EntoContainer<Vec2<Scalar>, N_> &points2d_2)
-    : num_data_(N_ == 0 ? points2d_1.size() : N_),
+    : num_data_(points2d_1.size()),
       opt_(opt), x1(points2d_1), x2(points2d_2),
       sampler(num_data_, opt.seed)
   {
@@ -37,18 +37,31 @@ public:
   void generate_models(EntoContainer<CameraPose<Scalar>, MaxSolns> *models)
   {
     sampler.generate_sample(&sample);
+    
+    // Clear and properly populate the sample containers
+    x1_sample_.clear();
+    x2_sample_.clear();
+    
     for (size_t k = 0; k < sample_size_; ++k)
     {
-      x1_sample_[k] = x1[sample[k]].homogeneous().normalized();
-      x2_sample_[k] = x2[sample[k]].homogeneous().normalized();
+      x1_sample_.push_back(x1[sample[k]].homogeneous().normalized());
+      x2_sample_.push_back(x2[sample[k]].homogeneous().normalized());
     }
     
-    // Use the solver's solve method
-    Solver::template solve<sample_size_>(x1_sample_, x2_sample_, models);
-    for (size_t i = 0; i < models->size(); ++i) {
-      const auto& model = (*models)[i];
-      //ENTO_DEBUG("[RANSAC] Candidate %zu: q = [%f %f %f %f], t = [%f %f %f]", i, model.q(0), model.q(1), model.q(2), model.q(3), model.t(0), model.t(1), model.t(2));
+    // DEBUG: Print the bearing vectors being passed to solver
+    ENTO_DEBUG("[generate_models] Sample bearing vectors:");
+    for (size_t k = 0; k < sample_size_; ++k) {
+      ENTO_DEBUG("  Sample %zu: x1=(%f,%f,%f) x2=(%f,%f,%f)", k,
+                 x1_sample_[k](0), x1_sample_[k](1), x1_sample_[k](2),
+                 x2_sample_[k](0), x2_sample_[k](1), x2_sample_[k](2));
     }
+    
+    ENTO_DEBUG("[generate_models] About to call solver with %zu points", x1_sample_.size());
+    
+    // Use the solver with the correct template signature
+    Solver::template solve<sample_size_>(x1_sample_, x2_sample_, models);
+    
+    ENTO_DEBUG("[generate_models] Solver returned %zu models", models->size());
   }
 
   Scalar score_model(const CameraPose<Scalar> &pose, size_t *inlier_count) const
@@ -112,7 +125,6 @@ RansacStats<typename Solver::scalar_type> ransac_relpose(const EntoUtil::EntoCon
                                                          EntoUtil::EntoContainer<uint8_t, N> *inliers)
 {
   using Scalar = typename Solver::scalar_type;
-  ENTO_DEBUG("Hello...");
   
   if (!opt.score_initial_model)
   {
@@ -120,12 +132,9 @@ RansacStats<typename Solver::scalar_type> ransac_relpose(const EntoUtil::EntoCon
     best->t.setZero();
   }
   
-  ENTO_DEBUG("Hello...");
-  ENTO_DEBUG("In ransac_relpose! x1.size: %i, x2.size: %i", x1.size(), x2.size());
   using Estimator = RelativePoseRobustEstimator<Solver, N>;
   Estimator estimator(opt, x1, x2);
   RansacStats<Scalar> stats = ransac<Scalar, Estimator>(estimator, opt, best);
-  ENTO_DEBUG("Hello...");
   
   get_inliers<Scalar, N>(*best, x1, x2, opt.max_epipolar_error * opt.max_epipolar_error, inliers);
   return stats;

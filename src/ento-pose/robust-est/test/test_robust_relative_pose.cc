@@ -870,7 +870,7 @@ void test_robust_relative_pose_upright_planar_three_pt_float()
   const size_t num_outliers = 10;
   EntoContainer<Vec2<Scalar>, N> x1_2d, x2_2d;
   CameraPose<Scalar> true_pose;
-  EntoPose::generate_synthetic_relpose_upright_planar<Scalar, N>(x1_2d, x2_2d, true_pose, num_inliers, 0.01f);
+  EntoPose::generate_synthetic_relpose_upright_planar<Scalar, N>(x1_2d, x2_2d, true_pose, num_inliers, 1.0f);
   std::default_random_engine rng(123);
   std::uniform_real_distribution<Scalar> outlier_gen(-2.0, 2.0);
   for (size_t i = 0; i < num_outliers; ++i) {
@@ -891,6 +891,7 @@ void test_robust_relative_pose_upright_planar_three_pt_float()
   RansacOptions<Scalar> ransac_opt;
   ransac_opt.max_iters = 2000;
   ransac_opt.max_reproj_error = 0.005;
+  ransac_opt.max_epipolar_error = 2.5;
   ransac_opt.success_prob = 0.999;
   BundleOptions<Scalar> bundle_opt;
   bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;

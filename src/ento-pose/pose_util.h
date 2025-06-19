@@ -660,10 +660,28 @@ bool check_cheirality(const CameraPose<Scalar> &pose,
 }
 
 template <typename Scalar, size_t N>
-bool check_cheirality(const CameraPose<Scalar> &pose,
-                      const EntoArray<Vec3<Scalar>, N> &x1,
-                      const EntoArray<Vec3<Scalar>, N> &x2,
-                      Scalar min_depth = 0)
+typename std::enable_if<N != 0, bool>::type
+check_cheirality(const CameraPose<Scalar> &pose,
+                 const EntoArray<Vec3<Scalar>, N> &x1,
+                 const EntoArray<Vec3<Scalar>, N> &x2,
+                 Scalar min_depth = 0)
+{
+  for (size_t i = 0; i < x1.size(); ++i) {
+    if (!check_cheirality(pose, x1[i], x2[i], min_depth))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Template overload for EntoContainer when N=0 (becomes std::vector)
+template <typename Scalar, size_t N>
+typename std::enable_if<N == 0, bool>::type
+check_cheirality(const CameraPose<Scalar> &pose,
+                 const EntoContainer<Vec3<Scalar>, N> &x1,
+                 const EntoContainer<Vec3<Scalar>, N> &x2,
+                 Scalar min_depth = 0)
 {
   for (size_t i = 0; i < x1.size(); ++i) {
     if (!check_cheirality(pose, x1[i], x2[i], min_depth))
@@ -753,14 +771,14 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   pose.q = rotmat_to_quat<Scalar>(UW * Vt);
   pose.t = UW.col(2);
   //ENTO_DEBUG("Performing 4 cheirality checks ...");
-  if (check_cheirality(pose, x1, x2))
+  if (check_cheirality<Scalar, N>(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
     //ENTO_DEBUG("Cheirality check #1 passed.");
     //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
   pose.t = -pose.t;
-  if (check_cheirality(pose, x1, x2))
+  if (check_cheirality<Scalar, N>(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
     //ENTO_DEBUG("Cheirality check #2 passed.");
@@ -770,14 +788,14 @@ void motion_from_essential(const Matrix3x3<Scalar> &E,
   // U * W.transpose()
   UW.template block<3, 2>(0, 0) = -UW.template block<3, 2>(0, 0);
   pose.q = rotmat_to_quat<Scalar>(UW * Vt);
-  if (check_cheirality(pose, x1, x2)) 
+  if (check_cheirality<Scalar, N>(pose, x1, x2)) 
   {
     relative_poses->emplace_back(pose);
     //ENTO_DEBUG("Cheirality check #3 passed.");
     //ENTO_DEBUG("Pose: %f %f %f %f %f %f %f %f %f %f %f %f", pose.q(0), pose.q(1), pose.q(2), pose.q(3), pose.t(0), pose.t(1), pose.t(2));
   }
   pose.t = -pose.t;
-  if (check_cheirality(pose, x1, x2))
+  if (check_cheirality<Scalar, N>(pose, x1, x2))
   {
     relative_poses->emplace_back(pose);
     //ENTO_DEBUG("Cheirality check #4 passed.");
@@ -806,13 +824,16 @@ void motion_from_essential_planar(Scalar e01,
   pose.t << e21, 0.0, -e01;
   pose.t.normalize();
 
-  if (check_cheirality(pose, x1, x2))
-  {
+  relative_poses->clear();
+
+  // Check cheirality for the first pose
+  if (check_cheirality<Scalar, N>(pose, x1, x2)) {
     relative_poses->push_back(pose);
   }
+
+  // Check cheirality for the second pose (negated translation)
   pose.t = -pose.t;
-  if (check_cheirality(pose, x1, x2))
-  {
+  if (check_cheirality<Scalar, N>(pose, x1, x2)) {
     relative_poses->push_back(pose);
   }
 
@@ -862,26 +883,26 @@ void motion_from_essential_svd(const Matrix3x3<Scalar> &E,
     CameraPose<Scalar> pose;
     pose.q = rotmat_to_quat<Scalar>(R[0]);
     pose.t = t[0];
-    if (check_cheirality(pose, x1, x2))
+    if (check_cheirality<Scalar, N>(pose, x1, x2))
     {
       relative_poses->emplace_back(pose);
     }
 
     pose.t = t[1];
-    if (check_cheirality(pose, x1, x2))
+    if (check_cheirality<Scalar, N>(pose, x1, x2))
     {
       relative_poses->emplace_back(pose);
     }
 
     pose.q = rotmat_to_quat<Scalar>(R[1]);
     pose.t = t[0];
-    if (check_cheirality(pose, x1, x2))
+    if (check_cheirality<Scalar, N>(pose, x1, x2))
     {
       relative_poses->emplace_back(pose);
     }
 
     pose.t = t[1];
-    if (check_cheirality(pose, x1, x2))
+    if (check_cheirality<Scalar, N>(pose, x1, x2))
     {
       relative_poses->emplace_back(pose);
     }
