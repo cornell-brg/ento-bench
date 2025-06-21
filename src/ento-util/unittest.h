@@ -343,7 +343,7 @@ inline void __ento_test_check_image_eq(const char* file, int lineno,
   EntoUtil::__ento_test_check_image_eq( \
     __FILE__, __LINE__, #img0_, #img1_, \
     EntoUtil::__ento_image_default_tol< \
-      typename std::remove_reference<decltype(img0_)>::type::pixel_type>(), \
+      typename std::remove_reference<decltype(img0_)>::type::pixel_type_>(), \
     img0_, img1_)
 
 //------------------------------------------------------------------------

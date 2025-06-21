@@ -44,22 +44,22 @@ void copy_into_img(ImageT& img,
 }
 
 template <typename ImgT, int KernelSize, typename KernelT = float>
-void run_blur_in_place_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols],
-                            typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols])
+void run_blur_in_place_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols_],
+                            typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols_])
 {
   ImgT input;
   copy_into_img(input, b);
   gaussian_blur_in_place<ImgT, KernelSize, KernelT>(input);
   ImgT golden;
   copy_into_img(golden, g);
-  ENTO_TEST_CHECK_IMAGE_EQ(input, golden);
+  ENTO_TEST_CHECK_IMAGE_EQ_TOL(input, golden, 0.0001f);
   ENTO_DEBUG_IMAGE(input);
   ENTO_DEBUG_IMAGE(golden);
 }
 
 template <typename ImgT, int KernelSize, typename KernelT = float>
-void run_blur_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols],
-                   typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols])
+void run_blur_test(typename ImgT::pixel_type_ b[ImgT::rows_][ImgT::cols_],
+                   typename ImgT::pixel_type_ g[ImgT::rows_][ImgT::cols_])
 {
   ImgT input;
   ImgT output;

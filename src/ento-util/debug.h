@@ -333,8 +333,8 @@ inline void __ento_debug_print_image(const char* file, int line, const char* fun
                                      const char* name, const ImageT& img)
 {
   using PixelT = typename ImageT::pixel_type_;
-  constexpr int width = 7;
-  constexpr int precision = 2;
+  constexpr int width = 12;
+  constexpr int precision = 8;
   constexpr const char* indent = "\t";
 
   const int W = img.rows();

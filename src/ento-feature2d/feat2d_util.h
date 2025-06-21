@@ -66,8 +66,8 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
   ORBKeypoint& operator=(ORBKeypoint&&) = default;
 };
 
-template <typename CoordT = int16_t,
-          typename ScaleT = uint8_t,
+template <typename CoordT = float,
+          typename ScaleT = float,
           typename ResponseT = float,
           typename OrientationT = float,
           typename DescriptorT = float,
@@ -81,12 +81,12 @@ struct SIFTKeypoint : public Keypoint<CoordT>
   static constexpr int DescriptorSize_ = DescriptorSize;
 
   int octave;    // which level in pyramid
-  int scale; // which DoG layer
+  ScaleT scale; // which DoG layer
   OrientationT orientation;
   ResponseT response;
   DescriptorT descriptor[DescriptorSize];
 
-  SIFTKeypoint(CoordT x, CoordT y, int scale, int octave,
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave,
                OrientationT orientation, ResponseT response, DescriptorT fill_val)
     : Keypoint<CoordT>(x, y), octave{octave}, scale{scale},
       orientation{orientation}, response{response}
@@ -99,12 +99,12 @@ struct SIFTKeypoint : public Keypoint<CoordT>
                    static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
   {}
 
-  SIFTKeypoint(CoordT x, CoordT y, int scale, int octave)
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave)
     : SIFTKeypoint(x, y, scale, octave, static_cast<OrientationT>(0),
                    static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
   {}
 
-  SIFTKeypoint(CoordT x, CoordT y, int scale, int octave, OrientationT orientation)
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave, OrientationT orientation)
     : SIFTKeypoint(x, y, scale, octave, orientation,
                    static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
   {}

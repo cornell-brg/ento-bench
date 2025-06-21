@@ -32,12 +32,16 @@ set(TEST_FILES
   test_sparse_optical_flow_problem.cc
   test_feature_recognition_problem.cc
   test_sift.cc
+  test_simple_gaussian.cc
 )
 
 set(LIBRARIES_test_fast
   m ento-perception ento_util Eigen)
 
 set(LIBRARIES_test_sift
+  m ento-perception ento_util Eigen)
+
+set(LIBRARIES_test_simple_gaussian
   m ento-perception ento_util Eigen)
 
 set(LIBRARIES_test_feature2d_util
