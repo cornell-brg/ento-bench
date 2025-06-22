@@ -28,7 +28,7 @@ using namespace EntoFeature2D;
 constexpr size_t IMG_WIDTH  = 160;
 constexpr size_t IMG_HEIGHT = 160;
 constexpr size_t WIN_DIM = 8;  
-constexpr size_t NumFeats = 20;
+constexpr size_t NumFeats = 10;
 constexpr size_t SEARCH_AREA = 2;
 using PixelT = uint8_t;
 using CoordT = float;

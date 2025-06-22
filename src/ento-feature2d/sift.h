@@ -401,12 +401,16 @@ public:
   
   FeatureArray<KeypointT_, MaxKeypoints>& feats_;
 
+  // Pointer to current octave for external access (valid only during/after run())
+  SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers>* current_octave_ = nullptr;
+
 
   bool run(const Image<Height_, Width_, PixelT_>& base_img)
   {
     // 1. Compute DoG pyramid
     SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers> octave(input_img_);
     octave.initialize();
+    current_octave_ = &octave; // Store reference for external access
 
     int scale_idx = 0;
     do {
@@ -498,6 +502,9 @@ public:
   }
 
   SIFTDriver(ImageT& img, FeatureArray<KeypointT_, MaxKeypoints>& feats) : input_img_{img}, feats_{feats} {}
+  
+  // Get access to the current octave (valid only after run() is called)
+  SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers>* get_current_octave() { return current_octave_; }
 
   void detect_extrema_in_triplet(const DoGTriplet<DoGImageT_>& triplet,
                                  int scale_idx, int octave)
@@ -555,7 +562,7 @@ public:
                 is_max = false;
               if (center_val > val)
                 is_min = false;
-            }
+              }
             if (!is_max && !is_min) break;
           }
           if (!is_max && !is_min) break;
@@ -570,13 +577,19 @@ public:
           local_extrema_found++;
           if (center_val == 0.0f) zero_value_extrema++;
           
+          // Debug: Print DoG values around suspected region for 32x32 images
+          if (Width_ == 32 && Height_ == 32 && x >= 5 && x <= 9 && y >= 5 && y <= 9) {
+            printf("  DoG extrema @ (%d,%d) = %.6f (is_max=%d, is_min=%d)\n", 
+                   x, y, center_val, is_max, is_min);
+          }
+          
           if (local_extrema_found <= 5) { // Only show first few
             ENTO_DEBUG("Local extrema found @ (%d, %d) = %f (is_max=%d, is_min=%d)", 
                        x, y, center_val, is_max, is_min);
           }
 
         }
-
+        
         if ((is_max || is_min) && !feats_.full())
         {
           extrema_candidates++;
@@ -597,7 +610,7 @@ public:
           feats_.add_keypoint(KeypointT{
             static_cast<KeypointCoordT_>(x),
             static_cast<KeypointCoordT_>(y),
-            static_cast<ScaleT_>(scale_idx),
+            static_cast<ScaleT_>(scale_idx + interp_result.dscale),  // Apply scale interpolation
             0,                                         // octave
             static_cast<OrientationT_>(0.0f),         // orientation (will be set later)
             interpolated_response,                    // response (interpolated DoG value)
@@ -721,7 +734,7 @@ public:
 
         // Equation on page 11 in original sift paper
         result.interpolated_value = D + 0.5f * d.grad.dot(x_hat);
-        
+
         // Evaluate wrt to ContrastThreshold
         if (std::abs(result.interpolated_value) < ContrastThreshold_)
         {
@@ -743,7 +756,7 @@ public:
       // We do not update scale due to only having access to a DoG triplet.
       x += round(x_hat[0]);
       y += round(x_hat[1]);
-      
+
       // If our x, y update move us out of bounds, this is a bad keypoint.
       // Reject it if so...
       if (x <= 0 || x >= Width_ - 1 || y <= 0 || y >= Height_ - 1) 
@@ -814,7 +827,7 @@ public:
   }
 
   bool passes_edge_response_check(const DerivativesAtExtremum& d,
-                                  float edge_threshold = 10.0f)
+                                  float edge_threshold = 3.0f)
   {
     float tr  = d.Dxx + d.Dyy;
     float det = d.Dxx * d.Dyy - d.Dxy * d.Dxy;

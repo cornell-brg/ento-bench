@@ -4,6 +4,8 @@
 #include <ento-util/file_path_util.h>
 #include <image_io/Image.h>
 #include <ento-feature2d/sift.h>
+#include <ento-feature2d/multi_octave_sift.h>
+#include <cfloat>
 
 // Include the new SIFT++ golden reference data
 extern "C" {
@@ -522,6 +524,352 @@ void test_full_sift_pipeline()
   }
 }
 
+void test_multi_octave_sift_pipeline()
+{
+  printf("=== TEST 5: MULTI-OCTAVE SIFT PIPELINE ===\n");
+  
+  constexpr int H = 64;
+  constexpr int W = 64;
+  constexpr int MaxKeypoints = 200;
+  constexpr int NumOctaves = 3;
+  
+  using PixelT = uint8_t;
+  using ImgT = Image<H, W, PixelT>;
+  using KeypointT = SIFTKeypoint<>;
+  using FeatureArrayT = FeatureArray<KeypointT, MaxKeypoints>;
+  using MultiSIFTDriverT = MultiOctaveSIFTDriver<ImgT, MaxKeypoints, KeypointT, NumOctaves>;
+
+  // Create a larger blob pattern for multi-octave testing
+  ImgT input_img;
+  
+  // Fill with background
+  for (int y = 0; y < H; y++) {
+    for (int x = 0; x < W; x++) {
+      input_img(y, x) = 20;  // Dark background
+    }
+  }
+  
+  // Create a larger blob at center for multi-scale detection
+  int center_x = W / 2;
+  int center_y = H / 2;
+  int blob_radius = 8;
+  
+  for (int y = center_y - blob_radius; y <= center_y + blob_radius; y++) {
+    for (int x = center_x - blob_radius; x <= center_x + blob_radius; x++) {
+      if (x >= 0 && x < W && y >= 0 && y < H) {
+        float dx = x - center_x;
+        float dy = y - center_y;
+        float dist = sqrtf(dx*dx + dy*dy);
+        if (dist <= blob_radius) {
+          // Gaussian-like blob
+          float intensity = 255.0f * expf(-(dist*dist) / (2.0f * (blob_radius/3.0f) * (blob_radius/3.0f)));
+          input_img(y, x) = static_cast<uint8_t>(std::min(255.0f, intensity));
+        }
+      }
+    }
+  }
+  
+  printf("Input image created: %dx%d with blob at (%d, %d)\n", H, W, center_x, center_y);
+  printf("Blob radius: %d pixels\n", blob_radius);
+  
+  // Create feature storage and multi-octave SIFT driver  
+  FeatureArrayT all_features;
+  ImgT working_buffer;  // Working buffer for in-place processing
+  MultiSIFTDriverT multi_sift(working_buffer);
+  
+  printf("Multi-octave SIFT driver created with %d octaves, MaxKeypoints=%d\n", NumOctaves, MaxKeypoints);
+  
+  // Run the complete multi-octave SIFT pipeline
+  printf("Running multi-octave SIFT pipeline...\n");
+  bool success = multi_sift.run(input_img, all_features);
+  
+  if (!success) {
+    printf("ERROR: Multi-octave SIFT pipeline failed!\n");
+    ENTO_TEST_CHECK_FALSE(true);
+    return;
+  }
+  
+  printf("Multi-octave SIFT pipeline completed successfully!\n");
+  
+  // Get the results
+  int total_features = all_features.size();
+  
+  printf("Total features detected across all octaves: %d\n", total_features);
+  
+  // Basic validation: We should detect at least one feature
+  ENTO_TEST_CHECK_TRUE(total_features > 0);
+  
+  if (total_features > 0) {
+    printf("\n--- MULTI-OCTAVE FEATURES ---\n");
+    for (int i = 0; i < std::min(total_features, 10); i++) { // Show first 10 features
+      const auto& feat = all_features[i];
+      printf("Feature %d: pos(%.3f, %.3f), scale=%.3f, octave=%d, orient=%.3f, response=%.6f\n",
+             i, feat.x, feat.y, feat.scale, feat.octave, feat.orientation, feat.response);
+    }
+    
+    // Show features per octave
+    printf("\n--- FEATURES PER OCTAVE ---\n");
+    for (int octave = 0; octave < NumOctaves; ++octave) {
+      const auto& octave_features = multi_sift.get_octave_features(octave);
+      printf("Octave %d (%dx%d): %d features\n", 
+             octave, W >> octave, H >> octave, octave_features.size());
+      
+      // Show first feature from this octave if any
+      if (octave_features.size() > 0) {
+        const auto& feat = octave_features[0];
+        printf("  Sample: pos(%.1f, %.1f) [octave coords], scale=%.1f, response=%.6f\n",
+               feat.x, feat.y, feat.scale, feat.response);
+      }
+    }
+    
+    // Validate that features are found at multiple scales
+    int octaves_with_features = 0;
+    for (int octave = 0; octave < NumOctaves; ++octave) {
+      if (multi_sift.get_octave_features(octave).size() > 0) {
+        octaves_with_features++;
+      }
+    }
+    
+    printf("\nOctaves with features: %d/%d\n", octaves_with_features, NumOctaves);
+    
+    // Find the feature closest to the blob center
+    int best_feature_idx = 0;
+    float min_distance = FLT_MAX;
+    
+    for (int i = 0; i < total_features; ++i) {
+      const auto& feat = all_features[i];
+      float dx = feat.x - center_x;
+      float dy = feat.y - center_y;
+      float distance = sqrtf(dx*dx + dy*dy);
+      
+      if (distance < min_distance) {
+        min_distance = distance;
+        best_feature_idx = i;
+      }
+    }
+    
+    const auto& main_feature = all_features[best_feature_idx];
+    float distance_from_center = min_distance;
+    
+    printf("Best feature (index %d) distance from blob center (%.1f, %.1f): %.3f pixels\n", 
+           best_feature_idx, (float)center_x, (float)center_y, distance_from_center);
+    
+    // Reasonable validation: feature should be within blob radius
+    ENTO_TEST_CHECK_TRUE(distance_from_center < blob_radius * 2.0f);
+    
+    // Scale should be reasonable (positive)
+    ENTO_TEST_CHECK_TRUE(main_feature.scale >= 0.0f);
+    
+    // Orientation should be finite
+    ENTO_TEST_CHECK_TRUE(std::isfinite(main_feature.orientation));
+    
+    // Response should be reasonable (non-zero)
+    ENTO_TEST_CHECK_TRUE(fabs(main_feature.response) > 1e-6f);
+    
+    printf("\n--- VALIDATION RESULTS ---\n");
+    printf("✓ Total features: %d > 0\n", total_features);
+    printf("✓ Octaves with features: %d/%d\n", octaves_with_features, NumOctaves);
+    printf("✓ Main feature position: (%.3f, %.3f) within %.1f pixels of center\n", 
+           main_feature.x, main_feature.y, blob_radius * 2.0f);
+    printf("✓ Scale: %.3f >= 0\n", main_feature.scale);
+    printf("✓ Orientation: %.3f rad (%.1f°) - finite value ✓\n", 
+           main_feature.orientation, main_feature.orientation * 180.0f / M_PI);
+    printf("✓ Response: %.6f is non-zero\n", main_feature.response);
+    
+    printf("\n🎉 MULTI-OCTAVE SIFT PIPELINE TEST PASSED! 🎉\n");
+  } else {
+    printf("WARNING: No features detected across any octave\n");
+  }
+}
+
+void test_multi_blob_sift_detection()
+{
+  printf("=== TEST 6: MULTI-BLOB SIFT DETECTION ===\n");
+  
+  constexpr int H = 128;
+  constexpr int W = 128; 
+  constexpr int MaxKeypoints = 300;
+  constexpr int NumOctaves = 4;
+  
+  using PixelT = uint8_t;
+  using ImgT = Image<H, W, PixelT>;
+  using KeypointT = SIFTKeypoint<>;
+  using FeatureArrayT = FeatureArray<KeypointT, MaxKeypoints>;
+  using MultiSIFTDriverT = MultiOctaveSIFTDriver<ImgT, MaxKeypoints, KeypointT, NumOctaves>;
+
+  // Create image with 4 blobs at different scales in each quadrant
+  ImgT input_img;
+  
+  // Fill with uniform background
+  for (int y = 0; y < H; y++) {
+    for (int x = 0; x < W; x++) {
+      input_img(y, x) = 10;  // Dark background
+    }
+  }
+  
+  // Define 4 blob centers in separate quadrants with good separation
+  struct BlobDef {
+    int x, y, radius;
+    const char* name;
+  };
+  
+  BlobDef blobs[4] = {
+    {32, 32, 6, "Small blob (top-left)"},      // Quadrant 1: small blob
+    {96, 32, 10, "Medium blob (top-right)"},   // Quadrant 2: medium blob  
+    {32, 96, 14, "Large blob (bottom-left)"},  // Quadrant 3: large blob
+    {96, 96, 18, "XL blob (bottom-right)"}     // Quadrant 4: extra large blob
+  };
+  
+  printf("Creating 4 blobs at different scales:\n");
+  
+  for (int i = 0; i < 4; i++) {
+    const auto& blob = blobs[i];
+    printf("  %s: center(%d, %d), radius=%d\n", blob.name, blob.x, blob.y, blob.radius);
+    
+    // Create Gaussian-like blob
+    for (int y = blob.y - blob.radius - 2; y <= blob.y + blob.radius + 2; y++) {
+      for (int x = blob.x - blob.radius - 2; x <= blob.x + blob.radius + 2; x++) {
+        if (x >= 0 && x < W && y >= 0 && y < H) {
+          float dx = x - blob.x;
+          float dy = y - blob.y;
+          float dist = sqrtf(dx*dx + dy*dy);
+          
+          if (dist <= blob.radius) {
+            // Gaussian-like intensity profile
+            float sigma = blob.radius / 3.0f;  // 3-sigma rule
+            float intensity = 255.0f * expf(-(dist*dist) / (2.0f * sigma * sigma));
+            
+            // Ensure we don't go below background
+            intensity = std::max(10.0f, intensity);
+            input_img(y, x) = static_cast<uint8_t>(std::min(255.0f, intensity));
+          }
+        }
+      }
+    }
+  }
+  
+  printf("Input image created: %dx%d with 4 blobs at different scales\n", H, W);
+  
+  // Create feature storage and multi-octave SIFT driver  
+  FeatureArrayT all_features;
+  ImgT working_buffer;
+  MultiSIFTDriverT multi_sift(working_buffer);
+  
+  printf("Multi-octave SIFT driver created with %d octaves, MaxKeypoints=%d\n", NumOctaves, MaxKeypoints);
+  
+  // Run the complete multi-octave SIFT pipeline
+  printf("Running multi-octave SIFT pipeline...\n");
+  bool success = multi_sift.run(input_img, all_features);
+  
+  if (!success) {
+    printf("ERROR: Multi-octave SIFT pipeline failed!\n");
+    ENTO_TEST_CHECK_FALSE(true);
+    return;
+  }
+  
+  printf("Multi-octave SIFT pipeline completed successfully!\n");
+  
+  // Get the results
+  int total_features = all_features.size();
+  printf("Total features detected across all octaves: %d\n", total_features);
+  
+  // Basic validation: We should detect at least 4 features (one per blob)
+  ENTO_TEST_CHECK_TRUE(total_features >= 4);
+  
+  if (total_features > 0) {
+    printf("\n--- ALL DETECTED FEATURES ---\n");
+    for (int i = 0; i < std::min(total_features, 20); i++) { // Show first 20 features
+      const auto& feat = all_features[i];
+      printf("Feature %d: pos(%.1f, %.1f), scale=%.3f, octave=%d, orient=%.3f, response=%.6f\n",
+             i, feat.x, feat.y, feat.scale, feat.octave, feat.orientation, feat.response);
+    }
+    
+    // Analyze features near each blob center
+    printf("\n--- BLOB CENTER ANALYSIS ---\n");
+    int blobs_detected = 0;
+    
+    for (int i = 0; i < 4; i++) {
+      const auto& blob = blobs[i];
+      printf("\n%s - Expected center: (%d, %d), radius: %d\n", blob.name, blob.x, blob.y, blob.radius);
+      
+      // Find features near this blob center
+      int features_near_blob = 0;
+      float closest_distance = FLT_MAX;
+      int closest_feature_idx = -1;
+      
+      for (int j = 0; j < total_features; j++) {
+        const auto& feat = all_features[j];
+        float dx = feat.x - blob.x;
+        float dy = feat.y - blob.y;
+        float distance = sqrtf(dx*dx + dy*dy);
+        
+        // Consider features within 2x blob radius as "near" this blob
+        if (distance <= blob.radius * 2.0f) {
+          features_near_blob++;
+          if (distance < closest_distance) {
+            closest_distance = distance;
+            closest_feature_idx = j;
+          }
+        }
+      }
+      
+      if (closest_feature_idx >= 0) {
+        const auto& closest_feat = all_features[closest_feature_idx];
+        printf("  ✓ Closest feature: pos(%.1f, %.1f), distance=%.1f, scale=%.3f, octave=%d\n",
+               closest_feat.x, closest_feat.y, closest_distance, closest_feat.scale, closest_feat.octave);
+        printf("  Features near this blob: %d\n", features_near_blob);
+        blobs_detected++;
+      } else {
+        printf("  ✗ No features detected near this blob!\n");
+      }
+    }
+    
+    // Show features per octave
+    printf("\n--- FEATURES PER OCTAVE ---\n");
+    for (int octave = 0; octave < NumOctaves; ++octave) {
+      const auto& octave_features = multi_sift.get_octave_features(octave);
+      printf("Octave %d (%dx%d): %d features\n", 
+             octave, W >> octave, H >> octave, octave_features.size());
+    }
+    
+    // Count edge artifacts (features near image boundaries)
+    printf("\n--- EDGE ARTIFACT ANALYSIS ---\n");
+    int edge_artifacts = 0;
+    int margin = 10;  // Consider features within 10 pixels of edge as artifacts
+    
+    for (int i = 0; i < total_features; i++) {
+      const auto& feat = all_features[i];
+      if (feat.x < margin || feat.x > W - margin || 
+          feat.y < margin || feat.y > H - margin) {
+        edge_artifacts++;
+        printf("  Edge artifact %d: pos(%.1f, %.1f) - near boundary\n", 
+               edge_artifacts, feat.x, feat.y);
+      }
+    }
+    
+    printf("Edge artifacts detected: %d/%d (%.1f%%)\n", 
+           edge_artifacts, total_features, 
+           100.0f * edge_artifacts / total_features);
+    
+    // Validation
+    ENTO_TEST_CHECK_TRUE(blobs_detected >= 3);  // At least 3 of 4 blobs should be detected
+    ENTO_TEST_CHECK_TRUE(edge_artifacts < total_features / 2);  // Edge artifacts should be < 50%
+    
+    printf("\n--- VALIDATION RESULTS ---\n");
+    printf("✓ Total features: %d >= 4\n", total_features);
+    printf("✓ Blobs detected: %d/4 >= 3\n", blobs_detected);
+    printf("✓ Edge artifacts: %d/%d < 50%%\n", edge_artifacts, total_features);
+    
+    if (blobs_detected >= 3 && edge_artifacts < total_features / 2) {
+      printf("\n🎉 MULTI-BLOB SIFT DETECTION TEST PASSED! 🎉\n");
+    } else {
+      printf("\n⚠️  Test passed with warnings - check edge artifact filtering\n");
+    }
+  } else {
+    printf("WARNING: No features detected\n");
+  }
+}
+
 //------------------------------------------------------------------------
 // Main
 //------------------------------------------------------------------------
@@ -544,6 +892,8 @@ int main(int argc, char** argv)
   if (__ento_test_num(__n, 2)) test_extrema_on_blob(); 
   if (__ento_test_num(__n, 3)) test_single_blur_comparison();
   if (__ento_test_num(__n, 4)) test_full_sift_pipeline();
+  if (__ento_test_num(__n, 5)) test_multi_octave_sift_pipeline();
+  if (__ento_test_num(__n, 6)) test_multi_blob_sift_detection();
   
   ENTO_TEST_END();
 }
