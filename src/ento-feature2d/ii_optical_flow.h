@@ -54,13 +54,13 @@ void calcOpticalFlowII(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& prevImg,
       // x coord
       for (int k = 0; k < WIN_DIM; k++)
       {
-        int x_index = std::min(std::max(x_i + j, 0), prevImg.cols - 1);
-        int x_l_index = std::min(std::max(x_index + j - x_shamt, 0), prevImg.cols - 1);
-        int x_r_index = std::min(std::max(x_index + j + x_shamt, 0), prevImg.cols - 1);
+        int x_index = std::min(std::max(x_i + j, 0), prevImg.cols_ - 1);
+        int x_l_index = std::min(std::max(x_index + j - x_shamt, 0), prevImg.cols_ - 1);
+        int x_r_index = std::min(std::max(x_index + j + x_shamt, 0), prevImg.cols_ - 1);
 
-        int y_index = std::min(std::max(y_i + k, 0), prevImg.rows - 1);
-        int y_b_index = std::min(std::max(y_index + k - y_shamt, 0), prevImg.rows - 1);
-        int y_t_index = std::min(std::max(y_index + k + y_shamt, 0), prevImg.rows - 1);
+        int y_index = std::min(std::max(y_i + k, 0), prevImg.rows_ - 1);
+        int y_b_index = std::min(std::max(y_index + k - y_shamt, 0), prevImg.rows_ - 1);
+        int y_t_index = std::min(std::max(y_index + k + y_shamt, 0), prevImg.rows_ - 1);
 
 
         // float Ix = ((float) prevImg.get_pixel(y_index, x_r_index) - prevImg.get_pixel(y_index, x_l_index));

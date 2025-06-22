@@ -20,8 +20,8 @@ using namespace EntoUtil;
 int main()
 {
   using Scalar  = double;
-  using Solver  = EntoPose::SolverHomography4pt<Scalar>;
-  using Problem = EntoPose::HomographyProblem<Scalar, Solver, 8>;
+  using Solver  = EntoPose::SolverHomography4pt<Scalar, false, 1, 1>;
+  using Problem = EntoPose::HomographyProblem<Scalar, Solver, 4>;
   constexpr Scalar tol = 1e-8;
   initialise_monitor_handles();
 

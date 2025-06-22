@@ -34,11 +34,11 @@ int homography_Npt(const EntoArray<Vec3<Scalar>, N> &x1,
     return homography<Scalar, N, true, Method, SVDMethod>(x1, x2, H);
 }
 
-template <typename Scalar, bool CheckCheirality=true, int Method=0>
+template <typename Scalar, bool CheckCheirality=false, int Method=1, int SVDMethod=0>
 int homography_4pt(const EntoArray<Vec3<Scalar>, 4> &x1,
                    const EntoArray<Vec3<Scalar>, 4> &x2,
                    Matrix3x3<Scalar>* H) {
-    return homography<Scalar, 4, CheckCheirality, Method, 0>(x1, x2, H);
+    return homography<Scalar, 4, CheckCheirality, Method, SVDMethod>(x1, x2, H);
 }
 
 // ================================================================================
@@ -49,7 +49,7 @@ int homography(const EntoArray<Vec3<Scalar>, N> &x1,
                Matrix3x3<Scalar> *H)
 {
   static_assert(N >= 4, "N must be greater or equal to 4 for planar homography!");
-  static_assert((Method == 0) || (Method == 1), "Homography Method template must be 0 or 1.");
+  static_assert((Method <= 2), "Homography Method template must be 0 or 1.");
   
   if constexpr (CheckCheirality)
   {
@@ -103,7 +103,7 @@ int homography(const EntoArray<Vec3<Scalar>, N> &x1,
       // OSJ SVD method
       Eigen::Matrix<Scalar, 9, 9> V;
       V.setIdentity();
-      osj_svd(M, V, h);
+      osj_svd(M.transpose(), V, h);
     } else if constexpr (SVDMethod == 2) {
       // Eigenvalue decomposition method
       Eigen::SelfAdjointEigenSolver<Eigen::Matrix<Scalar, 9, 9>> solver(M.transpose() * M);

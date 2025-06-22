@@ -413,6 +413,62 @@
       "max_problems": 100
     },
 
+    "bench-homography-float": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": false,
+      "max_problems": 100
+    },
+
+    "bench-homography-double": {
+      "reps": 1,
+      "inner_reps": 50,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
+    "bench-gold-standard-abs-float": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": false,
+      "max_problems": 100
+    },
+
+    "bench-gold-standard-abs-double": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
+    "bench-gold-standard-rel-float": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": false,
+      "max_problems": 100
+    },
+
+    "bench-lo-ransac-p3p-nonlinear-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": false,
+      "max_problems": 100
+    },
+
+    "bench-gold-standard-rel-double": {
+      "reps": 1,
+      "inner_reps": 10,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100
+    },
+
     "bench-robofly-ekf-float": {
       "reps": 1,
       "inner_reps": 20,

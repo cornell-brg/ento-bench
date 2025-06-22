@@ -318,6 +318,7 @@ private:
         dst(y, x) = curr(y, x) - prev(y, x);
   }
 
+public:
   void compute_gradients_for_current_gaussian() {
     const DoGImageT_& gaussian = gaussian_curr();  // Source Gaussian
     DoGImageT_& magnitude = gaussian_prev();       // Reuse prev buffer
@@ -341,6 +342,8 @@ private:
   // Access methods for gradients
   const DoGImageT_& get_gradient_magnitude() const { return gaussian_prev(); }
   const DoGImageT_& get_gradient_orientation() const { return orientation_map_; }
+
+private:
 };
 
 template <typename InterpCoordT = float>
@@ -417,9 +420,9 @@ public:
       return false;
     }
 
+    constexpr int MaxPerScale = 50;
     struct ScaleGroup {
-      static constexpr int MaxPerScale_ = 50;
-      KeypointT_ keypoints_[MaxPerScale_];
+      KeypointT_ keypoints_[MaxPerScale];
       int count = 0;
     };
 
@@ -428,14 +431,17 @@ public:
     for (int i = 0; i < feats_.size(); ++i)
     {
       int scale_index = determine_scale_index(feats_[i].scale);
-      if (scale_index >= 0 && scale_index < NumDoGLayers + 2) {
-        if (groups[scale_index].count < ScaleGroup::MaxPerScale) {
-          groups[scale_index].keypoints[groups[scale_index].count] = feats_[i];
+      if (scale_index >= 0 && scale_index < NumDoGLayers_ + 2) {
+        if (groups[scale_index].count < MaxPerScale) {
+          groups[scale_index].keypoints_[groups[scale_index].count] = feats_[i];
           groups[scale_index].count++;
         }
       }
     }
 
+    // Clear the initial detection keypoints - we'll replace them with processed ones
+    feats_.clear();
+    
     // 3. Orientation and Descriptor Computation
     int total_features = 0;
     for (int scale_idx = 0; scale_idx < NumDoGLayers_ + 2; ++scale_idx)
@@ -449,14 +455,14 @@ public:
 
       for (int kp_idx = 0; kp_idx < groups[scale_idx].count; ++kp_idx)
       {
-        const KeypointT& kp = groups[scale_idx].keypoints[kp_idx];
+        const KeypointT_& kp = groups[scale_idx].keypoints_[kp_idx];
         float mag = octave.get_gradient_magnitude()(kp.y, kp.x);
         float ori = octave.get_gradient_orientation()(kp.y, kp.x);
         process_keypoint(kp, octave.get_gradient_magnitude(), octave.get_gradient_orientation());
       }
 
     }
-
+    return true;
   }
 
   int determine_scale_index(ScaleT_ scale)
@@ -465,10 +471,11 @@ public:
     return static_cast<int>(std::round(scale));
   }
 
-  void process_keypoint(const KeypointT& kp, 
-                     const DoGImageT& gradient_magnitude,
-                     const DoGImageT& gradient_orientation)
+  void process_keypoint(const KeypointT_& kp, 
+                     const DoGImageT_& gradient_magnitude,
+                     const DoGImageT_& gradient_orientation)
   {
+
   
     // Step 1: Orientation Assignment
     float orientations[4];
@@ -476,21 +483,17 @@ public:
     
     // Step 2: Descriptor Computation for each orientation
     for (int ori_idx = 0; ori_idx < num_orientations; ori_idx++) {
-      if (total_features >= MaxKeypoints) return;  // Check capacity
+      if (feats_.full()) return;  // Check capacity using FeatureArray method
       
       float descriptor[128];
       compute_keypoint_descriptor(kp, orientations[ori_idx], gradient_magnitude, gradient_orientation, descriptor);
       
-      // Step 3: Store final SIFT feature
-      final_features[total_features] = SIFTFeature{
-        .x = kp.x,
-        .y = kp.y, 
-        .scale = kp.scale,
-        .orientation = orientations[ori_idx],
-        .response = kp.response,
-        .descriptor = {descriptor[0], descriptor[1], ..., descriptor[127]}
-      };
-      total_features++;
+      // Step 3: Create final SIFT keypoint with orientation and descriptor
+      KeypointT_ final_kp(kp.x, kp.y, kp.scale, 0, orientations[ori_idx], kp.response, 0.0f);
+      final_kp.set_descriptor(descriptor);
+      
+      // Add to feature array
+      feats_.add_keypoint(final_kp);
     }
   }
 
@@ -571,6 +574,7 @@ public:
             ENTO_DEBUG("Local extrema found @ (%d, %d) = %f (is_max=%d, is_min=%d)", 
                        x, y, center_val, is_max, is_min);
           }
+
         }
 
         if ((is_max || is_min) && !feats_.full())
@@ -584,13 +588,20 @@ public:
             continue;
           }
 
-          ENTO_DEBUG("Keypoint accepted @ (%f, %f, %f) = %f", x+interp_result.dx, y+interp_result.dy, scale_idx+interp_result.dscale, interp_result.interpolated_value);
+          // Use the interpolated response value from subpixel refinement
+          float raw_dog_value = center_val;
+          float interpolated_response = interp_result.interpolated_value;
+          ENTO_DEBUG("Keypoint accepted @ (%f, %f, %f): raw_DoG=%f, interpolated=%f", 
+                     x+interp_result.dx, y+interp_result.dy, scale_idx+interp_result.dscale, 
+                     raw_dog_value, interpolated_response);
           feats_.add_keypoint(KeypointT{
             static_cast<KeypointCoordT_>(x),
             static_cast<KeypointCoordT_>(y),
             static_cast<ScaleT_>(scale_idx),
-            0,
-            interp_result.interpolated_value 
+            0,                                         // octave
+            static_cast<OrientationT_>(0.0f),         // orientation (will be set later)
+            interpolated_response,                    // response (interpolated DoG value)
+            static_cast<DescriptorT_>(0.0f)           // descriptor fill value
           });
         }
       }
@@ -600,9 +611,9 @@ public:
                points_checked, local_extrema_found, zero_value_extrema, extrema_candidates);
   }
 
-  int compute_keypoint_orientations(const KeypointT& kp,
-                                 const DoGImageT& grad_mag, 
-                                 const DoGImageT& grad_ori,
+  int compute_keypoint_orientations(const KeypointT_& kp,
+                                 const DoGImageT_& grad_mag, 
+                                 const DoGImageT_& grad_ori,
                                  float orientations[4])
   {
     // Create 36-bin orientation histogram
@@ -610,15 +621,16 @@ public:
     
     // Sample gradients in circular window around keypoint
     float sigma = get_sigma_for_keypoint(kp);
-    float radius = 3.0f * 1.5f * sigma;  // winFactor = 1.5
+    float sigmaw = 1.5f * sigma;  // winFactor = 1.5
+    int W = (int) ceilf(3.0f * sigmaw);
     
-    for (int dy = -radius; dy <= radius; dy++) {
-      for (int dx = -radius; dx <= radius; dx++) {
+    for (int dy = -W; dy <= W; dy++) {
+      for (int dx = -W; dx <= W; dx++) {
         int x = kp.x + dx, y = kp.y + dy;
         float dist_sq = dx*dx + dy*dy;
         
-        if (dist_sq <= radius*radius && x >= 0 && x < Width && y >= 0 && y < Height) {
-          float weight = expf(-dist_sq / (2 * (1.5f*sigma) * (1.5f*sigma)));
+        if (dist_sq <= W*W + 0.5f && x >= 0 && x < Width_ && y >= 0 && y < Height_) {
+          float weight = expf(-dist_sq / (2 * sigmaw * sigmaw));
           float magnitude = grad_mag(y, x);
           float orientation = grad_ori(y, x);
           
@@ -633,10 +645,10 @@ public:
     return find_orientation_peaks(hist, orientations);
   }
 
-  void compute_keypoint_descriptor(const KeypointT& kp, 
+  void compute_keypoint_descriptor(const KeypointT_& kp, 
                                 float keypoint_orientation,
-                                const DoGImageT& grad_mag,
-                                const DoGImageT& grad_ori,
+                                const DoGImageT_& grad_mag,
+                                const DoGImageT_& grad_ori,
                                 float descriptor[128])
   {
     
@@ -645,26 +657,30 @@ public:
     constexpr int NBO = 8;  // orientation bins
     
     float sigma = get_sigma_for_keypoint(kp);
-    float window_size = 3.0f * sigma * (NBP + 1);  // magnif = 3.0
+    const float magnif = 3.0f;
+    const float SBP = magnif * sigma;
+    int W = (int) floorf(sqrtf(2.0f) * SBP * (NBP + 1) / 2.0f + 0.5f);
     
     std::fill(descriptor, descriptor + 128, 0.0f);
     
     // Sample gradients in rotated window
-    for (int dy = -window_size; dy <= window_size; dy++) {
-      for (int dx = -window_size; dx <= window_size; dx++) {
+    for (int dy = -W; dy <= W; dy++) {
+      for (int dx = -W; dx <= W; dx++) {
         
         // Rotate sampling coordinates by keypoint orientation
         float rotated_x = dx * cosf(-keypoint_orientation) - dy * sinf(-keypoint_orientation);
         float rotated_y = dx * sinf(-keypoint_orientation) + dy * cosf(-keypoint_orientation);
         
-        // Determine which spatial bin this sample belongs to
-        float bin_x = rotated_x / (3.0f * sigma) + NBP/2.0f;
-        float bin_y = rotated_y / (3.0f * sigma) + NBP/2.0f;
+        // Determine which spatial bin this sample belongs to  
+        float nx = rotated_x / SBP;
+        float ny = rotated_y / SBP;
+        float bin_x = nx + NBP/2.0f;
+        float bin_y = ny + NBP/2.0f;
         
         if (bin_x >= 0 && bin_x < NBP && bin_y >= 0 && bin_y < NBP) {
           
           int img_x = kp.x + dx, img_y = kp.y + dy;
-          if (img_x >= 0 && img_x < Width && img_y >= 0 && img_y < Height) {
+          if (img_x >= 0 && img_x < Width_ && img_y >= 0 && img_y < Height_) {
             
             float magnitude = grad_mag(img_y, img_x);
             float orientation = grad_ori(img_y, img_x) - keypoint_orientation;  // Make relative
@@ -811,6 +827,117 @@ public:
     float r_thresh = ((r + 1) * (r + 1)) / r;
 
     return ratio < r_thresh;
+  }
+
+private:
+  // Missing function implementations - temporary stubs
+  float get_sigma_for_keypoint(const KeypointT_& kp) {
+    // Convert scale index to sigma using SIFT++ formula
+    const float base_sigma = 1.6f;
+    const float k = powf(2.0f, 1.0f/3.0f);  // 2^(1/3)
+    return base_sigma * powf(k, kp.scale);
+  }
+
+  void smooth_histogram(float hist[], int size) {
+    // SIFT++ 6-iteration smoothing
+    for (int iter = 0; iter < 6; iter++) {
+      float prev = hist[size-1];
+      for (int i = 0; i < size; i++) {
+        float newh = (prev + hist[i] + hist[(i+1) % size]) / 3.0f;
+        prev = hist[i];
+        hist[i] = newh;
+      }
+    }
+  }
+
+  int find_orientation_peaks(float hist[], float orientations[4]) {
+    // Find maximum
+    float maxh = *std::max_element(hist, hist + 36);
+    
+    // Find peaks > 80% of max with quadratic interpolation
+    int nangles = 0;
+    for(int i = 0; i < 36 && nangles < 4; ++i) {
+      float h0 = hist[i];
+      float hm = hist[(i-1+36) % 36];
+      float hp = hist[(i+1+36) % 36];
+      
+      if(h0 > 0.8f*maxh && h0 > hm && h0 > hp) {
+        float di = -0.5f * (hp-hm) / (hp+hm-2*h0);
+        float th = 2*M_PI*(i+di+0.5f)/36;
+        orientations[nangles++] = th;
+      }
+    }
+    return nangles;
+  }
+
+  void trilinear_interpolate(float descriptor[], float bin_x, float bin_y, float orientation, float magnitude) {
+    const int NBP = 4;
+    const int NBO = 8;
+    
+    // Normalize orientation to [0, 2π) and convert to bin space
+    while(orientation < 0) orientation += 2*M_PI;
+    while(orientation >= 2*M_PI) orientation -= 2*M_PI;
+    float nt = NBO * orientation / (2*M_PI);
+    
+    // Get the "lower-left" bins for trilinear interpolation
+    int binx = (int) floorf(bin_x - 0.5f);
+    int biny = (int) floorf(bin_y - 0.5f);  
+    int bint = (int) floorf(nt);
+    
+    // Compute interpolation weights
+    float rbinx = bin_x - (binx + 0.5f);
+    float rbiny = bin_y - (biny + 0.5f);
+    float rbint = nt - bint;
+    
+    // Distribute to 8 adjacent bins
+    for(int dbinx = 0; dbinx < 2; ++dbinx) {
+      for(int dbiny = 0; dbiny < 2; ++dbiny) {
+        for(int dbint = 0; dbint < 2; ++dbint) {
+          
+          int fx = binx + dbinx;
+          int fy = biny + dbiny;
+          int ft = (bint + dbint) % NBO;
+          
+          // Check bounds (centered bins from -NBP/2 to +NBP/2)
+          if(fx >= -(NBP/2) && fx < (NBP/2) && fy >= -(NBP/2) && fy < (NBP/2)) {
+            
+            float weight = magnitude
+              * fabsf(1 - dbinx - rbinx)
+              * fabsf(1 - dbiny - rbiny) 
+              * fabsf(1 - dbint - rbint);
+            
+            // Convert to descriptor array index (Lowe's convention)
+            int idx = ((fy + NBP/2) * NBP + (fx + NBP/2)) * NBO + ft;
+            if(idx >= 0 && idx < 128) {
+              descriptor[idx] += weight;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void normalize_descriptor(float descriptor[], int size) {
+    // First normalization
+    float norm = 0.0f;
+    for(int i = 0; i < size; i++) norm += descriptor[i] * descriptor[i];
+    norm = sqrtf(norm);
+    if (norm > 0.0f) {
+      for(int i = 0; i < size; i++) descriptor[i] /= norm;
+    }
+    
+    // Clamp values > 0.2
+    for(int i = 0; i < size; i++) {
+      if(descriptor[i] > 0.2f) descriptor[i] = 0.2f;
+    }
+    
+    // Second normalization
+    norm = 0.0f;
+    for(int i = 0; i < size; i++) norm += descriptor[i] * descriptor[i];
+    norm = sqrtf(norm);
+    if (norm > 0.0f) {
+      for(int i = 0; i < size; i++) descriptor[i] /= norm;
+    }
   }
 };
 

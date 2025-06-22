@@ -3,8 +3,118 @@
     "reps": 1,
     "inner_reps": 1,
     "verbosity": 1,
+    "enable_caches": false,
+    "enable_vectorization": true,
+    "enable_sad_computation": true,
+    "max_problems": 10,
+  },
+
+  "bench-fastbrief-large": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
     "enable_caches": true,
     "enable_vectorization": true,
-    "enable_sad_computation": true
+    "max_problems": 10,
+  },
+
+  "bench-fastbrief-medium": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": false,
+    "enable_vectorization": true,
+    "max_problems": 10,
+  },
+
+  "bench-fastbrief-large": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 10,
+  },
+
+  "bench-orb-small": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 10,
+  },
+
+  "bench-orb-medium": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": false,
+    "enable_vectorization": true,
+    "max_problems": 10,
+  },
+
+  "bench-orb-large": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 10,
+  },
+
+  "bench-lkof-small": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
+  },
+
+  "bench-lkof-medium": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
+  },
+
+  "bench-image-interp-of-small": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
+  },
+
+
+  "bench-image-interp-of-medium": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
+  },
+
+  "bench-block-of-small": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
+  },
+
+  "bench-block-of-medium": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "enable_vectorization": true,
+    "max_problems": 0,
   }
 } 

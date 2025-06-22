@@ -147,7 +147,7 @@ void compute_brief_descriptors(const ImageT& img,
 
     // Ensure keypoint is within valid bounds
     if (kp.x < PATCH_HALF || kp.y < PATCH_HALF ||
-        kp.x >= img.cols - PATCH_HALF || kp.y >= img.rows - PATCH_HALF)
+        kp.x >= img.cols_ - PATCH_HALF || kp.y >= img.rows_ - PATCH_HALF)
     {
       // Zero out descriptor for invalid keypoints
       std::fill(descriptors[i].data.begin(), descriptors[i].data.end(), 0);
@@ -163,8 +163,8 @@ template <typename ImageT>
 void gaussian_blur_3x3_inplace(ImageT& img)
 {
   using Pixel = typename ImageT::pixel_type_;
-  const int H = img.rows;
-  const int W = img.cols;
+  const int H = img.rows_;
+  const int W = img.cols_;
 
   // Apply filter row-by-row, in-place — we'll use a sliding window buffer
   // to update one pixel at a time safely (won't clobber neighbors).

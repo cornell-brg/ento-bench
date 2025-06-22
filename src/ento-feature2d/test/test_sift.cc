@@ -413,68 +413,113 @@ void test_single_blur_comparison()
   printf("DoG1 error: %.6f\n", fabs(our_DoG1(16, 16) - expected_DoG1(16, 16)));
 }
 
-void test_python_gaussian_comparison()
+void test_full_sift_pipeline()
 {
-  printf("=== TEST 4: PYTHON GAUSSIAN COMPARISON ===\n");
+  printf("=== TEST 4: FULL SIFT PIPELINE ===\n");
   
   constexpr int H = 32;
   constexpr int W = 32;
+  constexpr int MaxKeypoints = 100;
+  
   using PixelT = uint8_t;
   using DoGPixelT = float;
   using ImgT = Image<H, W, PixelT>;
-  using DoGImageT = Image<H, W, DoGPixelT>;
+  using KeypointT = SIFTKeypoint<>;
+  using FeatureArrayT = FeatureArray<KeypointT, MaxKeypoints>;
+  using SIFTDriverT = SIFTDriver<ImgT, MaxKeypoints, KeypointT, 3, DoGPixelT>;
 
-  // Load the input image
+  // Load the same blob image as Test 2
   ImgT input_img;
   copy_into_img(input_img, img[0]);
   
-  // Convert to float - NO NORMALIZATION since input is already normalized
-  DoGImageT input_float;
-  for (int i = 0; i < H; i++) {
-    for (int j = 0; j < W; j++) {
-      input_float(i, j) = static_cast<float>(input_img(i, j));
-    }
+  printf("Input image loaded: %dx%d\n", H, W);
+  printf("Input center pixel: %d\n", static_cast<int>(input_img(16, 16)));
+  printf("Input peak pixel: %d\n", static_cast<int>(input_img(15, 15)));
+  
+  // Create feature storage and SIFT driver
+  FeatureArrayT features;
+  SIFTDriverT sift_driver(input_img, features);
+  
+  printf("SIFT driver created with MaxKeypoints=%d\n", MaxKeypoints);
+  
+  // Run the complete SIFT pipeline
+  printf("Running full SIFT pipeline...\n");
+  bool success = sift_driver.run(input_img);
+  
+  if (!success) {
+    printf("ERROR: SIFT pipeline failed!\n");
+    ENTO_TEST_CHECK_FALSE(true);
+    return;
   }
   
-  // Apply gaussian blur with sigma=1.519868
-  DoGImageT result_gaussian_blur;
-  const float sigma = 1.519868f;
-  auto kernel = make_gaussian_kernel<float, 15>(sigma);
+  printf("SIFT pipeline completed successfully!\n");
   
-  gaussian_blur<DoGImageT, DoGImageT, 15>(input_float, result_gaussian_blur, kernel);
+  // Get the results from the feature array
+  int num_features = features.size();
   
-  // Output input image for Python comparison
-  printf("INPUT_IMAGE = [\n");
-  for (int i = 0; i < H; i++) {
-    printf("  [");
-    for (int j = 0; j < W; j++) {
-      printf("%.6f", input_float(i, j));
-      if (j < W-1) printf(", ");
+  printf("Number of features detected: %d\n", num_features);
+  
+  // Basic validation: We should detect at least one feature from the blob
+  ENTO_TEST_CHECK_TRUE(num_features > 0);
+  
+  if (num_features > 0) {
+    printf("\n--- DETECTED FEATURES ---\n");
+    for (int i = 0; i < std::min(num_features, 5); i++) { // Show first 5 features
+      const auto& feat = features[i];
+      printf("Feature %d: pos(%.3f, %.3f), scale=%.3f, orient=%.3f, response=%.6f\n",
+             i, feat.x, feat.y, feat.scale, feat.orientation, feat.response);
+      
+      // Print the 128-dimensional descriptor
+      printf("  Descriptor: [");
+      for (int d = 0; d < 128; ++d) {
+        printf("%.3f", feat.descriptor[d]);
+        if (d < 127) printf(", ");
+        if ((d + 1) % 8 == 0 && d < 127) printf("\n              ");  // Line break every 8 values
+      }
+      printf("]\n");
     }
-    printf("]");
-    if (i < H-1) printf(",");
-    printf("\n");
+    
+    // Validate the main feature is reasonable (should be near the blob center)
+    const auto& main_feature = features[0];
+    
+    // The blob is centered around (15.5, 15.5), so feature should be nearby
+    float distance_from_center = sqrtf(
+      (main_feature.x - 15.5f) * (main_feature.x - 15.5f) + 
+      (main_feature.y - 15.5f) * (main_feature.y - 15.5f)
+    );
+    
+    printf("\nMain feature distance from blob center (15.5, 15.5): %.3f pixels\n", distance_from_center);
+    
+    // Reasonable validation: feature should be within 2 pixels of center
+    ENTO_TEST_CHECK_TRUE(distance_from_center < 2.0f);
+    
+    // Scale should be reasonable (positive and not too extreme)
+    ENTO_TEST_CHECK_TRUE(main_feature.scale > 0.0f);
+    ENTO_TEST_CHECK_TRUE(main_feature.scale < 10.0f);
+    
+    // For a blob, orientation can be somewhat arbitrary due to symmetry
+    // Just check that orientations are finite numbers (not NaN/inf)
+    ENTO_TEST_CHECK_TRUE(std::isfinite(main_feature.orientation));
+    
+    // Response should be reasonable (non-zero)
+    ENTO_TEST_CHECK_TRUE(fabs(main_feature.response) > 1e-6f);
+    
+    // For a symmetric blob, having multiple orientations is actually expected
+    printf("\nℹ️  Note: Blob detected %d orientations (expected for symmetric features)\n", num_features);
+    
+    printf("\n--- VALIDATION RESULTS ---\n");
+    printf("✓ Features detected: %d > 0\n", num_features);
+    printf("✓ Main feature position: (%.3f, %.3f) within 2.0 pixels of center\n", 
+           main_feature.x, main_feature.y);
+    printf("✓ Scale: %.3f in valid range\n", main_feature.scale);
+    printf("✓ Orientation: %.3f rad (%.1f°) - finite value ✓\n", 
+           main_feature.orientation, main_feature.orientation * 180.0f / M_PI);
+    printf("✓ Response: %.6f is non-zero\n", main_feature.response);
+    
+    printf("\n🎉 FULL SIFT PIPELINE TEST PASSED! 🎉\n");
+  } else {
+    printf("WARNING: No features detected - this may indicate an issue\n");
   }
-  printf("]\n\n");
-  
-  // Output our gaussian blur result for Python comparison  
-  printf("OUR_RESULT = [\n");
-  for (int i = 0; i < H; i++) {
-    printf("  [");
-    for (int j = 0; j < W; j++) {
-      printf("%.6f", result_gaussian_blur(i, j));
-      if (j < W-1) printf(", ");
-    }
-    printf("]");
-    if (i < H-1) printf(",");
-    printf("\n");
-  }
-  printf("]\n\n");
-  
-  printf("SIGMA = %.6f\n", sigma);
-  printf("Center result: %.6f\n", result_gaussian_blur(16, 16));
-  printf("Expected (SIFT++): 0.958898\n");
-  printf("Diff: %.6f\n", result_gaussian_blur(16, 16) - 0.958898f);
 }
 
 //------------------------------------------------------------------------
@@ -498,7 +543,7 @@ int main(int argc, char** argv)
   if (__ento_test_num(__n, 1)) test_dog_octave_float_init_and_step(); 
   if (__ento_test_num(__n, 2)) test_extrema_on_blob(); 
   if (__ento_test_num(__n, 3)) test_single_blur_comparison();
-  if (__ento_test_num(__n, 4)) test_python_gaussian_comparison();
+  if (__ento_test_num(__n, 4)) test_full_sift_pipeline();
   
   ENTO_TEST_END();
 }

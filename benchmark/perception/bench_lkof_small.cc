@@ -22,11 +22,11 @@ using namespace EntoBench;
 using namespace EntoUtil;
 using namespace EntoFeature2D;
 
-const int decimal_bits = 20;
-using fp_t = FixedPoint<64 - decimal_bits, decimal_bits, int64_t>;
+const int decimal_bits = 10;
+using fp_t = FixedPoint<32 - decimal_bits, decimal_bits, int32_t>;
 
 // Configuration for SMALL
-constexpr size_t NUM_LEVELS = 2;
+constexpr size_t NUM_LEVELS = 1;
 constexpr size_t IMG_WIDTH  = 80;
 constexpr size_t IMG_HEIGHT = 80;
 constexpr size_t WIN_DIM    = 10;
@@ -70,7 +70,7 @@ int main()
 
   // Params
   int max_count     = 20;
-  int det_epsilon   = 1 << 20;
+  int det_epsilon   = 1 << 10;
   float criteria    = 0.01f;
   int num_good_pts  = NumFeats;
 
