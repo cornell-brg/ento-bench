@@ -20,8 +20,8 @@ public:
   static constexpr size_t ImageRows_ = Rows;
   static constexpr size_t ImageCols_ = Cols;
 
-  alignas(4) static Image<Rows, Cols, PixelT> img1_;
-  alignas(4) static Image<Rows, Cols, PixelT> img2_;
+  alignas(4) Image<Rows, Cols, PixelT> img1_;
+  alignas(4) Image<Rows, Cols, PixelT> img2_;
 
 #ifdef NATIVE
   std::string serialize_impl() const;
@@ -43,11 +43,11 @@ protected:
   OpticalFlowProblem() = default;
 };
 
-template <typename Derived, size_t Rows, size_t Cols, typename PixelT>
-Image<Rows, Cols, PixelT> OpticalFlowProblem<Derived, Rows, Cols, PixelT>::img1_;
-
-template <typename Derived, size_t Rows, size_t Cols, typename PixelT>
-Image<Rows, Cols, PixelT> OpticalFlowProblem<Derived, Rows, Cols, PixelT>::img2_;
+//template <typename Derived, size_t Rows, size_t Cols, typename PixelT>
+//Image<Rows, Cols, PixelT> OpticalFlowProblem<Derived, Rows, Cols, PixelT>::img1_;
+//
+//template <typename Derived, size_t Rows, size_t Cols, typename PixelT>
+//Image<Rows, Cols, PixelT> OpticalFlowProblem<Derived, Rows, Cols, PixelT>::img2_;
 
 } // namespace EntoFeature2D
 
