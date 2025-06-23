@@ -126,13 +126,13 @@ void fast(const ImageType& img,
           FeatureArray<KeypointType, MaxFeatures>& feats)
 {
   // Compile-time access to number of columns
-  constexpr int img_width   = ImageType::cols;
-  constexpr int img_height  = ImageType::rows;
+  constexpr int img_width   = ImageType::cols_;
+  constexpr int img_height  = ImageType::rows_;
   constexpr int max_dim     = (img_width > img_height) ? img_width : img_height;
 
   // Extract pixel type info
-  using PixelType = ImageType::pixel_type;
-  constexpr int bit_depth = ImageType::bit_depth;
+  using PixelType = ImageType::pixel_type_;
+  constexpr int bit_depth = ImageType::bit_depth_;
   constexpr int middle_value = (1 << (bit_depth + 1)) / 2;
 
   // Calculate fast attention region

@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-//#include <Eigen/Dense>
 #include <image_io/Pixel.h>
 #include <ento-util/debug.h>
 #include <type_traits>
@@ -14,14 +13,17 @@ template <int Rows, int Cols, typename PixelT>
 class Image
 {
 public:
-  static constexpr int rows = Rows;
-  static constexpr int cols = Cols;
-  static constexpr int bit_depth = sizeof(PixelT) * 8;
-  using pixel_type = PixelT;
+  static constexpr int rows_ = Rows;
+  static constexpr int cols_ = Cols;
+  static constexpr int bit_depth_ = sizeof(PixelT) * 8;
+  using pixel_type_ = PixelT;
 
   PixelT data[Rows * Cols];
 
   Image(): data{} {}
+
+  constexpr int rows() const { return rows_; }
+  constexpr int cols() const { return cols_; }
 
   void set_pixel(int row, int col, PixelT pixel)
   {
@@ -116,6 +118,247 @@ public:
     return 1;  // Success
   }
 };
+
+////////////////////////////////////////////////////////////////////////////////
+// ImageViewMode
+// ============================================================================
+// Enum to specify how the reference point passed to the ImageView constructor
+// should be interpreted.
+//
+// - TopLeft: (row, col) is the top-left corner of the patch.
+// - Center:  (row, col) is the center of the patch.
+// ============================================================================
+enum class ImageViewMode
+{
+  TopLeft,
+  Center
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// ImageView
+// ============================================================================
+// A lightweight, non-owning view into a subregion of a statically-sized image.
+//
+// Template Parameters:
+// - PixelT:       Type of each pixel (e.g., uint8_t, float).
+// - BoundsCheck:  Enables bounds checking if true (default = false).
+//
+// This class is designed for memory-constrained systems like Cortex-M.
+// No dynamic allocation, no virtuals, only direct pixel access.
+// ============================================================================
+template <typename PixelT, bool BoundsCheck = false>
+class ImageView
+{
+public:
+
+  // ============================================================================
+  // Constructor
+  // ============================================================================
+  // Creates an ImageView into a subregion of a larger image buffer.
+  //
+  // Arguments:
+  // - base_ptr:     Pointer to the full image buffer (row-major).
+  // - image_cols:   Number of columns in the full image (i.e., stride).
+  // - row_ref:      Reference row (top-left or center).
+  // - col_ref:      Reference column (top-left or center).
+  // - patch_rows:   Height of the view.
+  // - patch_cols:   Width of the view.
+  // - mode:         Whether (row_ref, col_ref) is TopLeft or Center.
+  //
+  // Notes:
+  // - No bounds checking on the original image bounds.
+  // - Bounds checking *within the view* is enabled if BoundsCheck = true.
+  // ============================================================================
+  ImageView(PixelT* base_ptr,
+            int image_cols,
+            int row_ref,
+            int col_ref,
+            int patch_rows,
+            int patch_cols,
+            ImageViewMode mode)
+    : data_(base_ptr),
+      image_cols_(image_cols),
+      rows_(patch_rows),
+      cols_(patch_cols)
+  {
+    if (mode == ImageViewMode::TopLeft)
+    {
+      row_offset_ = row_ref;
+      col_offset_ = col_ref;
+    }
+    else // Center
+    {
+      row_offset_ = row_ref - patch_rows / 2;
+      col_offset_ = col_ref - patch_cols / 2;
+    }
+  }
+
+  // ============================================================================
+  // operator()(row, col)
+  // ============================================================================
+  // Returns a reference to the pixel at (row, col) in the view.
+  // Bounds checking is done if BoundsCheck is true.
+  // ============================================================================
+  PixelT& operator()(int row, int col)
+  {
+    if constexpr (BoundsCheck)
+    {
+      if (row < 0 || row >= rows_ || col < 0 || col >= cols_)
+      {
+        printf("ImageView access out of bounds at (%d, %d)\n", row, col);
+        __builtin_trap();
+      }
+    }
+
+    return data_[(row + row_offset_) * image_cols_ + (col + col_offset_)];
+  }
+
+  // ============================================================================
+  // operator()(row, col) const
+  // ============================================================================
+  // Const-qualified version for read-only access to view pixels.
+  // ============================================================================
+  const PixelT& operator()(int row, int col) const
+  {
+    if constexpr (BoundsCheck)
+    {
+      if (row < 0 || row >= rows_ || col < 0 || col >= cols_)
+      {
+        printf("ImageView (const) access out of bounds at (%d, %d)\n", row, col);
+        __builtin_trap();
+      }
+    }
+
+    return data_[(row + row_offset_) * image_cols_ + (col + col_offset_)];
+  }
+
+  // ============================================================================
+  // get_pixel
+  // ============================================================================
+  // Returns a copy of the pixel value at the specified row/col.
+  // ============================================================================
+  PixelT get_pixel(int row, int col) const
+  {
+    return (*this)(row, col);
+  }
+
+  // ============================================================================
+  // rows
+  // ============================================================================
+  // Returns the number of rows in the view.
+  // ============================================================================
+  int rows() const
+  {
+    return rows_;
+  }
+
+  // ============================================================================
+  // cols
+  // ============================================================================
+  // Returns the number of columns in the view.
+  // ============================================================================
+  int cols() const
+  {
+    return cols_;
+  }
+
+private:
+  PixelT* data_;       // pointer to base image buffer
+  int image_cols_;     // stride of base image (i.e., full image width)
+  int row_offset_;     // top-left row index of the view
+  int col_offset_;     // top-left col index of the view
+
+public:
+  using pixel_type_ = PixelT;
+  int rows_;           // view height
+  int cols_;           // view width
+};
+
+// ============================================================================
+// make_image_view
+// ----------------------------------------------------------------------------
+// Returns a top-left-anchored ImageView from a mutable Image.
+// ============================================================================
+template <int Rows, int Cols, typename PixelT, bool BoundsCheck = false>
+ImageView<PixelT, BoundsCheck>
+make_image_view(Image<Rows, Cols, PixelT>& image,
+                int row,
+                int col,
+                int view_rows,
+                int view_cols)
+{
+  return ImageView<PixelT, BoundsCheck>(
+    image.data, Cols,
+    row, col,
+    view_rows, view_cols,
+    ImageViewMode::TopLeft
+  );
+}
+
+// ============================================================================
+// make_image_view (const Image version)
+// ----------------------------------------------------------------------------
+// Returns a top-left-anchored ImageView from a const-qualified Image.
+// ============================================================================
+template <int Rows, int Cols, typename PixelT, bool BoundsCheck = false>
+ImageView<const PixelT, BoundsCheck>
+make_image_view(const Image<Rows, Cols, PixelT>& image,
+                int row,
+                int col,
+                int view_rows,
+                int view_cols)
+{
+  return ImageView<const PixelT, BoundsCheck>(
+    image.data, Cols,
+    row, col,
+    view_rows, view_cols,
+    ImageViewMode::TopLeft
+  );
+}
+
+// ============================================================================
+// make_centered_view
+// ----------------------------------------------------------------------------
+// Returns a center-anchored ImageView from a mutable Image.
+// ============================================================================
+template <int Rows, int Cols, typename PixelT, bool BoundsCheck = false>
+ImageView<PixelT, BoundsCheck>
+make_centered_view(Image<Rows, Cols, PixelT>& image,
+                   int center_row,
+                   int center_col,
+                   int view_rows,
+                   int view_cols)
+{
+  return ImageView<PixelT, BoundsCheck>(
+    image.data, Cols,
+    center_row, center_col,
+    view_rows, view_cols,
+    ImageViewMode::Center
+  );
+}
+
+// ============================================================================
+// make_centered_view (const Image version)
+// ----------------------------------------------------------------------------
+// Returns a center-anchored ImageView from a const-qualified Image.
+// ============================================================================
+template <int Rows, int Cols, typename PixelT, bool BoundsCheck = false>
+ImageView<const PixelT, BoundsCheck>
+make_centered_view(const Image<Rows, Cols, PixelT>& image,
+                   int center_row,
+                   int center_col,
+                   int view_rows,
+                   int view_cols)
+{
+  return ImageView<const PixelT, BoundsCheck>(
+    image.data, Cols,
+    center_row, center_col,
+    view_rows, view_cols,
+    ImageViewMode::Center
+  );
+}
+
+
 
 template <int Rows, int Cols, typename PixelT>
 class DoubleBufferedImage : public Image<Rows, Cols, PixelT>

@@ -12,37 +12,38 @@
 using namespace std;
 using namespace EntoFeature2D;
 
-const int scharr_x_arr[] = {-3, 0, 3, -10, 0, 10, -3, 0, 3};
-const int scharr_y_arr[] = {-3, -10, -3, 0, 0, 0, 3, 10, 3};
+static const int scharr_x_arr[9] = {-3, 0, 3, -10, 0, 10, -3, 0, 3};
+static const int scharr_y_arr[9] = {-3, -10, -3, 0, 0, 0, 3, 10, 3};
 
 // TODO: long vs longlong on cortex m4
 // using PointFP = std::tuple<CoordT, CoordT>;
 
 // window dimension used for the gradient calculation
 // not the same as the window dimension used for the optical flow
-template<size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT>
-void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & src, int* Ix_arr, int* Iy_arr, const int halfWin) {
+template<int IMG_WIDTH, int IMG_HEIGHT, int WIN_DIM, typename CoordT, typename PixelT>
+void calc_gradient(const Keypoint<CoordT>& pt, const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& src, int* Ix_arr, int* Iy_arr, const int halfWin) {
     
     // Indices for top left corner of window in src
     int32_t x_i = static_cast<int32_t>(pt.x)-halfWin;
     int32_t y_i = static_cast<int32_t>(pt.y)-halfWin;
 
-    for (size_t i = 0; i < WIN_DIM; i++) { // row / height / y
-        for (size_t j = 0; j < WIN_DIM; j++) { // col / width / x
+    for (int i = 0; i < WIN_DIM; i++) // row / height / y
+    {
+        for (int j = 0; j < WIN_DIM; j++) { // col / width / x
             // kernel loop
             int Ix = 0;
             int Iy = 0;
             for (int k = 0; k < 3; k++) { // row / height / y
                 for (int l = 0; l < 3; l++) { // col / width / x
-                    size_t y_index = i+k+y_i - 1;
+                    int y_index = i+k+y_i - 1;
                     if (y_index < 0) y_index = 0;
-                    else if (y_index >= src.rows) y_index = src.rows-1;
+                    else if (y_index >= src.rows_) y_index = src.rows_-1;
 
-                    size_t x_index = j+l+x_i - 1;
+                    int x_index = j+l+x_i - 1;
                     if (x_index < 0) x_index = 0;
-                    else if (x_index >= src.cols) x_index = src.cols-1;
-                    Ix += ((int) src.data[src.rows*y_index + x_index])*scharr_x_arr[k*3+l];
-                    Iy += ((int) src.data[src.rows*y_index + x_index])*scharr_y_arr[k*3+l];
+                    else if (x_index >= src.cols_) x_index = src.cols_-1;
+                    Ix += ((int) src.data[src.rows_*y_index + x_index])*scharr_x_arr[k*3+l];
+                    Iy += ((int) src.data[src.rows_*y_index + x_index])*scharr_y_arr[k*3+l];
                 }
             }
             Ix_arr[WIN_DIM*i + j] = round(Ix / 32);
@@ -52,7 +53,7 @@ void calc_gradient(const Keypoint<CoordT> & pt, const Image<IMG_HEIGHT, IMG_WIDT
 }
 
 // WIN_DIM is dimension of output window
-template <typename SrcT, size_t WIN_DIM, typename CoordT>
+template <typename SrcT, int WIN_DIM, typename CoordT>
 void interpolate(const Keypoint<CoordT> & pt, const SrcT * src, Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & dst, int src_width, int src_height) {
     int32_t x_i = static_cast<int32_t>(pt.x);
     int32_t y_i = static_cast<int32_t>(pt.y);
@@ -66,8 +67,8 @@ void interpolate(const Keypoint<CoordT> & pt, const SrcT * src, Eigen::Matrix<Co
     CoordT iw10((one-a)*b);
     CoordT iw11(one- iw00 - iw01 - iw10);
 
-    for (size_t k = 0; k < WIN_DIM; k++) { // row / height / y
-        for (size_t l = 0; l < WIN_DIM; l++) { // col / width / x
+    for (int k = 0; k < WIN_DIM; k++) { // row / height / y
+        for (int l = 0; l < WIN_DIM; l++) { // col / width / x
             int l_plus = l+1;
             if (l_plus >= src_width) l_plus = src_width - 1;
 
@@ -84,17 +85,17 @@ void interpolate(const Keypoint<CoordT> & pt, const SrcT * src, Eigen::Matrix<Co
     }
 }
 
-template <size_t WIN_DIM, typename CoordT>
-CoordT a_transpose_a(const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & Ix_win_square, 
-                    const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & Iy_win_square, 
-                    Eigen::Matrix<CoordT, 2, 2> & ATA_inv,
-                    int DET_EPSILON) {                
+template <int WIN_DIM, typename CoordT>
+CoordT a_transpose_a(const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM>& Ix_win_square, 
+                     const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM>& Iy_win_square, 
+                     Eigen::Matrix<CoordT, 2, 2> & ATA_inv,
+                     int DET_EPSILON) {                
     // Calculate ATA components and inverse
     CoordT IxIx(0);
     CoordT IyIy(0);
     CoordT IxIy(0);
-    for (size_t j = 0; j < WIN_DIM; j++) {
-        for (size_t k = 0; k < WIN_DIM; k++) {
+    for (int j = 0; j < WIN_DIM; j++) {
+        for (int k = 0; k < WIN_DIM; k++) {
             IxIx += (Ix_win_square(j, k) * Ix_win_square(j, k));
             IyIy += (Iy_win_square(j, k) * Iy_win_square(j, k));
             IxIy += (Ix_win_square(j, k) * Iy_win_square(j, k));
@@ -120,7 +121,7 @@ CoordT a_transpose_a(const Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> & Ix_win_squa
     return CoordT(0);
 }
 
-template <size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT>
+template <int IMG_WIDTH, int IMG_HEIGHT, int WIN_DIM, typename CoordT, typename PixelT>
 void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg, 
                                 const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & nextImg,
                                const Keypoint<CoordT>* prevPts, Keypoint<CoordT>* nextPts,
@@ -128,6 +129,15 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
                                int DET_EPSILON, float CRITERIA )
 {
     int halfWin = (int) WIN_DIM / 2;
+    //alignas(4) static int Ix_arr[(WIN_DIM+1)*(WIN_DIM+1)];
+    //alignas(4) static int Iy_arr[(WIN_DIM+1)*(WIN_DIM+1)];
+    //alignas(4) static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Ix_win_square;
+    //alignas(4) static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Iy_win_square;
+    //alignas(4) static Eigen::Matrix<CoordT, 2, 2> ATA_inv;
+    //alignas(4) static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_p;
+    //alignas(4) static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_n;
+    //alignas(4) static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win;
+    ENTO_DEBUG("Started calcOpticalFlowIterLK for (%d/%d, %d/%d, %d)!", prevImg.cols_, IMG_WIDTH, prevImg.rows_, IMG_HEIGHT, WIN_DIM);
 
     for ( int i = 0; i < num_good_points; i++ ) {
 
@@ -135,7 +145,7 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         CoordT x(nextPts[i].x);
         CoordT y(nextPts[i].y);
         int x_i = static_cast<int32_t>(x);
-        int y_i = static_cast<int32_t>(x);
+        int y_i = static_cast<int32_t>(y);
         
         Keypoint<CoordT> prevPt = prevPts[i];
 
@@ -146,7 +156,7 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         bool success = false;
 
         // If point is out of bounds, status is failed
-        if ( x_i >= (int) prevImg.cols || y_i >= (int) prevImg.rows || x_i < 0 || y_i < 0) {
+        if ( x_i >= (int) prevImg.cols_ || y_i >= (int) prevImg.rows_ || x_i < 0 || y_i < 0) {
             // cout << "Point out of bounds " << "(" << x_i << ", " << y_i << ")" << endl;
             status[i] = 0;
             nextPts[i] = guessPt;
@@ -154,16 +164,21 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         }
 
         // Calculate gradients
-        int Ix_arr[(WIN_DIM+1)*(WIN_DIM+1)];
-        int Iy_arr[(WIN_DIM+1)*(WIN_DIM+1)];
-        Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Ix_win_square;
-        Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Iy_win_square;
+        static int Ix_arr[(WIN_DIM+1)*(WIN_DIM+1)];
+        static int Iy_arr[(WIN_DIM+1)*(WIN_DIM+1)];
+        static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Ix_win_square;
+        static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> Iy_win_square;
+        ENTO_DEBUG("Calculating gradient!");
         calc_gradient<IMG_WIDTH, IMG_HEIGHT, WIN_DIM+1, CoordT, PixelT>(prevPt, prevImg, Ix_arr, Iy_arr, halfWin);
+        ENTO_DEBUG("Finished calculating gradient!");
         interpolate<int, WIN_DIM, CoordT>(prevPt, Ix_arr, Ix_win_square, WIN_DIM+1, WIN_DIM+1);
         interpolate<int, WIN_DIM, CoordT>(prevPt, Iy_arr, Iy_win_square, WIN_DIM+1, WIN_DIM+1);
+        ENTO_DEBUG("Computing Ix_win_square");
+        ENTO_DEBUG("Computing Iy_win_square");
 
         // Calculate ATA_inv
-        Eigen::Matrix<CoordT, 2, 2> ATA_inv;
+        static Eigen::Matrix<CoordT, 2, 2> ATA_inv;
+        ENTO_DEBUG("Computing ATA");
         CoordT det = a_transpose_a<WIN_DIM, CoordT>(Ix_win_square, Iy_win_square, ATA_inv, DET_EPSILON);
         if (static_cast<int32_t>(det) != 0) {
             // cout << "Singular matrix at point (" << x << ", " << y << ")" << endl;
@@ -173,31 +188,35 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         }
 
         // Calculate prev win
-        Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_p;
-        interpolate<PixelT, WIN_DIM, CoordT>(prevPt, ((PixelT *)prevImg.data)+(y_i - halfWin)*prevImg.cols+(x_i-halfWin), It_win_p, prevImg.cols, prevImg.rows-y_i);
+        ENTO_DEBUG("Computing It_win_p");
+        static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_p;
+        interpolate<PixelT, WIN_DIM, CoordT>(prevPt, ((PixelT *)prevImg.data)+(y_i - halfWin)*prevImg.cols_+(x_i-halfWin), It_win_p, prevImg.cols_, prevImg.rows_-y_i);
 
+        ENTO_DEBUG("Entering refinement loop...");
         for (int j = 0; j < MAX_COUNT; j++) {
 
+            ENTO_DEBUG("refinement loop (%d/%d)...", j, MAX_COUNT);
             // Calculate the time derivative
-            Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_n;
+            static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win_n;
             int guessPt_y_i = static_cast<int32_t>(guessPt.y);
             int guessPt_x_i = static_cast<int32_t>(guessPt.x);
-            interpolate<PixelT, WIN_DIM, CoordT>(guessPt, ((PixelT *)nextImg.data)+(guessPt_y_i - halfWin)*nextImg.cols+(guessPt_x_i-halfWin), It_win_n, nextImg.cols, nextImg.rows-guessPt_y_i); 
-            Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win = It_win_n - It_win_p;
+            interpolate<PixelT, WIN_DIM, CoordT>(guessPt, ((PixelT *)nextImg.data)+(guessPt_y_i - halfWin)*nextImg.cols_+(guessPt_x_i-halfWin), It_win_n, nextImg.cols_, nextImg.rows_-guessPt_y_i); 
+            static Eigen::Matrix<CoordT, WIN_DIM, WIN_DIM> It_win;
+            It_win = (It_win_n - It_win_p).eval();
 
             // Compute b
             CoordT b0(0), b1(0);
-            for (size_t k = 0; k < WIN_DIM; k++) {
-                for (size_t l = 0; l < WIN_DIM; l++) {
+            for (int k = 0; k < WIN_DIM; k++) {
+                for (int l = 0; l < WIN_DIM; l++) {
                     b0 = b0 + Ix_win_square(k, l) * It_win(k, l);
                     b1 = b1 + Iy_win_square(k, l) * It_win(k, l);
                 }
             }
-            Eigen::Matrix<CoordT, 2, 1> b;
+            static Eigen::Matrix<CoordT, 2, 1> b;
             b << b0 , b1;
 
             // Compute the least squares solution
-            Eigen::Matrix<CoordT, 2, 1> soln = ATA_inv * (-b);
+            static Eigen::Matrix<CoordT, 2, 1> soln = (ATA_inv * (-b)).eval();
             u = soln(0, 0);
             v = soln(1, 0);
             success = true;
@@ -210,6 +229,7 @@ void calcOpticalFlowIterLK( const Image<IMG_HEIGHT, IMG_WIDTH, PixelT> & prevImg
         status[i] = success;
         nextPts[i] = guessPt;
     }
+    ENTO_DEBUG("Finished calcOpticalFlowIterLK for (%d, %d, %d)!", IMG_WIDTH, IMG_HEIGHT, WIN_DIM);
 }
 
 #endif

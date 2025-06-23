@@ -35,8 +35,9 @@ int main()
 
   // -------- Kernel and Problem Setup --------
   constexpr int MaxFeats = 100;
-  constexpr int Threshold = 20;
-  using Kernel  = ORBKernel<MaxFeats, Threshold>;
+  constexpr int Threshold = 10;
+  constexpr int NumLevels = 1;
+  using Kernel  = ORBKernel<MaxFeats, Threshold, NumLevels>;
   using PixT    = uint8_t;
   constexpr int Rows = 160;
   constexpr int Cols = 160;

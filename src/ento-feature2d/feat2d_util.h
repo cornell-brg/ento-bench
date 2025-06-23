@@ -4,6 +4,7 @@
 #include <array>
 #include <Eigen/Dense>
 #include <ento-util/debug.h>
+#include <type_traits>
 
 namespace EntoFeature2D
 {
@@ -63,7 +64,55 @@ struct ORBKeypoint : public FastKeypoint<CoordT>
   ORBKeypoint(ORBKeypoint&&) = default;
   ORBKeypoint& operator=(const ORBKeypoint&) = default;
   ORBKeypoint& operator=(ORBKeypoint&&) = default;
+};
 
+template <typename CoordT = float,
+          typename ScaleT = float,
+          typename ResponseT = float,
+          typename OrientationT = float,
+          typename DescriptorT = float,
+          int DescriptorSize=128>
+struct SIFTKeypoint : public Keypoint<CoordT>
+{
+  static_assert(std::is_same_v<DescriptorT, float>, "DescriptorT only supports floating point type for now.");
+  using DescriptorT_ = DescriptorT;
+  using ScaleT_ = ScaleT;
+  using OrientationT_ = OrientationT; 
+  static constexpr int DescriptorSize_ = DescriptorSize;
+
+  int octave;    // which level in pyramid
+  ScaleT scale; // which DoG layer
+  OrientationT orientation;
+  ResponseT response;
+  DescriptorT descriptor[DescriptorSize];
+
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave,
+               OrientationT orientation, ResponseT response, DescriptorT fill_val)
+    : Keypoint<CoordT>(x, y), octave{octave}, scale{scale},
+      orientation{orientation}, response{response}
+  {
+    std::fill(std::begin(descriptor), std::end(descriptor), fill_val);
+  }
+
+  SIFTKeypoint()
+    : SIFTKeypoint(0, 0, 0, 0, static_cast<OrientationT>(0),
+                   static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
+  {}
+
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave)
+    : SIFTKeypoint(x, y, scale, octave, static_cast<OrientationT>(0),
+                   static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
+  {}
+
+  SIFTKeypoint(CoordT x, CoordT y, ScaleT scale, int octave, OrientationT orientation)
+    : SIFTKeypoint(x, y, scale, octave, orientation,
+                   static_cast<ResponseT>(0), static_cast<DescriptorT>(0))
+  {}
+
+  void set_descriptor(const DescriptorT desc[DescriptorSize_])
+  {
+    std::copy(desc, desc + DescriptorSize_, descriptor);
+  }
 };
 
 template <typename KeypointType, size_t MaxFeatures = 100>
@@ -101,6 +150,10 @@ struct FeatureArray
     num_features = 0;
   }
   
+  bool full() const
+  {
+    return num_features == max_features;
+  }
 
   size_t size() const
   {

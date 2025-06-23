@@ -320,6 +320,51 @@ inline void __ento_debug_print_array(const char* file, int line, const char* fun
 #define ENTO_DEBUG_NEWLINE \
   if (EntoUtil::__n > 0) { std::printf("\n"); }
 
+//------------------------------------------------------------------------
+// ENTO_DEBUG_IMAGE
+//------------------------------------------------------------------------
+// Print a small image (templated EntoBench Image class) with optional label.
+// Pixels printed as integers or floats depending on type.
+
+#include <type_traits> // for std::is_floating_point
+
+template <typename ImageT>
+inline void __ento_debug_print_image(const char* file, int line, const char* func,
+                                     const char* name, const ImageT& img)
+{
+  using PixelT = typename ImageT::pixel_type_;
+  constexpr int width = 12;
+  constexpr int precision = 8;
+  constexpr const char* indent = "\t";
+
+  const int W = img.rows();
+  const int H = img.cols();
+  if (EntoUtil::__n <= 0) return;
+
+  std::printf(" - [ " __YELLOW "-info-" __RESET " ] File %s:%d, Function %s:\n%s =\n",
+              EntoUtil::__ento_debug_get_file_name(file), line, func, name);
+
+  for (int y = 0; y < H; ++y)
+  {
+    std::printf("%s[ ", indent);
+    for (int x = 0; x < W; ++x)
+    {
+      if constexpr (std::is_floating_point_v<PixelT>)
+        std::printf("%*.*f", width, precision, static_cast<float>(img(y, x)));
+      else
+        std::printf("%*d", width, int(img(y, x)));
+
+      if (x != W - 1)
+        std::printf(", ");
+    }
+    std::printf(" ]\n");
+  }
+}
+
+#define ENTO_DEBUG_IMAGE(image_) \
+  __ento_debug_print_image(__FILE__, __LINE__, __func__, #image_, image_)
+
+
 #else
 
 #define DPRINTF(...) // no-op
@@ -343,6 +388,9 @@ inline void __ento_debug_print_array(const char* file, int line, const char* fun
 #define ENTO_DEBUG_EIGEN_QUAT2(...) // no-op
                                     //
 #define ENTO_DEBUG_EIGEN_MATRIX_COMPARISON(...) \
+
+#define ENTO_DEBUG_IMAGE(...) // no-op
+
 
 #endif
 

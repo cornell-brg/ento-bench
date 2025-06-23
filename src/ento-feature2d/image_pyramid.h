@@ -35,13 +35,15 @@ public:
     // Constructor that sets the 0th level to 'topLevelImage' and
     // default-constructs (or otherwise creates) the other levels.
     constexpr ImagePyramid()
-        : pyramid(make_pyramid_tuple<IMG_WIDTH, IMG_HEIGHT, PixelT>(
-            std::make_index_sequence<NUM_LEVELS+1>{}))
+          : pyramid()
+        //: pyramid(make_pyramid_tuple<IMG_WIDTH, IMG_HEIGHT, PixelT>(
+        //    std::make_index_sequence<NUM_LEVELS+1>{}))
     {
     }
 
     // Set top level
-    constexpr void set_top_image(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& topLevelImage)
+    //constexpr void set_top_image(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& topLevelImage)
+    void set_top_image(const Image<IMG_HEIGHT, IMG_WIDTH, PixelT>& topLevelImage)
     {
         get<0>(pyramid) = topLevelImage;
     }

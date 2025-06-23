@@ -316,6 +316,10 @@ endif()
 # Config file approach with smart fallbacks
 set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/perception_benchmarks.json")
 if(EXISTS ${CONFIG_FILE})
+  add_configured_benchmark_group_with_target_configs("perception"
+    CONFIG_FILE ${CONFIG_FILE}
+    TARGETS ${BENCH_TARGETS}
+  )
   add_configured_benchmark_group_from_file("perception"
     CONFIG_FILE ${CONFIG_FILE}
     TARGETS ${BENCH_TARGETS}
