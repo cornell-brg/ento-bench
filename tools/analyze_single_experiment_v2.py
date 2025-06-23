@@ -310,7 +310,7 @@ def analyze_power_consumption(parent_dir, dataset_name, rising_threshold, fallin
                     pulse_avg_current = np.mean( pulse_window['current_mA'] )
                     running_avg_current = np.mean( avg_currents )
                     pulses_checked.append( ( pulse_start_idx, pulse_end_idx ) )
-                    print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[pulse_end_idx] ) )
+                    # print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[pulse_end_idx] ) )
                     if  ( ( abs( pulse_duration - analyzer_duration ) < ( 0.15 * analyzer_duration ) ) and
                           ( abs( pulse_avg_current - running_avg_current ) < ( 0.15 * running_avg_current ) ) ):
                         pulse_found = True
@@ -319,7 +319,7 @@ def analyze_power_consumption(parent_dir, dataset_name, rising_threshold, fallin
                     search_start_idx = search_window[ search_window['current'] <= fall_thresh ].index[0]
                     search_window = data.loc[search_start_idx:search_end_idx]
                 else:
-                    print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[search_end_idx] ) )
+                    # print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[search_end_idx] ) )
                     pulses_checked.append( ( pulse_start_idx, search_end_idx ) )
                     break
 
