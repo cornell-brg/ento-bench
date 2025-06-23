@@ -21,6 +21,7 @@ namespace EntoUtil
 #define __RED    "\033[31m"
 #define __GREEN  "\033[32m"
 #define __YELLOW "\033[33m"
+#define __CYAN   "\033[36m"
 #define __RESET  "\033[0m"
 
 constexpr float __rel_tol_pct = 0.01;

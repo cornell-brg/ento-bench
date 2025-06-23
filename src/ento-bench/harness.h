@@ -526,6 +526,12 @@ private:
 
   Problem problem_;
   const char* name_;
+
+  ROIMetrics total_metrics_, max_metrics_, min_metrics_;
+  ROIMetrics metrics_, rep_metrics_, total_rep_metrics_, max_rep_metrics_, min_rep_metrics_;
+
+  std::conditional_t<DoWarmup,
+                     ROIMetrics, std::monostate> cold_metrics_;
   // Only define experiment_io_ if we have a Problem that requires a dataset
   std::conditional_t<Problem::RequiresDataset_,
                      EntoUtil::ExperimentIO,
@@ -540,11 +546,6 @@ private:
 #endif
 
   // Aggregate statistics
-  ROIMetrics total_metrics_, max_metrics_, min_metrics_;
-  ROIMetrics metrics_, rep_metrics_, total_rep_metrics_, max_rep_metrics_, min_rep_metrics_;
-
-  std::conditional_t<DoWarmup,
-                     ROIMetrics, std::monostate> cold_metrics_;
 
   //std::conditional_t<(Reps > 1),
   //                   ROIMetrics, std::monostate> total_rep_metrics_;

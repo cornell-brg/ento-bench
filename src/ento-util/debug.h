@@ -394,4 +394,17 @@ inline void __ento_debug_print_image(const char* file, int line, const char* fun
 
 #endif
 
+// Unconditional info output macro (always prints, unlike ENTO_DEBUG)
+// This is placed outside the DEBUG conditional so it's always available
+#include <ento-util/unittest.h>
+template <typename... Args>
+inline void __ento_info_printf(const char* file, int line, const char* func, const char* fmt, Args... args)
+{
+  std::printf(" - [ " __CYAN "-INFO-" __RESET " ] File %s:%d, Function %s: ", 
+              EntoUtil::__ento_debug_get_file_name(file), line, func);
+  std::printf(fmt, args...);
+  std::printf("\n");
+}
+#define ENTO_INFO(...) __ento_info_printf(__FILE__, __LINE__, __func__, __VA_ARGS__)
+
 #endif // ENTO_DEBUG_H__

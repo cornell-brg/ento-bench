@@ -50,6 +50,7 @@ function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
   extract_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
   extract_json_bool_flag("DO_WARMUP" "do_warmup")
   extract_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  extract_json_bool_flag("ENABLE_VECTORIZATION" "enable_vectorization")
   
   # Set output variable
   set(${OUTPUT_VAR} ${CONFIG_ARGS} PARENT_SCOPE)
@@ -127,6 +128,7 @@ function(parse_target_config_file CONFIG_FILE TARGET_NAME OUTPUT_VAR)
   extract_target_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
   extract_target_json_bool_flag("DO_WARMUP" "do_warmup")
   extract_target_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  extract_json_bool_flag("ENABLE_VECTORIZATION" "enable_vectorization")
   
   # Set output variable
   set(${OUTPUT_VAR} ${CONFIG_ARGS} PARENT_SCOPE)
@@ -753,7 +755,7 @@ endfunction()
 #          ENABLE_CACHES OFF)
 function(configure_benchmark_target TARGET_NAME)
   cmake_parse_arguments(BENCH 
-    "DO_WARMUP;ENABLE_CACHES" 
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
     "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
     "" 
     ${ARGN}
@@ -783,6 +785,11 @@ function(configure_benchmark_target TARGET_NAME)
     else()
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=0)
     endif()
+    if(BENCH_ENABLE_VECTORIZATION)
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_VECTORIZATION=1)
+    else()
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_VECTORIZATION=0)
+    endif()
     # Generate config string for this target
     set(CONFIG_STR "")
     if(DEFINED BENCH_REPS)
@@ -799,6 +806,9 @@ function(configure_benchmark_target TARGET_NAME)
     endif()
     if(BENCH_DO_WARMUP)
       set(CONFIG_STR "${CONFIG_STR}_wu")
+    endif()
+    if(BENCH_ENABLE_VECTORIZATION)
+      set(CONFIG_STR "${CONFIG_STR}_vec")
     endif()
     if(BENCH_ENABLE_CACHES)
       set(CONFIG_STR "${CONFIG_STR}_cache")
@@ -821,6 +831,7 @@ function(configure_benchmark_target TARGET_NAME)
     endif()
     message(STATUS "  DO_WARMUP=${BENCH_DO_WARMUP}")
     message(STATUS "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
+    message(STATUS "  ENABLE_VECTORIZATION=${BENCH_ENABLE_VECTORIZATION}")
     message(STATUS "  BENCH_CONFIG_STR=${CONFIG_STR}")
   else()
     message(WARNING "Target ${TARGET_NAME} does not exist, cannot configure benchmark parameters")
@@ -830,7 +841,7 @@ endfunction()
 # Enhanced add_benchmark function with configuration support
 function(add_configured_benchmark TARGET_NAME)
   cmake_parse_arguments(ARG 
-    "DO_WARMUP;ENABLE_CACHES" 
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
     "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
     "SOURCES;LIBRARIES" 
     ${ARGN}
@@ -861,6 +872,7 @@ function(add_configured_benchmark TARGET_NAME)
     MAX_PROBLEMS ${ARG_MAX_PROBLEMS}
     ${ARG_DO_WARMUP}
     ${ARG_ENABLE_CACHES}
+    ${ARG_ENABLE_VECTORIZATION}
   )
 endfunction()
 
@@ -868,7 +880,7 @@ endfunction()
 function(add_configured_benchmark_group_target GROUP_NAME)
   # Parse configuration arguments and target list
   cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES" 
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
     "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
     "" 
     ${ARGN}
@@ -887,6 +899,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
         MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
         ${GROUP_DO_WARMUP}
         ${GROUP_ENABLE_CACHES}
+        ${GROUP_ENABLE_VECTORIZATION}
       )
     else()
       message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
@@ -902,6 +915,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
     MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
     ${GROUP_DO_WARMUP}
     ${GROUP_ENABLE_CACHES}
+    ${GROUP_ENABLE_VECTORIZATION}
   )
   
   # Print configuration summary for the group
@@ -921,6 +935,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
   endif()
   message(STATUS "  Group DO_WARMUP=${GROUP_DO_WARMUP}")
   message(STATUS "  Group ENABLE_CACHES=${GROUP_ENABLE_CACHES}")
+  message(STATUS "  Group ENABLE_VECTORIZATION=${GROUP_ENABLE_VECTORIZATION}")
 endfunction()
 
 # Enhanced function that configures targets first, then creates group
@@ -931,7 +946,7 @@ endfunction()
 #          ENABLE_CACHES)
 function(add_preconfigured_benchmark_group GROUP_NAME)
   cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES" 
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
     "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
     "TARGETS" 
     ${ARGN}
@@ -957,6 +972,9 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
   endif()
   if(GROUP_DO_WARMUP)
     set(CONFIG_STR "${CONFIG_STR}_wu")
+  endif()
+  if(GROUP_ENABLE_VECTORIZATION)
+    set(CONFIG_STR "${CONFIG_STR}_vec")
   endif()
   if(GROUP_ENABLE_CACHES)
     set(CONFIG_STR "${CONFIG_STR}_cache")
@@ -990,6 +1008,9 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
       if(GROUP_ENABLE_CACHES)
         list(APPEND CONFIG_ARGS "ENABLE_CACHES")
       endif()
+      if(GROUP_ENABLE_VECTORIZATION)
+        list(APPEND CONFIG_ARGS "ENABLE_VECTORIZATION")
+      endif()
       
       # Apply configuration if any parameters were specified
       if(CONFIG_ARGS)
@@ -1009,6 +1030,7 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
     MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
     ${GROUP_DO_WARMUP}
     ${GROUP_ENABLE_CACHES}
+    ${GROUP_ENABLE_VECTORIZATION}
   )
   
   message(STATUS "Stored benchmark config string: ${CONFIG_STR}")
@@ -1043,6 +1065,7 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   set(LOG_MAX_PROBLEMS "")
   set(LOG_DO_WARMUP OFF)
   set(LOG_ENABLE_CACHES OFF)
+  set(LOG_VECTORIZATION OFF)
   
   # Parse GROUP_CONFIG_ARGS to extract values
   list(LENGTH GROUP_CONFIG_ARGS CONFIG_LEN)
@@ -1068,6 +1091,8 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
           set(LOG_DO_WARMUP ON)
         elseif(KEY STREQUAL "ENABLE_CACHES")
           set(LOG_ENABLE_CACHES ON)
+        elseif(KEY STREQUAL "ENABLE_VECTORIZATION")
+          set(LOG_VECTORIZATION ON)
         endif()
         math(EXPR i "${i} + 1")
       endif()
@@ -1090,6 +1115,9 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   endif()
   if(LOG_DO_WARMUP)
     set(CONFIG_STR "${CONFIG_STR}_wu")
+  endif()
+  if(LOG_VECTORIZATION)
+    set(CONFIG_STR "${CONFIG_STR}_vec")
   endif()
   if(LOG_ENABLE_CACHES)
     set(CONFIG_STR "${CONFIG_STR}_cache")
@@ -1147,6 +1175,9 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   endif()
   if(LOG_ENABLE_CACHES)
     list(APPEND CONFIG_PARAMS ENABLE_CACHES)
+  endif()
+  if(LOG_VECTORIZATION)
+    list(APPEND CONFIG_PARAMS ENABLE_VECTORIZATION)
   endif()
   
   add_benchmark_group_target_with_config(${GROUP_NAME} ${CONFIG_PARAMS})
