@@ -474,11 +474,19 @@ load_features(const char* gt_path)
 
     int y2_gt = atoi(token);
 
-    if (!feats_gt_.add_keypoint(KeypointT_(x2_gt, y2_gt)))
-    {
-      ENTO_ERROR("Feature GT array capacity exceeded at index %d", i);
-      fclose(file);
-      return false;
+    if constexpr (std::is_same_v<KeypointT_, SIFTKeypoint<>>) {
+      if (!feats_gt_.add_keypoint(KeypointT_(x2_gt, y2_gt, 0.0f, 0)))
+      {
+        ENTO_ERROR("Feature GT array capacity exceeded at index %d", i);
+        return false;
+      }
+    } else {
+      if (!feats_gt_.add_keypoint(KeypointT_(x2_gt, y2_gt)))
+      {
+        ENTO_ERROR("Feature GT array capacity exceeded at index %d", i);
+        fclose(file);
+        return false;
+      }
     }
 
     ENTO_DEBUG("Added feature gt: %i, %i", x2_gt, y2_gt);

@@ -293,8 +293,10 @@ void sift_smooth(const ImageT& src, ImageT& dst, float sigma) {
 // MaxKernelSize should be large enough for expected sigma values (e.g., 17 for sigma up to ~4.0)
 template <typename ImageT, int MaxKernelSize = 17>
 void sift_smooth_efficient(const ImageT& src, ImageT& dst, float sigma) {
-    constexpr int width = ImageT::cols_;
-    constexpr int height = ImageT::rows_;
+    //constexpr int width = ImageT::cols_;
+    //constexpr int height = ImageT::rows_;
+    int width = src.cols();
+    int height = src.rows();
     using PixelT = typename ImageT::pixel_type_;
     
     // Generate SIFT++ style kernel

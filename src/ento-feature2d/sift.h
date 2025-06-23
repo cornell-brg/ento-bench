@@ -1,6 +1,13 @@
 #ifndef SIFT_H
 #define SIFT_H
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include <image_io/Image.h>
 #include <image_io/image_util.h>
 #include <ento-feature2d/feat2d_util.h>
@@ -27,34 +34,30 @@ struct DoGTriplet
 template <typename ImageT,
           typename DoGPixelT = float,
           int NumDoGLayers = 3,
-          int RingSize = 3,
-          int RowChunk = 0>
+          int RingSize = 3>
 class SIFTDoGOctave
 {
   using ImageT_ = ImageT;
   using PixelT_ = ImageT::pixel_type_;
   using DoGPixelT_   = DoGPixelT;
-  static constexpr int Height_ = ImageT::rows_;
-  static constexpr int Width_  = ImageT::cols_;
-  static constexpr int RowChunk_ = (RowChunk == 0) ? Height_ : RowChunk;
+  int Height_;
+  int Width_;
   static constexpr int NumDoGLayers_ = NumDoGLayers + 2;
   static constexpr int NumBlurLevels_ = NumDoGLayers + 1;
   static constexpr int RingSize_ = RingSize;
   static constexpr int KernelSize = 5;
 
-  static_assert(RowChunk_ <= Height_, "Block size must fit in image.");
-  static_assert(RowChunk_ >= 0, "Row chunk must be non-negative.");
-  static_assert((Height_ % RowChunk_) == 0, "Block size must be an divisor of height.");
-
   ImageT& input_img_;
 
-  using DoGImageT_ = Image<Height_, Width_, DoGPixelT_>;
-  DoGImageT_ gaussian_buffers_[2];
-  DoGImageT_* gaussian_prev_p_;
-  DoGImageT_* gaussian_curr_p_;
-  DoGImageT_ dog_ring_[RingSize];
+  // OLD: using DoGImageT_ = Image<Height_, Width_, DoGPixelT_>;
+  using DoGImageViewT_ = ImageView<DoGPixelT_>;
+  // Views into parent-owned buffers for current octave processing
+  DoGImageViewT_ gaussian_buffers_[2];
+  DoGImageViewT_* gaussian_prev_p_;
+  DoGImageViewT_* gaussian_curr_p_;
+  DoGImageViewT_ dog_ring_[RingSize];
   std::array<std::array<float,KernelSize>, NumDoGLayers_ + 2> kernels_;
-  DoGImageT_ orientation_map_;
+  DoGImageViewT_ orientation_map_;
 
   // Note: We compute DoGs incrementally, no need to store all Gaussians
 
@@ -65,10 +68,18 @@ class SIFTDoGOctave
   int current_scale_ = 0;
 
 public:
-  SIFTDoGOctave(ImageT& img)
-    : input_img_(img),
+    SIFTDoGOctave(ImageT& img, 
+              DoGImageViewT_& gauss_buf_0, DoGImageViewT_& gauss_buf_1,
+              DoGImageViewT_& dog_buf_0, DoGImageViewT_& dog_buf_1, DoGImageViewT_& dog_buf_2,
+              DoGImageViewT_& orientation_buf)
+    : Height_(img.rows()),
+      Width_(img.cols()),
+      input_img_(img),
+      gaussian_buffers_{gauss_buf_0, gauss_buf_1},
       gaussian_prev_p_(&gaussian_buffers_[1]),
-      gaussian_curr_p_(&gaussian_buffers_[0])
+      gaussian_curr_p_(&gaussian_buffers_[0]),
+      dog_ring_{dog_buf_0, dog_buf_1, dog_buf_2},
+      orientation_map_(orientation_buf)
   {
     precompute_kernels();
   }
@@ -138,7 +149,8 @@ public:
     ENTO_DEBUG("Initial smoothing: sa=%.6f, sb=%.6f, initial_sigma=%.6f", sa, sb, initial_sigma);
     printf("Initial smoothing: sa=%.6f, sb=%.6f, initial_sigma=%.6f\n", sa, sb, initial_sigma);
     
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
+    // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
     // G(-1) is now in gaussian_curr()
     
     ENTO_DEBUG("After initial smoothing G(smin=%d): sigma=%.6f", smin, initial_sigma);
@@ -151,7 +163,8 @@ public:
     // G(0) = smooth(G(-1), dsigma0 * sigmak^0)
     float sd0 = dsigma0 * powf(sigmak, 0);  // s=0
     swap_gaussians();  // Move G(-1) to gaussian_prev()
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), sd0);
+    // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), sd0);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), sd0);
     // Now: gaussian_prev() = G(-1), gaussian_curr() = G(0)
     compute_DoG(dog_ring_[0], gaussian_curr(), gaussian_prev());  // G(0) - G(-1)
     
@@ -162,7 +175,7 @@ public:
     // G(1) = smooth(G(0), dsigma0 * sigmak^1)  
     float sd1 = dsigma0 * powf(sigmak, 1);  // s=1
     swap_gaussians();  // Move G(0) to gaussian_prev()
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), sd1);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), sd1);
     // Now: gaussian_prev() = G(0), gaussian_curr() = G(1)
     
     // Compute DoG(0) = G(1) - G(0) as soon as we have both
@@ -176,7 +189,8 @@ public:
     // G(2) = smooth(G(1), dsigma0 * sigmak^2)
     float sd2 = dsigma0 * powf(sigmak, 2);  // s=2
     swap_gaussians();  // Move G(1) to gaussian_prev()
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), sd2);
+    // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), sd2);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), sd2);
     // Now: gaussian_prev() = G(1), gaussian_curr() = G(2)
     
     // Compute DoG(1) = G(2) - G(1) as soon as we have both
@@ -227,7 +241,8 @@ public:
     float delta_sigma = dsigma0 * std::pow(sigmak, kernel_idx);  // SIFT++ inter-level
     //float sd3 = dsigma0 * powf(sigmak, 3);
     swap_gaussians();
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
+    // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
     ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
     ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
 
@@ -241,7 +256,8 @@ public:
     return true;
   }
   
-  DoGTriplet<DoGImageT_>
+  // OLD: DoGTriplet<DoGImageT_>
+  DoGTriplet<DoGImageViewT_>
   get_current_DoG_triplet() const
   {
     return {
@@ -252,14 +268,16 @@ public:
   }
 
   // Add this method to recompute specific Gaussian levels
-  const DoGImageT_& recompute_gaussian_for_scale(int target_scale) {
+  // OLD: const DoGImageT_& recompute_gaussian_for_scale(int target_scale) {
+  const DoGImageViewT_& recompute_gaussian_for_scale(int target_scale) {
     
     // Step 1: Reset to initial state and normalize input
     normalize_input_image();  // Use gaussian_prev() as temp
     
     // Step 2: Initial smoothing to G(-1) 
     float initial_sigma = sqrtf(1.6f*1.6f - 0.5f*0.5f);
-    sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
+    // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
+    sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
     // Now: gaussian_curr() = G(-1)
     
     if (target_scale == -1) {
@@ -276,24 +294,31 @@ public:
     for (int s = 0; s <= target_scale; s++) {
       float delta_sigma = dsigma0 * powf(sigmak, s);
       swap_gaussians();  // Move current to prev
-      sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
+      // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
+      sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
       // Now: gaussian_curr() = G(s)
     }
     
     return gaussian_curr();  // Return G(target_scale)
   }
 
-  DoGImageT_& gaussian_prev() { return *gaussian_prev_p_; }
-  DoGImageT_& gaussian_curr() { return *gaussian_curr_p_; }
+  // OLD: DoGImageT_& gaussian_prev() { return *gaussian_prev_p_; }
+  // OLD: DoGImageT_& gaussian_curr() { return *gaussian_curr_p_; }
+  DoGImageViewT_& gaussian_prev() { return *gaussian_prev_p_; }
+  DoGImageViewT_& gaussian_curr() { return *gaussian_curr_p_; }
 
-  const DoGImageT_& gaussian_prev() const { return *gaussian_prev_p_; }
-  const DoGImageT_& gaussian_curr() const { return *gaussian_curr_p_; }
+  // OLD: const DoGImageT_& gaussian_prev() const { return *gaussian_prev_p_; }
+  // OLD: const DoGImageT_& gaussian_curr() const { return *gaussian_curr_p_; }
+  const DoGImageViewT_& gaussian_prev() const { return *gaussian_prev_p_; }
+  const DoGImageViewT_& gaussian_curr() const { return *gaussian_curr_p_; }
   
   // Access current Gaussians for debugging
-  const DoGImageT_& get_current_gaussian_prev() const { 
+  // OLD: const DoGImageT_& get_current_gaussian_prev() const { 
+  // OLD: const DoGImageT_& get_current_gaussian_curr() const { 
+  const DoGImageViewT_& get_current_gaussian_prev() const { 
     return gaussian_prev(); 
   }
-  const DoGImageT_& get_current_gaussian_curr() const { 
+  const DoGImageViewT_& get_current_gaussian_curr() const { 
     return gaussian_curr(); 
   }
 
@@ -309,9 +334,10 @@ private:
     }
   }
 
-  void compute_DoG(DoGImageT_& dst,
-                   const DoGImageT_ curr,
-                   const DoGImageT_ prev)
+  // OLD: void compute_DoG(DoGImageT_& dst, const DoGImageT_ curr, const DoGImageT_ prev)
+  void compute_DoG(DoGImageViewT_& dst,
+                   const DoGImageViewT_ curr,
+                   const DoGImageViewT_ prev)
   {
     for (int y = 0; y < Height_; ++y)
       for (int x = 0; x < Width_; ++x)
@@ -320,9 +346,12 @@ private:
 
 public:
   void compute_gradients_for_current_gaussian() {
-    const DoGImageT_& gaussian = gaussian_curr();  // Source Gaussian
-    DoGImageT_& magnitude = gaussian_prev();       // Reuse prev buffer
-    DoGImageT_& orientation = orientation_map_;    // Use dedicated buffer
+    // OLD: const DoGImageT_& gaussian = gaussian_curr();  // Source Gaussian
+    // OLD: DoGImageT_& magnitude = gaussian_prev();       // Reuse prev buffer
+    // OLD: DoGImageT_& orientation = orientation_map_;    // Use dedicated buffer
+    const DoGImageViewT_& gaussian = gaussian_curr();  // Source Gaussian
+    DoGImageViewT_& magnitude = gaussian_prev();       // Reuse prev buffer
+    DoGImageViewT_& orientation = orientation_map_;    // Use dedicated buffer
     
     // Compute gradients for entire image
     for (int y = 1; y < Height_ - 1; y++) {
@@ -340,8 +369,10 @@ public:
   }
 
   // Access methods for gradients
-  const DoGImageT_& get_gradient_magnitude() const { return gaussian_prev(); }
-  const DoGImageT_& get_gradient_orientation() const { return orientation_map_; }
+  // OLD: const DoGImageT_& get_gradient_magnitude() const { return gaussian_prev(); }
+  // OLD: const DoGImageT_& get_gradient_orientation() const { return orientation_map_; }
+  const DoGImageViewT_& get_gradient_magnitude() const { return gaussian_prev(); }
+  const DoGImageViewT_& get_gradient_orientation() const { return orientation_map_; }
 
 private:
 };
@@ -356,6 +387,8 @@ struct SIFTInterpolationResult
   bool success;
 };
 
+
+
 struct DerivativesAtExtremum
 {
   EntoMath::Vec3<float> grad;   // Dx, Dy, Ds
@@ -369,8 +402,7 @@ template <typename ImageT,
           int MaxKeypoints,
           typename KeypointT = SIFTKeypoint<>,
           int NumDoGLayers = 3,
-          typename DoGPixelT = float,
-          int RowChunk = 0>
+          typename DoGPixelT = float>
 class SIFTDriver
 {
 public:
@@ -384,18 +416,22 @@ public:
   using OrientationT_   = KeypointT::OrientationT_;
   static constexpr int   Height_ = ImageT::rows_;
   static constexpr int   Width_  = ImageT::cols_;
-  static constexpr int   RowChunk_ = (RowChunk == 0) ? Height_ : RowChunk;
   static constexpr int   NumDoGLayers_ = NumDoGLayers;
   static constexpr int   NumBlurLevels_ = NumDoGLayers_ + 1;
   static constexpr int   MaxInterpIters_ = 5;
   static constexpr float ContrastThreshold_ = 0.04f / 3.0f / 2.0f;  // Match SIFT++: 0.04/S/2 = 0.00667
   static constexpr float InitialThreshold_ = 0.8f * ContrastThreshold_;  // 0.8 * 0.00667 = 0.00533
 
-  static_assert(RowChunk_ <= Height_, "Block size must fit in image.");
-  static_assert(RowChunk_ >= 0, "Row chunk must be non-negative.");
-  static_assert((Height_ % RowChunk_) == 0, "Block size must be an divisor of height.");
+  // OLD: using DoGImageT_ = Image<Height_, Width_, DoGPixelT_>;
+  using DoGImageViewT_ = ImageView<DoGPixelT_>;
 
-  using DoGImageT_ = Image<Height_, Width_, DoGPixelT_>;
+  // Fixed-size buffers for this driver's known dimensions
+  Image<Height_, Width_, DoGPixelT_> gaussian_buffer_0_;
+  Image<Height_, Width_, DoGPixelT_> gaussian_buffer_1_;
+  Image<Height_, Width_, DoGPixelT_> dog_buffer_0_;
+  Image<Height_, Width_, DoGPixelT_> dog_buffer_1_;
+  Image<Height_, Width_, DoGPixelT_> dog_buffer_2_;
+  Image<Height_, Width_, DoGPixelT_> orientation_buffer_;
 
   ImageT& input_img_;
   
@@ -407,10 +443,20 @@ public:
 
   bool run(const Image<Height_, Width_, PixelT_>& base_img)
   {
+    // Create views into our fixed-size buffers
+    auto gauss_view_0 = make_image_view(gaussian_buffer_0_, 0, 0, Height_, Width_);
+    auto gauss_view_1 = make_image_view(gaussian_buffer_1_, 0, 0, Height_, Width_);
+    auto dog_view_0 = make_image_view(dog_buffer_0_, 0, 0, Height_, Width_);
+    auto dog_view_1 = make_image_view(dog_buffer_1_, 0, 0, Height_, Width_);
+    auto dog_view_2 = make_image_view(dog_buffer_2_, 0, 0, Height_, Width_);
+    auto orientation_view = make_image_view(orientation_buffer_, 0, 0, Height_, Width_);
+
     // 1. Compute DoG pyramid
-    SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers> octave(input_img_);
+    SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers> octave(input_img_, 
+                                                          gauss_view_0, gauss_view_1,
+                                                          dog_view_0, dog_view_1, dog_view_2,
+                                                          orientation_view);
     octave.initialize();
-    current_octave_ = &octave; // Store reference for external access
 
     int scale_idx = 0;
     do {
@@ -453,7 +499,7 @@ public:
       if (groups[scale_idx].count == 0)
         continue; // Skip empty scale groups
 
-      const DoGImageT_& gaussian = octave.recompute_gaussian_for_scale(scale_idx);
+      const DoGImageViewT_& gaussian = octave.recompute_gaussian_for_scale(scale_idx);
 
       octave.compute_gradients_for_current_gaussian();
 
@@ -476,10 +522,10 @@ public:
   }
 
   void process_keypoint(const KeypointT_& kp, 
-                     const DoGImageT_& gradient_magnitude,
-                     const DoGImageT_& gradient_orientation)
+                     const DoGImageViewT_& gradient_magnitude,
+                     const DoGImageViewT_& gradient_orientation)
   {
-
+    printf("DEBUG: Processing keypoint at (%.1f, %.1f) with response=%.6f\n", kp.x, kp.y, kp.response);
   
     // Step 1: Orientation Assignment
     float orientations[4];
@@ -506,11 +552,11 @@ public:
   // Get access to the current octave (valid only after run() is called)
   SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers>* get_current_octave() { return current_octave_; }
 
-  void detect_extrema_in_triplet(const DoGTriplet<DoGImageT_>& triplet,
+  void detect_extrema_in_triplet(const DoGTriplet<DoGImageViewT_>& triplet,
                                  int scale_idx, int octave)
   {
-    constexpr int H = DoGImageT_::rows_;
-    constexpr int W = DoGImageT_::cols_;
+    const int H = triplet.curr_image().rows();
+    const int W = triplet.curr_image().cols();
 
     int extrema_candidates = 0;
     int interpolation_attempts = 0;
@@ -542,7 +588,7 @@ public:
         // Check all 26 neighbors (3x3x3 - 1 center)
         for (int dz = -1; dz <= 1; ++dz)
         {
-          const DoGImageT_* img =
+          const DoGImageViewT_* img =
             (dz == -1) ? &triplet.prev_image() :
             (dz == 0)  ? &triplet.curr_image() :
                          &triplet.next_image();
@@ -576,12 +622,6 @@ public:
           
           local_extrema_found++;
           if (center_val == 0.0f) zero_value_extrema++;
-          
-          // Debug: Print DoG values around suspected region for 32x32 images
-          if (Width_ == 32 && Height_ == 32 && x >= 5 && x <= 9 && y >= 5 && y <= 9) {
-            printf("  DoG extrema @ (%d,%d) = %.6f (is_max=%d, is_min=%d)\n", 
-                   x, y, center_val, is_max, is_min);
-          }
           
           if (local_extrema_found <= 5) { // Only show first few
             ENTO_DEBUG("Local extrema found @ (%d, %d) = %f (is_max=%d, is_min=%d)", 
@@ -625,8 +665,8 @@ public:
   }
 
   int compute_keypoint_orientations(const KeypointT_& kp,
-                                 const DoGImageT_& grad_mag, 
-                                 const DoGImageT_& grad_ori,
+                                 const DoGImageViewT_& grad_mag, 
+                                 const DoGImageViewT_& grad_ori,
                                  float orientations[4])
   {
     // Create 36-bin orientation histogram
@@ -660,8 +700,8 @@ public:
 
   void compute_keypoint_descriptor(const KeypointT_& kp, 
                                 float keypoint_orientation,
-                                const DoGImageT_& grad_mag,
-                                const DoGImageT_& grad_ori,
+                                const DoGImageViewT_& grad_mag,
+                                const DoGImageViewT_& grad_ori,
                                 float descriptor[128])
   {
     
@@ -709,10 +749,10 @@ public:
     normalize_descriptor(descriptor, 128);
   }
 
-  DescriptorT_ score_current_extrema(const DoGTriplet<DoGImageT_>& triplet,
+  DescriptorT_ score_current_extrema(const DoGTriplet<DoGImageViewT_>& triplet,
                                      KeypointCoordT_ x, KeypointCoordT_ y, ScaleT_ scale);
   
-  bool interpolate_extremum(const DoGTriplet<DoGImageT_>& triplet,
+  bool interpolate_extremum(const DoGTriplet<DoGImageViewT_>& triplet,
                             KeypointCoordT_ x, KeypointCoordT_ y, ScaleT_ scale,
                             SIFTInterpolationResult<>& result)
   {
@@ -782,7 +822,7 @@ public:
 
   //}
 
-  DerivativesAtExtremum compute_gradient_and_hessian(const DoGTriplet<DoGImageT_>& triplet,
+  DerivativesAtExtremum compute_gradient_and_hessian(const DoGTriplet<DoGImageViewT_>& triplet,
                                     int x, int y, int s)
   {
     DerivativesAtExtremum d;

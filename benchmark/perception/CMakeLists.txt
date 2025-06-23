@@ -10,6 +10,7 @@ set(MODULES
   Eigen
   ento-pose
   ento_util
+  ento-perception
   CMSIS::STM32::${STM_PRODUCT}
 )
 set(BENCH_TARGETS) # List of targets
@@ -235,6 +236,38 @@ if(NOT STM_FAMILY STREQUAL "G4")
 endif()
 
 # =============================================================================
+# SIFT Benchmarks
+# =============================================================================
+
+# Tiny SIFT - optimized for G474 with limited RAM
+add_benchmark(bench-sift-tiny
+  SOURCES bench_sift_tiny.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-sift-tiny)
+
+add_benchmark(bench-sift-small
+  SOURCES bench_sift_small.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-sift-small)
+
+add_benchmark(bench-sift-medium
+  SOURCES bench_sift_medium.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-sift-medium)
+
+# Large benchmarks - exclude from STM32G4 due to RAM/Flash limitations
+if(NOT STM_FAMILY STREQUAL "G4")
+  add_benchmark(bench-sift-large
+    SOURCES bench_sift_large.cc
+    LIBRARIES ${MODULES}
+  )
+  list(APPEND BENCH_TARGETS bench-sift-large)
+endif()
+
+# =============================================================================
 # Lucas Kanade Optical Flow Benchmarks
 # =============================================================================
 
@@ -316,10 +349,6 @@ endif()
 # Config file approach with smart fallbacks
 set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/perception_benchmarks.json")
 if(EXISTS ${CONFIG_FILE})
-  add_configured_benchmark_group_with_target_configs("perception"
-    CONFIG_FILE ${CONFIG_FILE}
-    TARGETS ${BENCH_TARGETS}
-  )
   add_configured_benchmark_group_from_file("perception"
     CONFIG_FILE ${CONFIG_FILE}
     TARGETS ${BENCH_TARGETS}
