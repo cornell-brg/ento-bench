@@ -72,7 +72,7 @@ def find_pulse_end_idx( window, pulse_start_idx, pulse_duration_est, low_thresh 
 
 
 
-def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_thresh_pct, low_thresh_pct, latency_error_ms ):
+def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_thresh_pct, low_thresh_pct, latency_error_ms, verbose ):
     # calculate expected pulse duration
     analyzer_start_time = data['time'].loc[start_idx]
     analyzer_end_time   = data['time'].loc[end_idx]
@@ -86,6 +86,11 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
     search_end_time = min( search_end_time, data['time'].iloc[-1] )
     search_end_idx  = data[ data['time'] >= search_end_time ].index[0]
 
+    if verbose:
+        print( 'first pulse' )
+        print( '  expected time: ( {}, {} )'.format( analyzer_start_time, analyzer_end_time ) )
+        print( '  quick search window: ( {}, {} )'.format( search_start_time, search_end_time ) )
+
     # if the search area doesn't contain the pulse, we'll get bad thresholds
     # so use a big area to find the min and max currents
     # we make a copy so we can prune data from this df to refine our thresholds
@@ -96,10 +101,16 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
     # number of iterations is arbitrary
     iters = 0
     while iters < 5:
+        if verbose:
+            print( '  search iter {}'.format( iters ) )
         min_current    = min( current_window['current'] )
         max_current    = max( current_window['current'] )
         high_thresh    = min_current + ( high_thresh_pct * ( max_current - min_current ) )
         low_thresh     = min_current + ( low_thresh_pct * ( max_current - min_current ) )
+
+        if verbose:
+            print( '  current bounds: ( {}, {} )'.format( min_current, max_current ) )
+            print( '  thresholds: ( {}, {} )'.format( low_thresh, high_thresh ) )
 
         # check for a pulse at the expected time from the analyzer
         search_window = data.loc[search_start_idx:search_end_idx]
@@ -108,27 +119,45 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
             search_window = search_window.loc[first_low_idx:search_end_idx]
             if not search_window[ search_window['current'] >= high_thresh ].index.empty:
                 pulse_start_idx = search_window[ search_window['current'] >= high_thresh ].index[0]
+                if verbose:
+                    print( '  quick search rising edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
                 pulse_end_idx, success = find_pulse_end_idx( search_window, pulse_start_idx, analyzer_duration, low_thresh )
                 if success:
                     pulse_window = data.loc[pulse_start_idx:pulse_end_idx]
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
+                    if verbose:
+                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
+                        print( '    duration: {}'.format( pulse_duration ) )
+                        print( '    expected: {}'.format( analyzer_duration ) )
+                        print( '    charge: {}'.format( pulse_charge ) )
+                        print( '    threshold: {}'.format( thresh_charge ) )
                     if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                          ( pulse_charge > thresh_charge ) ):
                         return data.loc[pulse_start_idx:pulse_end_idx], True
 
         # check all pulses before the end of the expected time, dropping current data from false matches
         search_window = data.loc[data.index[0]:search_end_idx]
+        if verbose:
+            print( '  long search window ( {}, {} )'.format( search_window['time'].iloc[0], search_window['time'].iloc[-1] ) )
         while not search_window[ search_window['current'] >= high_thresh ].index.empty:
             pulse_start_idx, success = find_latest_rising_edge_idx( search_window, low_thresh, high_thresh )
             if success:
+                if verbose:
+                    print( '  long search rising edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
                 pulse_end_idx, success = find_pulse_end_idx( search_window, pulse_start_idx, analyzer_duration, low_thresh )
                 if success:
                     pulse_window = data.loc[pulse_start_idx:pulse_end_idx]
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
+                    if verbose:
+                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
+                        print( '    duration: {}'.format( pulse_duration ) )
+                        print( '    expected: {}'.format( analyzer_duration ) )
+                        print( '    charge: {}'.format( pulse_charge ) )
+                        print( '    threshold: {}'.format( thresh_charge ) )
                     if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                          ( pulse_charge > thresh_charge ) ):
                         return data.loc[pulse_start_idx:pulse_end_idx], True
@@ -140,6 +169,11 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
                         current_window = current_window.drop( pulse_window.index.intersection( current_window.index ) )
                         # advance search window
                         search_window = search_window.loc[search_window.index[0]:pulse_start_idx-1]
+                else:
+                    pulse_window = search_window.loc[pulse_start_idx:search_window.index[-1]]
+                    current_window = current_window.drop( pulse_window.index.intersection( current_window.index ) )
+                    search_window = search_window.loc[search_window.index[0]:pulse_start_idx-1]
+
             else:
                 # if we saw high values, but no pulse start, data must start above the high threshold
                 pulse_end_idx = search_window[ search_window['current'] <= low_thresh ].index[0]
@@ -177,6 +211,7 @@ def analyze_power_consumption( args ):
     quick_search_size  = args.quick_search_window
     pre_pulse_plot_ms  = args.plot_before
     post_pulse_plot_ms = args.plot_after
+    verbose            = args.verbose
 
     csv_paths = find_combined_csvs(parent_dir, dataset_name)
 
@@ -239,7 +274,7 @@ def analyze_power_consumption( args ):
 
     pulse_window, success = find_first_pulse_window( data, selected_indices[0], selected_indices[1],
                                                      quick_search_size, high_thresh_pct, low_thresh_pct,
-                                                     latency_error_ms )
+                                                     latency_error_ms, verbose )
     if not success:
         print( 'Failed to find the first segment' )
         return [], [], [], [], False
@@ -269,6 +304,11 @@ def analyze_power_consumption( args ):
     avg_currents.append( pulse_avg_current )
     total_energy += pulse_energy
     peak_currents.append( max( pulse_window['current_mA'] ) )
+
+    if verbose:
+        print( 'first segment:' )
+        print( '  time: ( {}, {} )'.format( pulse_start_time, pulse_end_time ) )
+        print( '  avg current: {}'.format( pulse_avg_current ) )
 
     if plot_data:
         analyzer_times = [ analyzer_start_time, analyzer_end_time ]
@@ -492,7 +532,7 @@ def main():
     parser.add_argument( '--current-error',
                          help = 'maximum fraction of average current that a segement can be off by',
                          type = float,
-                         default = 0.1 )
+                         default = 0.15 )
     parser.add_argument( '--latency-error',
                          help = 'maximum number of ms that latency can differ from the logic analyzer by',
                          type = float,
@@ -512,6 +552,9 @@ def main():
                          help = 'number of ms after segment to include in plot',
                          type = float,
                          default = 35 )
+    parser.add_argument( '--verbose',
+                         help = 'turn on verbose printing',
+                         action = 'store_true' )
     args = parser.parse_args()
 
     results = analyze_single_experiment( args )
