@@ -1,10 +1,8 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from natsort import natsorted
 import pandas as pd
-import sys
-
+import argparse
 
 def find_combined_csvs(dataset_path, dataset_name):
     csv_files = []
@@ -74,17 +72,17 @@ def find_pulse_end_idx( window, pulse_start_idx, pulse_duration_est, low_thresh 
 
 
 
-def find_first_pulse_window( data, start_idx, end_idx, high_thresh_pct, low_thresh_pct ):
+def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_thresh_pct, low_thresh_pct, latency_error_ms ):
     # calculate expected pulse duration
     analyzer_start_time = data['time'].loc[start_idx]
     analyzer_end_time   = data['time'].loc[end_idx]
     analyzer_duration   = analyzer_end_time - analyzer_start_time
 
-    search_start_time = analyzer_start_time - 0.1
+    search_start_time = analyzer_start_time - quick_search_size
     search_start_time = max( search_start_time, data['time'].iloc[0] )
     search_start_idx  = data[ data['time'] <= search_start_time ].index[-1]
 
-    search_end_time = analyzer_end_time + 0.1
+    search_end_time = analyzer_end_time + quick_search_size
     search_end_time = min( search_end_time, data['time'].iloc[-1] )
     search_end_idx  = data[ data['time'] >= search_end_time ].index[0]
 
@@ -116,7 +114,7 @@ def find_first_pulse_window( data, start_idx, end_idx, high_thresh_pct, low_thre
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
-                    if ( ( abs( pulse_duration - analyzer_duration ) < ( 0.1 * analyzer_duration ) ) and
+                    if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                          ( pulse_charge > thresh_charge ) ):
                         return data.loc[pulse_start_idx:pulse_end_idx], True
 
@@ -131,7 +129,7 @@ def find_first_pulse_window( data, start_idx, end_idx, high_thresh_pct, low_thre
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
-                    if ( ( abs( pulse_duration - analyzer_duration ) < ( 0.1 * analyzer_duration ) ) and
+                    if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                          ( pulse_charge > thresh_charge ) ):
                         return data.loc[pulse_start_idx:pulse_end_idx], True
                     else:
@@ -168,7 +166,18 @@ def plot_segment( plot_dir, trace_width, vertical_width, window, seg_num, estima
     plt.close()
 
 
-def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thresh_pct, plot_data):
+def analyze_power_consumption( args ):
+    parent_dir         = args.parent_dir
+    dataset_name       = args.dataset_name
+    high_thresh_pct    = args.high_thresh
+    low_thresh_pct     = args.low_thresh
+    current_error_pct  = args.current_error
+    latency_error_ms   = args.latency_error
+    plot_data          = not args.no_plot
+    quick_search_size  = args.quick_search_window
+    pre_pulse_plot_ms  = args.plot_before
+    post_pulse_plot_ms = args.plot_after
+
     csv_paths = find_combined_csvs(parent_dir, dataset_name)
 
     if not csv_paths:
@@ -228,7 +237,9 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
         for idx in selected_indices:
             plt.axvline(x=data['time'].iloc[idx], color='r', linestyle='--', linewidth=vertical_width)
 
-    pulse_window, success = find_first_pulse_window( data, selected_indices[0], selected_indices[1], high_thresh_pct, low_thresh_pct )
+    pulse_window, success = find_first_pulse_window( data, selected_indices[0], selected_indices[1],
+                                                     quick_search_size, high_thresh_pct, low_thresh_pct,
+                                                     latency_error_ms )
     if not success:
         print( 'Failed to find the first segment' )
         return [], [], [], [], False
@@ -246,8 +257,8 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
     pulse_avg_current = np.mean( pulse_window['current_mA'] )
     pulse_energy      = np.trapz( pulse_window['current_mA'], pulse_window['time'] ) * voltage * 1e-6  # mJ
 
-    plot_start_time = min( pulse_start_time, analyzer_start_time ) - 0.4
-    plot_end_time   = max( pulse_end_time, analyzer_end_time ) + 0.4
+    plot_start_time = min( pulse_start_time, analyzer_start_time ) - pre_pulse_plot_ms
+    plot_end_time   = max( pulse_end_time, analyzer_end_time ) + post_pulse_plot_ms
     plot_start_time = max( plot_start_time, data['time'].iloc[0] )
     plot_end_time   = min( plot_end_time, data['time'].iloc[-1] )
     plot_start_idx  = data[ data['time'] <= plot_start_time ].index[-1]
@@ -281,9 +292,9 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
 
         prev_analyzer_start_time = analyzer_start_time
 
-        search_start_time = pulse_start_time_est - 0.1
+        search_start_time = pulse_start_time_est - quick_search_size
         search_start_time = max( data['time'].iloc[0], search_start_time )
-        search_end_time   = pulse_end_time_est + 0.1
+        search_end_time   = pulse_end_time_est + quick_search_size
         search_end_time   = min( data['time'].iloc[-1], search_end_time )
         search_start_idx  = data[ data['time'] <= search_start_time ].index[-1]
         search_end_idx    = data[ data['time'] >= search_end_time ].index[0]
@@ -309,8 +320,8 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_avg_current = np.mean( pulse_window['current_mA'] )
                     running_avg_current = np.mean( avg_currents )
-                    if  ( ( abs( pulse_duration - analyzer_duration ) < ( 0.15 * analyzer_duration ) ) and
-                          ( abs( pulse_avg_current - running_avg_current ) < ( 0.15 * running_avg_current ) ) ):
+                    if  ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
+                          ( abs( pulse_avg_current - running_avg_current ) < ( current_error_pct * running_avg_current ) ) ):
                         pulse_found = True
                     # else:
                     #     print( 'quick search failed' )
@@ -338,7 +349,7 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
             # print( '  estimated end time {}'.format( pulse_end_time_est ) ) 
             # print( '  ========================================' )
 
-            while not search_window[ search_window['current'] > high_thresh ].index.empty:
+            while not search_window[ search_window['current'] >= high_thresh ].index.empty:
                 pulse_start_idx, success= find_latest_rising_edge_idx( search_window, low_thresh, high_thresh )
                 if not success:
                     # found no rising edges in the search window
@@ -349,32 +360,44 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_avg_current = np.mean( pulse_window['current_mA'] )
                     running_avg_current = np.mean( avg_currents )
-                    pulses_checked.append( ( pulse_start_idx, pulse_end_idx ) )
                     # print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[pulse_end_idx] ) )
-                    if  ( ( abs( pulse_duration - analyzer_duration ) < ( 0.15 * analyzer_duration ) ) and
-                          ( abs( pulse_avg_current - running_avg_current ) < ( 0.15 * running_avg_current ) ) ):
+                    if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
+                         ( abs( pulse_avg_current - running_avg_current ) < ( current_error_pct * running_avg_current ) ) ):
                         pulse_found = True
                         break
-                    else:
-                        search_end_idx = pulse_start_idx - 1
-                        search_window  = search_window.loc[search_start_idx:search_end_idx]
-                else:
-                    # print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[search_end_idx] ) )
-                    pulses_checked.append( ( pulse_start_idx, search_end_idx ) )
-                    break
+                    if ( abs( pulse_duration - analyzer_duration ) > latency_error_ms ):
+                        if ( pulse_duration < analyzer_duration ):
+                            err_string = 'duration {} is too short, expecting {}'.format( pulse_duration, analyzer_duration )
+                        else:
+                            err_string = 'duration {} is too long, expecting {}'.format( pulse_duration, analyzer_duration )
+                        pulses_checked.append( ( pulse_start_idx, pulse_end_idx, err_string ) )
+                    if ( abs( pulse_avg_current - running_avg_current ) > ( current_error_pct * running_avg_current ) ):
+                        if ( pulse_avg_current < running_avg_current ):
+                            err_string = 'current {} is too low, expecting {}'.format( pulse_avg_current, running_avg_current )
+                        else:
+                            err_string = 'current {} is too high, expecting {}'.format( pulse_avg_current, running_avg_current )
+                        pulses_checked.append( ( pulse_start_idx, pulse_end_idx, err_string ) )
 
+                search_end_idx = pulse_start_idx - 1
+                search_window = search_window.loc[search_start_idx:search_end_idx]
 
         if not pulse_found:
             print( 'Failed to find segment {}'.format( ( i // 2 ) + 1 ) )
+            print( '  using edge thresholds: ( {}, {} )'.format( low_thresh / 1000, high_thresh / 1000 ) )
+            print( '  estimated location: ( {}, {} )'.format( pulse_start_time_est, pulse_end_time_est ) )
+            print( '  found candidates at:' )
+            for pulse in pulses_checked:
+                print( '    ( {}, {} ) - {}'.format( data['time'].loc[pulse[0]], data['time'].loc[pulse[1]], pulse[2] ) )
             search_end_idx    = data[ data['time'] >= search_end_time ].index[0]
-            plot_window = data.loc[prev_pulse_end_idx:search_end_idx]
+            plot_start_time = pulse_start_time_est - 75
+            plot_end_time   = pulse_end_time_est + 75
+            plot_start_time = max( plot_start_time, data['time'].iloc[0] )
+            plot_end_time   = min( plot_end_time, data['time'].iloc[-1] )
+            plot_start_idx  = data[ data['time'] <= plot_start_time ].index[-1]
+            plot_end_idx    = data[ data['time'] >= plot_end_time ].index[0]
+            plot_window     = data.loc[plot_start_idx:plot_end_idx]
             estimated_times = [ pulse_start_time_est, pulse_end_time_est ]
             plot_segment( plot_dir, trace_width, vertical_width, plot_window, ( ( i // 2 ) + 1 ), estimated_times, [] )
-            sub = 0.1
-            for pulse in pulses_checked:
-                plot_window = data.loc[pulse[0]:pulse[1]]
-                plot_segment( plot_dir, trace_width, vertical_width, plot_window, ( ( i // 2 ) + 1 + sub ), [], [] )
-                sub += 0.1
             return [], [], [], [], False
 
         prev_pulse_end_idx = pulse_window.index[-1]
@@ -397,8 +420,8 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
         peak_currents.append( max( pulse_window['current_mA'] ) )
 
         if plot_data:
-            plot_start_time = min( pulse_start_time, pulse_start_time_est ) - 0.4
-            plot_end_time   = max( pulse_end_time, pulse_end_time_est ) + 0.4
+            plot_start_time = min( pulse_start_time, pulse_start_time_est ) - 55
+            plot_end_time   = max( pulse_end_time, pulse_end_time_est ) + 35
             plot_start_time = max( plot_start_time, data['time'].iloc[0] )
             plot_end_time   = min( plot_end_time, data['time'].iloc[-1] )
             plot_start_idx  = data[ data['time'] <= plot_start_time ].index[-1]
@@ -432,11 +455,10 @@ def analyze_power_consumption(parent_dir, dataset_name, high_thresh_pct, low_thr
     return tdiffs, energy_segments, latencies, adjusted_latencies, success
 
 
-def analyze_single_experiment(parent_dir, dataset_name, high_thresh_pct, low_thresh_pct, plot_data):
-    print(f"Analyzing single dataset: {dataset_name}")
+def analyze_single_experiment( args ):
+    print(f"Analyzing single dataset: {args.dataset_name}")
     
-    tdiffs, energy_segments, latencies, adjusted_latencies, success = analyze_power_consumption(
-        parent_dir, dataset_name, high_thresh_pct, low_thresh_pct, plot_data)
+    tdiffs, energy_segments, latencies, adjusted_latencies, success = analyze_power_consumption( args )
     
     if not success:
         print("Failed to analyze the dataset.")
@@ -454,23 +476,45 @@ def analyze_single_experiment(parent_dir, dataset_name, high_thresh_pct, low_thr
 
 
 def main():
-    if len(sys.argv) != 6:
-        print("Usage: python3 analyze_single_experiment.py <parent_dir> <dataset_name> <high_thresh_pct> <low_thresh_pct> <plot_data>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser( formatter_class = argparse.ArgumentDefaultsHelpFormatter )
+    parser.add_argument( 'parent_dir',
+                         help = 'experiment parent directory' )
+    parser.add_argument( 'dataset_name',
+                         help = 'name of the experiment to analyze' )
+    parser.add_argument( '--high-thresh',
+                         help = 'fraction of high current to use as rising edge threshold',
+                         type = float,
+                         default = 0.7 )
+    parser.add_argument( '--low-thresh',
+                         help = 'fraction of high current to use as falling edge threshold',
+                         type = float,
+                         default = 0.3 )
+    parser.add_argument( '--current-error',
+                         help = 'maximum fraction of average current that a segement can be off by',
+                         type = float,
+                         default = 0.1 )
+    parser.add_argument( '--latency-error',
+                         help = 'maximum number of ms that latency can differ from the logic analyzer by',
+                         type = float,
+                         default = 0.025 )
+    parser.add_argument( '--quick-search-window',
+                         help = 'number of ms to add to each side of expected latency to create the quick search window',
+                         type = float,
+                         default = 0.1 )
+    parser.add_argument( '--no-plot',
+                         help = 'skip plot generation',
+                         action = 'store_true' )
+    parser.add_argument( '--plot-before',
+                         help = 'number of ms before segment to include in plot',
+                         type = float,
+                         default = 55 )
+    parser.add_argument( '--plot-after',
+                         help = 'number of ms after segment to include in plot',
+                         type = float,
+                         default = 35 )
+    args = parser.parse_args()
 
-    parent_dir = sys.argv[1]
-    dataset_name = sys.argv[2]
-    high_thresh_pct = float(sys.argv[3])
-    low_thresh_pct = float(sys.argv[4])
-    plot_data = sys.argv[5].lower() == 'true'
-
-    results = analyze_single_experiment(
-        parent_dir,
-        dataset_name,
-        high_thresh_pct,
-        low_thresh_pct,
-        plot_data
-    )
+    results = analyze_single_experiment( args )
 
     return results
 
