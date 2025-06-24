@@ -77,8 +77,8 @@ int main()
     // Bundle adjustment options (used for nonlinear refinement)
     BundleOptions<Scalar> bundle_opt;
     bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
-    bundle_opt.loss_scale = 1.0;
-    bundle_opt.max_iterations = 20;  // More iterations for better convergence
+    bundle_opt.loss_scale = 0.5 * ransac_opt.max_reproj_error;
+    bundle_opt.max_iterations = 100;
     bundle_opt.verbose = false;
 
     RobustSolver robust_solver(ransac_opt, bundle_opt, camera, camera); // Two cameras for relative pose

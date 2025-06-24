@@ -38,7 +38,7 @@ inline int sad_safe(const uint8_t* frame1, const uint8_t* frame2, int stride = 3
 }
 
 inline int sad(const uint8_t* frame1, const uint8_t* frame2, int stride = 80) {
-#ifdef ENTO_USE_VECTORIZED_SAD
+#ifdef ENABLE_VECTORIZATION
     // ARM assembly version using USADA8 instruction
     // This is enabled when ENABLE_VECTORIZATION=true in config and running on ARM targets
     int result = 0;

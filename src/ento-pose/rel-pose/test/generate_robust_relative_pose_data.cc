@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <type_traits>  // For constexpr tolerance selection
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <random>
@@ -27,6 +28,12 @@
 #include <ento-pose/robust.h>
 #include <ento-pose/rel-pose/upright_planar_three_pt.h>
 
+// Include our data generators
+#include "simple_generator.h"
+#include "high_quality_generator.h"
+#include "entobench_generator.h"
+#include "ransaclib_generator.h"
+
 using namespace EntoPose;
 using namespace EntoUtil;
 using namespace EntoMath;
@@ -40,6 +47,7 @@ struct Options {
     size_t num_points = 64;
     size_t num_problems = 10;
     size_t max_iterations = 10000;  // Default RANSAC max iterations
+    size_t min_iterations = 100;    // Default RANSAC min iterations (RansacLib standard)
     bool verbose = false;
     bool shuffle_data = true;  // Default to true for better statistical properties
     bool final_refinement = true;  // Default to true for post-RANSAC refinement
@@ -59,9 +67,10 @@ void print_help() {
     std::cout << "  --points N              Number of points: 32, 64, 128, 256 (default: 64)\n";
     std::cout << "  --problems N            Number of problems to generate (default: 10)\n";
     std::cout << "  --max-iterations N      Maximum RANSAC iterations (default: 10000)\n";
+    std::cout << "  --min-iterations N      Minimum RANSAC iterations (default: 100, 0=no minimum)\n";
     std::cout << "  --shuffle-data BOOL     Shuffle data points (default: true)\n";
     std::cout << "  --final-refinement BOOL Enable post-RANSAC bundle adjustment (default: true)\n";
-    std::cout << "  --data-generator TYPE   Data generation method: simple, realistic, entobench (default: entobench)\n";
+    std::cout << "  --data-generator TYPE   Data generation method: simple, realistic, entobench, ransaclib (default: entobench)\n";
     std::cout << "  --precision TYPE        Floating point precision: float, double (default: float)\n";
     std::cout << "  --verbose               Enable verbose output\n";
     std::cout << "  --help                  Show this help message\n";
@@ -93,339 +102,7 @@ void inject_relative_pose_outliers(EntoContainer<Vec2<Scalar>, N>& x1,
     }
 }
 
-// Simple, controlled data generation that produces well-conditioned problems
-template<typename Scalar, size_t N>
-void generate_simple_relpose_data(
-    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& x1_img,
-    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& x2_img,
-    CameraPose<Scalar>& true_pose,
-    size_t num_points,
-    Scalar pixel_noise_std = Scalar(0.5),  // Standard deviation in pixels
-    int problem_id = 0,
-    bool upright_only = false,
-    bool planar_only = false,
-    Scalar focal_length = Scalar(500.0))    // Realistic focal length
-{
-    using Vec2 = Eigen::Matrix<Scalar,2,1>;
-    using Vec3 = Eigen::Matrix<Scalar,3,1>;
-    using Quaternion = Eigen::Quaternion<Scalar>;
-    
-    // Use different seed for each problem
-    std::default_random_engine rng(42 + problem_id);
-    std::normal_distribution<Scalar> pixel_noise_gen(0.0, pixel_noise_std);
-    
-    // Generate SIMPLE, well-conditioned pose
-    if (upright_only) {
-        // Simple yaw rotation: 5-20 degrees
-        std::uniform_real_distribution<Scalar> yaw_gen(5.0, 20.0);
-        Scalar yaw_deg = yaw_gen(rng);
-        Scalar yaw_rad = yaw_deg * M_PI / 180.0;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        if (planar_only) {
-            // Simple XZ translation: 0.2-1.0m baseline
-            std::uniform_real_distribution<Scalar> baseline_gen(0.2, 1.0);
-            Scalar baseline_length = baseline_gen(rng);
-            std::uniform_real_distribution<Scalar> angle_gen(0.0, 2.0 * M_PI);
-            Scalar angle = angle_gen(rng);
-            true_pose.t = Vec3(baseline_length * std::cos(angle), 0, baseline_length * std::sin(angle));
-        } else {
-            // Simple 3D translation: 0.2-1.0m baseline
-            std::uniform_real_distribution<Scalar> baseline_gen(0.2, 1.0);
-            Scalar baseline_length = baseline_gen(rng);
-            Vec3 t_dir = Vec3::Random().normalized();
-            true_pose.t = baseline_length * t_dir;
-        }
-    } else {
-        // Simple 6DOF rotation: 5-15 degrees around random axis
-        std::uniform_real_distribution<Scalar> angle_gen(5.0, 15.0);
-        Scalar rot_angle_deg = angle_gen(rng);
-        Scalar rot_angle_rad = rot_angle_deg * M_PI / 180.0;
-        Vec3 rot_axis = Vec3::Random().normalized();
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(rot_angle_rad, rot_axis));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // Simple baseline: 0.2-1.0m
-        std::uniform_real_distribution<Scalar> baseline_gen(0.2, 1.0);
-        Scalar baseline_length = baseline_gen(rng);
-        Vec3 t_dir = Vec3::Random().normalized();
-        true_pose.t = baseline_length * t_dir;
-    }
-    
-    if constexpr (N == 0) {
-        x1_img.clear();
-        x2_img.clear();
-        x1_img.reserve(num_points);
-        x2_img.reserve(num_points);
-    }
-    
-    // Generate points in a simple, well-distributed pattern
-    size_t valid_points = 0;
-    
-    if (planar_only) {
-        // For planar case: generate points on a ground plane
-        while (valid_points < num_points) {
-            // Simple ground plane at Z=3m with good spread
-            std::uniform_real_distribution<Scalar> lateral_gen(-2.0, 2.0);    // ±2m lateral
-            std::uniform_real_distribution<Scalar> depth_gen(2.0, 8.0);       // 2-8m depth
-            std::uniform_real_distribution<Scalar> height_gen(-0.2, 1.5);     // -0.2 to 1.5m height
-            
-            Vec3 X = Vec3(lateral_gen(rng), height_gen(rng), depth_gen(rng));
-            
-            // Project to both cameras
-            Vec3 x1_cam = X;
-            Vec3 x2_cam = true_pose.R() * X + true_pose.t;
-            
-            // Skip points behind cameras
-            if (x1_cam(2) <= Scalar(0.1) || x2_cam(2) <= Scalar(0.1)) continue;
-            
-            // Project to image coordinates
-            Vec2 x1_img_coord = Vec2(
-                focal_length * x1_cam(0) / x1_cam(2) + 250.0,  // cx = 250
-                focal_length * x1_cam(1) / x1_cam(2) + 250.0   // cy = 250
-            );
-            Vec2 x2_img_coord = Vec2(
-                focal_length * x2_cam(0) / x2_cam(2) + 250.0,
-                focal_length * x2_cam(1) / x2_cam(2) + 250.0
-            );
-            
-            // Skip points outside reasonable image bounds
-            if (std::abs(x1_img_coord(0) - 250.0) > 200 || std::abs(x1_img_coord(1) - 250.0) > 200 ||
-                std::abs(x2_img_coord(0) - 250.0) > 200 || std::abs(x2_img_coord(1) - 250.0) > 200) {
-                continue;
-            }
-            
-            // Add pixel noise
-            x1_img_coord(0) += pixel_noise_gen(rng);
-            x1_img_coord(1) += pixel_noise_gen(rng);
-            x2_img_coord(0) += pixel_noise_gen(rng);
-            x2_img_coord(1) += pixel_noise_gen(rng);
-            
-            x1_img.push_back(x1_img_coord);
-            x2_img.push_back(x2_img_coord);
-            ++valid_points;
-        }
-    } else {
-        // For general case: generate points in a simple 3D distribution
-        while (valid_points < num_points) {
-            // Simple 3D point distribution: 1-5m depth, good lateral spread
-            std::uniform_real_distribution<Scalar> lateral_gen(-1.5, 1.5);    // ±1.5m lateral
-            std::uniform_real_distribution<Scalar> depth_gen(1.0, 5.0);       // 1-5m depth
-            
-            Vec3 X = Vec3(lateral_gen(rng), lateral_gen(rng), depth_gen(rng));
-            
-            // Project to both cameras
-            Vec3 x1_cam = X;
-            Vec3 x2_cam = true_pose.R() * X + true_pose.t;
-            
-            // Skip points behind cameras
-            if (x1_cam(2) <= Scalar(0.1) || x2_cam(2) <= Scalar(0.1)) continue;
-            
-            // Project to image coordinates
-            Vec2 x1_img_coord = Vec2(
-                focal_length * x1_cam(0) / x1_cam(2) + 250.0,  // cx = 250
-                focal_length * x1_cam(1) / x1_cam(2) + 250.0   // cy = 250
-            );
-            Vec2 x2_img_coord = Vec2(
-                focal_length * x2_cam(0) / x2_cam(2) + 250.0,
-                focal_length * x2_cam(1) / x2_cam(2) + 250.0
-            );
-            
-            // Skip points outside reasonable image bounds
-            if (std::abs(x1_img_coord(0) - 250.0) > 200 || std::abs(x1_img_coord(1) - 250.0) > 200 ||
-                std::abs(x2_img_coord(0) - 250.0) > 200 || std::abs(x2_img_coord(1) - 250.0) > 200) {
-                continue;
-            }
-            
-            // Add pixel noise
-            x1_img_coord(0) += pixel_noise_gen(rng);
-            x1_img_coord(1) += pixel_noise_gen(rng);
-            x2_img_coord(0) += pixel_noise_gen(rng);
-            x2_img_coord(1) += pixel_noise_gen(rng);
-            
-            x1_img.push_back(x1_img_coord);
-            x2_img.push_back(x2_img_coord);
-            ++valid_points;
-        }
-    }
-}
 
-// NEW: High-quality data generation based on the standalone test approach
-template<typename Scalar, size_t N>
-void generate_high_quality_relpose_data(
-    EntoContainer<Vec2<Scalar>, N>& x1_img,
-    EntoContainer<Vec2<Scalar>, N>& x2_img,
-    CameraPose<Scalar>& true_pose,
-    int num_inliers,
-    int num_outliers,
-    int problem_id = 0,
-    bool upright_only = false,
-    bool planar_only = false)
-{
-    using Vec2 = Eigen::Matrix<Scalar,2,1>;
-    using Vec3 = Eigen::Matrix<Scalar,3,1>;
-    using Quaternion = Eigen::Quaternion<Scalar>;
-    
-    std::default_random_engine rng(42 + problem_id);
-    std::uniform_real_distribution<Scalar> uniform_gen(-1.0, 1.0);
-    std::normal_distribution<Scalar> pixel_noise_gen(0.0, 0.5);  // Realistic pixel noise
-    Scalar focal_length = Scalar(500.0);
-    
-    // Generate motion based on solver constraints
-    if (upright_only && planar_only) {
-        // Upright planar motion (rotation only around Y-axis, translation in XZ plane)
-        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
-        Scalar rot_selector = rot_scenario(rng);
-        
-        Scalar yaw_deg;
-        if (rot_selector < 0.3) {
-            std::uniform_real_distribution<Scalar> small_rot(-2.0, 2.0);
-            yaw_deg = small_rot(rng);
-        } else if (rot_selector < 0.7) {
-            std::uniform_real_distribution<Scalar> medium_rot(-10.0, 10.0);
-            yaw_deg = medium_rot(rng);
-        } else {
-            std::uniform_real_distribution<Scalar> large_rot(-45.0, 45.0);
-            yaw_deg = large_rot(rng);
-        }
-        
-        Scalar yaw_rad = yaw_deg * M_PI / 180.0;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // Translation in XZ plane only
-        std::uniform_real_distribution<Scalar> baseline_gen(0.1, 3.0);
-        Scalar baseline_length = baseline_gen(rng);
-        Scalar tx = uniform_gen(rng);
-        Scalar tz = uniform_gen(rng);
-        Vec3 t_dir = Vec3(tx, 0, tz).normalized();
-        true_pose.t = baseline_length * t_dir;
-        
-    } else if (upright_only) {
-        // Upright motion (rotation around Y-axis only, but translation in 3D)
-        std::uniform_real_distribution<Scalar> yaw_gen(-30.0, 30.0);
-        Scalar yaw_deg = yaw_gen(rng);
-        Scalar yaw_rad = yaw_deg * M_PI / 180.0;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // 3D translation
-        std::uniform_real_distribution<Scalar> baseline_gen(0.1, 3.0);
-        Scalar baseline_length = baseline_gen(rng);
-        Vec3 t_dir = Vec3(uniform_gen(rng), uniform_gen(rng), uniform_gen(rng)).normalized();
-        true_pose.t = baseline_length * t_dir;
-        
-    } else {
-        // General 6DOF motion - REDUCED for better data generation
-        std::uniform_real_distribution<Scalar> angle_gen(-5.0, 5.0);  // Much smaller rotations: ±5°
-        Scalar roll = angle_gen(rng) * M_PI / 180.0;
-        Scalar pitch = angle_gen(rng) * M_PI / 180.0;
-        Scalar yaw = angle_gen(rng) * M_PI / 180.0;
-        
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw, Vec3::UnitZ()) *
-                                 Eigen::AngleAxis<Scalar>(pitch, Vec3::UnitY()) *
-                                 Eigen::AngleAxis<Scalar>(roll, Vec3::UnitX()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // Smaller baseline for better data generation
-        std::uniform_real_distribution<Scalar> baseline_gen(0.1, 0.5);
-        Scalar baseline_length = baseline_gen(rng);
-        Vec3 t_dir = Vec3(uniform_gen(rng), uniform_gen(rng), uniform_gen(rng)).normalized();
-        true_pose.t = baseline_length * t_dir;
-    }
-    
-    x1_img.clear();
-    x2_img.clear();
-    
-    std::cout << "Generating " << num_inliers << " inliers + " << num_outliers << " outliers = " << (num_inliers + num_outliers) << " total points" << std::endl;
-    
-    // Generate inlier points
-    int generated_inliers = 0;
-    int attempts = 0;
-    while (generated_inliers < num_inliers && attempts < num_inliers * 3) {
-        attempts++;
-        
-        // Generate 3D point with good distribution
-        std::uniform_real_distribution<Scalar> lateral_gen(-3.0, 3.0);
-        std::uniform_real_distribution<Scalar> depth_gen(2.0, 15.0);
-        Vec3 X = Vec3(lateral_gen(rng), lateral_gen(rng), depth_gen(rng));
-        
-        // Project to first camera (identity pose)
-        Vec3 x1_cam = X;
-        if (x1_cam(2) <= Scalar(0.1)) continue;
-        
-        // Project to second camera
-        Vec3 x2_cam = true_pose.R() * X + true_pose.t;
-        if (x2_cam(2) <= Scalar(0.1)) continue;
-        
-        // Project to image coordinates
-        Vec2 img1 = Vec2(
-            focal_length * x1_cam(0) / x1_cam(2) + 250.0,  // Add cx = 250
-            focal_length * x1_cam(1) / x1_cam(2) + 250.0   // Add cy = 250
-        );
-        Vec2 img2 = Vec2(
-            focal_length * x2_cam(0) / x2_cam(2) + 250.0,  // Add cx = 250
-            focal_length * x2_cam(1) / x2_cam(2) + 250.0   // Add cy = 250
-        );
-        
-        // Check if points are within reasonable image bounds (relative to principal point)
-        if (std::abs(img1(0) - 250.0) > 200 || std::abs(img1(1) - 250.0) > 200 ||
-            std::abs(img2(0) - 250.0) > 200 || std::abs(img2(1) - 250.0) > 200) {
-            continue;
-        }
-        
-        // Add pixel noise
-        img1(0) += pixel_noise_gen(rng);
-        img1(1) += pixel_noise_gen(rng);
-        img2(0) += pixel_noise_gen(rng);
-        img2(1) += pixel_noise_gen(rng);
-        
-        x1_img.push_back(img1);
-        x2_img.push_back(img2);
-        generated_inliers++;
-        
-        if (generated_inliers <= 5) {  // Only print first few for brevity
-            std::cout << "  Inlier " << generated_inliers << ": (" << img1(0) << "," << img1(1) 
-                      << ") -> (" << img2(0) << "," << img2(1) << ")" << std::endl;
-        }
-    }
-    
-    if (generated_inliers < num_inliers) {
-        std::cout << "WARNING: Only generated " << generated_inliers << "/" << num_inliers << " inliers" << std::endl;
-    }
-    
-    // Generate outlier points
-    std::uniform_real_distribution<Scalar> outlier_gen(-200.0, 200.0);
-    for (int k = 0; k < num_outliers; ++k) {
-        Vec2 outlier1(outlier_gen(rng), outlier_gen(rng));
-        Vec2 outlier2(outlier_gen(rng), outlier_gen(rng));
-        x1_img.push_back(outlier1);
-        x2_img.push_back(outlier2);
-        
-        if (k < 3) {  // Only print first few for brevity
-            std::cout << "  Outlier " << (k+1) << ": (" << outlier1(0) << "," << outlier1(1) 
-                      << ") -> (" << outlier2(0) << "," << outlier2(1) << ")" << std::endl;
-        }
-    }
-    
-    std::cout << "Final dataset: " << x1_img.size() << " correspondences" << std::endl;
-}
 
 // Robust CSV line generation function with inlier mask
 template <typename Scalar, size_t N>
@@ -620,259 +297,6 @@ bool check_correspondence_geometry(
     return true;  // All checks passed
 }
 
-// EntoBench-realistic data generation with mixed scenarios for proper workload characterization
-template<typename Scalar, size_t N>
-void generate_entobench_realistic_relpose_data(
-    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& x1_img,
-    EntoUtil::EntoContainer<Eigen::Matrix<Scalar,2,1>, N>& x2_img,
-    CameraPose<Scalar>& true_pose,
-    int num_inliers,
-    int num_outliers,
-    int problem_id = 0,
-    bool upright_only = false,
-    bool planar_only = false,
-    Scalar pixel_noise_std = Scalar(0.5))  // EntoBench standard noise levels: 0.5, 1.0, 2.5
-{
-    using Vec2 = Eigen::Matrix<Scalar,2,1>;
-    using Vec3 = Eigen::Matrix<Scalar,3,1>;
-    using Quaternion = Eigen::Quaternion<Scalar>;
-    
-    std::default_random_engine rng(42 + problem_id);
-    std::uniform_real_distribution<Scalar> uniform_gen(-1.0, 1.0);
-    std::normal_distribution<Scalar> pixel_noise_gen(0.0, pixel_noise_std);
-    Scalar focal_length = Scalar(500.0);  // Standard EntoBench focal length
-    
-    // Generate realistic motion based on mixed robotics scenarios
-    if (upright_only && planar_only) {
-        // Upright planar motion (robotics ground vehicles, indoor navigation)
-        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
-        Scalar rot_selector = rot_scenario(rng);
-        
-        Scalar yaw_deg;
-        if (rot_selector < 0.3) {
-            // Small challenging rotations: ±2° (precision tasks)
-            std::uniform_real_distribution<Scalar> small_rot(-2.0, 2.0);
-            yaw_deg = small_rot(rng);
-        } else if (rot_selector < 0.7) {
-            // Medium typical rotations: ±10° (normal maneuvering)
-            std::uniform_real_distribution<Scalar> medium_rot(-10.0, 10.0);
-            yaw_deg = medium_rot(rng);
-        } else {
-            // Large easier rotations: ±45° (wide turns)
-            std::uniform_real_distribution<Scalar> large_rot(-45.0, 45.0);
-            yaw_deg = large_rot(rng);
-        }
-        
-        Scalar yaw_rad = yaw_deg * M_PI / 180.0;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // Realistic baseline variation for robotics applications
-        std::uniform_real_distribution<Scalar> baseline_scenario(0.0, 1.0);
-        Scalar baseline_selector = baseline_scenario(rng);
-        Scalar baseline_length;
-        
-        if (baseline_selector < 0.3) {
-            // Close manipulation: 5cm - 50cm (tabletop robotics)
-            std::uniform_real_distribution<Scalar> close_baseline(0.05, 0.5);
-            baseline_length = close_baseline(rng);
-        } else if (baseline_selector < 0.7) {
-            // Mid-range navigation: 0.5m - 2m (indoor robotics)
-            std::uniform_real_distribution<Scalar> mid_baseline(0.5, 2.0);
-            baseline_length = mid_baseline(rng);
-        } else {
-            // Long-range navigation: 2m - 5m (outdoor robotics)
-            std::uniform_real_distribution<Scalar> long_baseline(2.0, 5.0);
-            baseline_length = long_baseline(rng);
-        }
-        
-        // Random direction in XZ plane
-        Scalar tx = uniform_gen(rng);
-        Scalar tz = uniform_gen(rng);
-        Vec3 t_dir = Vec3(tx, 0, tz).normalized();
-        true_pose.t = baseline_length * t_dir;
-        
-    } else if (upright_only) {
-        // Upright 3DOF motion (drones with altitude control)
-        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
-        Scalar rot_selector = rot_scenario(rng);
-        
-        Scalar yaw_deg;
-        if (rot_selector < 0.3) {
-            std::uniform_real_distribution<Scalar> small_rot(-2.0, 2.0);
-            yaw_deg = small_rot(rng);
-        } else if (rot_selector < 0.7) {
-            std::uniform_real_distribution<Scalar> medium_rot(-10.0, 10.0);
-            yaw_deg = medium_rot(rng);
-        } else {
-            std::uniform_real_distribution<Scalar> large_rot(-45.0, 45.0);
-            yaw_deg = large_rot(rng);
-        }
-        
-        Scalar yaw_rad = yaw_deg * M_PI / 180.0;
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(yaw_rad, Vec3::UnitY()));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // 3D baseline with realistic magnitudes
-        std::uniform_real_distribution<Scalar> baseline_gen(0.1, 3.0);
-        Scalar baseline_length = baseline_gen(rng);
-        Vec3 t_dir = Vec3::Random().normalized();
-        true_pose.t = baseline_length * t_dir;
-        
-    } else {
-        // General 6DOF motion (full 3D robotics, aerial vehicles)
-        std::uniform_real_distribution<Scalar> rot_scenario(0.0, 1.0);
-        Scalar rot_selector = rot_scenario(rng);
-        
-        Scalar rot_angle_deg;
-        if (rot_selector < 0.3) {
-            // Small challenging rotations: ±5°
-            std::uniform_real_distribution<Scalar> small_rot(2.0, 5.0);
-            rot_angle_deg = small_rot(rng);
-        } else if (rot_selector < 0.7) {
-            // Medium typical rotations: ±15°
-            std::uniform_real_distribution<Scalar> medium_rot(5.0, 15.0);
-            rot_angle_deg = medium_rot(rng);
-        } else {
-            // Large easier rotations: ±30°
-            std::uniform_real_distribution<Scalar> large_rot(15.0, 30.0);
-            rot_angle_deg = large_rot(rng);
-        }
-        
-        Scalar rot_angle_rad = rot_angle_deg * M_PI / 180.0;
-        Vec3 rot_axis = Vec3::Random().normalized();
-        Quaternion q = Quaternion(Eigen::AngleAxis<Scalar>(rot_angle_rad, rot_axis));
-        true_pose.q(0) = q.w();
-        true_pose.q(1) = q.x();
-        true_pose.q(2) = q.y();
-        true_pose.q(3) = q.z();
-        
-        // Realistic 3D baseline
-        std::uniform_real_distribution<Scalar> baseline_gen(0.2, 2.0);
-        Scalar baseline_length = baseline_gen(rng);
-        Vec3 t_dir = Vec3::Random().normalized();
-        true_pose.t = baseline_length * t_dir;
-    }
-    
-    if constexpr (N == 0) {
-        x1_img.clear();
-        x2_img.clear();
-        x1_img.reserve(num_inliers + num_outliers);
-        x2_img.reserve(num_inliers + num_outliers);
-    }
-    
-    // Generate inlier points with mixed realistic scenarios
-    int generated_inliers = 0;
-    int attempts = 0;
-    const int max_attempts = num_inliers * 5;
-    
-    while (generated_inliers < num_inliers && attempts < max_attempts) {
-        attempts++;
-        
-        // Mixed depth scenarios based on robotics applications
-        std::uniform_real_distribution<Scalar> depth_scenario(0.0, 1.0);
-        Scalar depth_selector = depth_scenario(rng);
-        
-        Vec3 X;
-        if (depth_selector < 0.4) {
-            // Close manipulation: 0.2-2m depth, tight lateral spread (challenging)
-            std::uniform_real_distribution<Scalar> close_lateral(-0.5, 0.5);  // ±50cm
-            std::uniform_real_distribution<Scalar> close_depth(0.2, 2.0);     // 20cm-2m
-            if (planar_only) {
-                std::uniform_real_distribution<Scalar> height_gen(-0.2, 1.5); // Ground plane variation
-                X = Vec3(close_lateral(rng), height_gen(rng), close_depth(rng));
-            } else {
-                X = Vec3(close_lateral(rng), close_lateral(rng), close_depth(rng));
-            }
-        } else if (depth_selector < 0.8) {
-            // Mid-range robotics: 1-10m depth, moderate spread (typical)
-            std::uniform_real_distribution<Scalar> mid_lateral(-2.0, 2.0);    // ±2m  
-            std::uniform_real_distribution<Scalar> mid_depth(1.0, 10.0);      // 1-10m
-            if (planar_only) {
-                std::uniform_real_distribution<Scalar> height_gen(-0.5, 2.0); // Ground plane variation
-                X = Vec3(mid_lateral(rng), height_gen(rng), mid_depth(rng));
-            } else {
-                X = Vec3(mid_lateral(rng), mid_lateral(rng), mid_depth(rng));
-            }
-        } else {
-            // Far-field navigation: 5-50m depth, wide spread (easier)
-            std::uniform_real_distribution<Scalar> far_lateral(-10.0, 10.0);  // ±10m
-            std::uniform_real_distribution<Scalar> far_depth(5.0, 50.0);      // 5-50m  
-            if (planar_only) {
-                std::uniform_real_distribution<Scalar> height_gen(-1.0, 3.0); // Ground plane variation
-                X = Vec3(far_lateral(rng), height_gen(rng), far_depth(rng));
-            } else {
-                X = Vec3(far_lateral(rng), far_lateral(rng), far_depth(rng));
-            }
-        }
-        
-        // Project to first camera (identity pose)
-        Vec3 x1_cam = X;
-        if (x1_cam(2) <= Scalar(0.1)) continue; // Skip if behind camera
-        
-        // Project to second camera
-        Vec3 x2_cam = true_pose.R() * X + true_pose.t;
-        if (x2_cam(2) <= Scalar(0.1)) continue; // Skip if behind camera
-        
-        // Project to image coordinates (pinhole camera model)
-        Vec2 img1 = Vec2(
-            focal_length * x1_cam(0) / x1_cam(2) + 250.0,  // cx = 250
-            focal_length * x1_cam(1) / x1_cam(2) + 250.0   // cy = 250
-        );
-        Vec2 img2 = Vec2(
-            focal_length * x2_cam(0) / x2_cam(2) + 250.0,  // cx = 250
-            focal_length * x2_cam(1) / x2_cam(2) + 250.0   // cy = 250
-        );
-        
-        // Check if points are within reasonable image bounds (realistic FOV)
-        if (std::abs(img1(0) - 250.0) > 200 || std::abs(img1(1) - 250.0) > 200 ||
-            std::abs(img2(0) - 250.0) > 200 || std::abs(img2(1) - 250.0) > 200) {
-            continue;
-        }
-        
-        // Add realistic pixel noise (EntoBench standard)
-        img1(0) += pixel_noise_gen(rng);
-        img1(1) += pixel_noise_gen(rng);
-        img2(0) += pixel_noise_gen(rng);
-        img2(1) += pixel_noise_gen(rng);
-        
-        x1_img.push_back(img1);
-        x2_img.push_back(img2);
-        generated_inliers++;
-    }
-    
-    if (generated_inliers < num_inliers) {
-        std::cout << "Warning: Only generated " << generated_inliers << "/" << num_inliers << " inliers" << std::endl;
-    }
-    
-    // Generate outlier points (random correspondences within image bounds)
-    for (int i = 0; i < num_outliers; ++i) {
-        // Random points within image bounds
-        std::uniform_real_distribution<Scalar> img_coord_gen(50.0, 450.0);  // Stay within bounds
-        
-        Vec2 outlier1(img_coord_gen(rng), img_coord_gen(rng));
-        Vec2 outlier2(img_coord_gen(rng), img_coord_gen(rng));
-        
-        // Add noise to outliers too (they're still noisy measurements)
-        outlier1(0) += pixel_noise_gen(rng);
-        outlier1(1) += pixel_noise_gen(rng);
-        outlier2(0) += pixel_noise_gen(rng);
-        outlier2(1) += pixel_noise_gen(rng);
-        
-        x1_img.push_back(outlier1);
-        x2_img.push_back(outlier2);
-    }
-    
-    std::cout << "Generated EntoBench-realistic data: " << generated_inliers << " inliers + " 
-              << num_outliers << " outliers = " << (generated_inliers + num_outliers) << " total points" << std::endl;
-}
-
 template<typename Scalar, size_t N>
 void test_robust_solver(const Options& opt) {
     using SolverRel5pt = EntoPose::SolverRel5pt<Scalar>;
@@ -902,6 +326,7 @@ void test_robust_solver(const Options& opt) {
     // RANSAC configuration
     RansacOptions<Scalar> ransac_opt;
     ransac_opt.max_iters = opt.max_iterations;
+    ransac_opt.min_iters = opt.min_iterations;
     
     // CRITICAL: Threshold processing chain for relative pose estimation
     // 1. Input threshold (pixels): e.g., 20.0 for 8pt, 4.0 for minimal solvers
@@ -938,8 +363,8 @@ void test_robust_solver(const Options& opt) {
         }
         
         ransac_opt.use_irls = true;                                     // Enable IRLS for better outlier handling
-        ransac_opt.irls_max_iters = 5;                                  // Reasonable number of IRLS iterations
-        ransac_opt.irls_huber_threshold = Scalar(1.0);                 // Huber threshold for outlier downweighting
+        ransac_opt.irls_max_iters = 20;                                  // Reasonable number of IRLS iterations
+        ransac_opt.irls_huber_threshold = Scalar(0.5);                 // Huber threshold for outlier downweighting
     } else if (opt.refinement_type == "nonlinear") {
         ransac_opt.lo_type = LocalRefinementType::BundleAdjust;
         ransac_opt.use_irls = false;
@@ -950,6 +375,7 @@ void test_robust_solver(const Options& opt) {
     
     if (opt.verbose) {
         std::cout << "Using RANSAC threshold: " << ransac_opt.max_epipolar_error << " pixels" << std::endl;
+        std::cout << "Using RANSAC iterations: min=" << ransac_opt.min_iters << ", max=" << ransac_opt.max_iters << std::endl;
         std::cout << "Using refinement type: " << opt.refinement_type << std::endl;
         std::cout << "Using final refinement: " << (opt.final_refinement ? "enabled" : "disabled") << std::endl;
     }
@@ -957,7 +383,11 @@ void test_robust_solver(const Options& opt) {
     // Bundle adjustment configuration
     BundleOptions<Scalar> bundle_opt;
     bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
-    bundle_opt.max_iterations = 50;
+    // PoseLib heuristic: loss_scale = 0.5 * threshold for better convergence
+    bundle_opt.loss_scale = 0.5 * ransac_opt.max_epipolar_error;
+    bundle_opt.max_iterations = 100;  // PoseLib default, good balance for accuracy vs embedded constraints
+    // Tolerances automatically set via constexpr based on Scalar type (float vs double)
+    bundle_opt.verbose = false;
     
     // Camera setup (use SimplePinholeCameraModel with focal=500)
     using CameraModel = SimplePinholeCameraModel<Scalar>;
@@ -1015,6 +445,13 @@ void test_robust_solver(const Options& opt) {
                 x1_img, x2_img, pose_gt, num_inliers, num_outliers, problem,
                 opt.solver_type.find("upright") != std::string::npos,
                 opt.solver_type.find("planar") != std::string::npos
+            );
+        } else if (opt.data_generator == "ransaclib") {
+            generate_ransaclib_inspired_relpose_data<Scalar, N>(
+                x1_img, x2_img, pose_gt, num_inliers, num_outliers, problem,
+                opt.solver_type.find("upright") != std::string::npos,
+                opt.solver_type.find("planar") != std::string::npos,
+                static_cast<Scalar>(opt.noise_level)
             );
         } else { // "entobench" (default)
             generate_entobench_realistic_relpose_data<Scalar, N>(
@@ -1159,15 +596,36 @@ void test_robust_solver(const Options& opt) {
             );
         }
         
+        // NEW: Proper success criteria based on inlier count AND pose accuracy
+        bool problem_success = false;
+        Scalar rot_error = 0.0;
+        Scalar trans_error = 0.0;
+        
+        if (stats.num_inliers > 0) {
+            rot_error = compute_rotation_error_degrees(pose_gt, estimated_pose);
+            trans_error = compute_translation_error_degrees(pose_gt, estimated_pose);
+            
+            // Success criteria:
+            // 1. Found sufficient inliers (at least 50% of expected)
+            // 2. Reasonable pose accuracy (rotation < 15°, translation < 30°)
+            // 3. Minimum absolute inlier count (at least 8 for robustness)
+            size_t min_inliers = std::max(size_t(8), static_cast<size_t>(expected_inliers * 0.5));
+            bool sufficient_inliers = (stats.num_inliers >= min_inliers);
+            bool good_rotation = (rot_error < 15.0);  // 15 degrees max rotation error
+            bool good_translation = (trans_error < 30.0);  // 30 degrees max translation error
+            
+            problem_success = sufficient_inliers && good_rotation && good_translation;
+        }
+        
         if (opt.verbose) {
             std::cout << "  RANSAC iterations: " << stats.iters << std::endl;
             std::cout << "  Inliers found: " << std::count(inliers_found.begin(), inliers_found.end(), 1) << std::endl;
-            std::cout << "  Success: " << (stats.num_inliers > 0 ? "YES" : "NO") << std::endl;
+            std::cout << "  Success: " << (problem_success ? "YES" : "NO") << std::endl;
             if (stats.num_inliers > 0) {
-                Scalar rot_error = compute_rotation_error_degrees(pose_gt, estimated_pose);
-                Scalar trans_error = compute_translation_error_degrees(pose_gt, estimated_pose);
                 std::cout << "  Rotation error: " << rot_error << "°" << std::endl;
                 std::cout << "  Translation error: " << trans_error << "°" << std::endl;
+                std::cout << "  Success criteria: inliers=" << stats.num_inliers << ">=" << std::max(size_t(8), static_cast<size_t>(expected_inliers * 0.5)) 
+                          << ", rot=" << rot_error << "<15°, trans=" << trans_error << "<30°" << std::endl;
             }
             std::cout << "=== End Problem " << problem << " Debug ===\n" << std::endl;
         }
@@ -1177,7 +635,7 @@ void test_robust_solver(const Options& opt) {
         // FIXED: Collect iteration statistics for ALL problems, not just successful ones
         iteration_counts.push_back(stats.iters);
         
-        if (stats.num_inliers > 0) {  // Check if we found any inliers
+        if (problem_success) {  // NEW: Use proper success criteria
             successful_estimates++;
             total_inliers_found += inliers_count;
             total_iterations += stats.iters;
@@ -1190,25 +648,30 @@ void test_robust_solver(const Options& opt) {
             ground_truth_masks.push_back(inlier_mask);
             ransac_results.push_back(inliers_found);
             
-            // Compute rotation and translation errors
-            Scalar rotation_error = compute_rotation_error_degrees(pose_gt, estimated_pose);
-            Scalar translation_error = compute_translation_error_degrees(pose_gt, estimated_pose);
-            rotation_errors.push_back(rotation_error);
-            translation_errors.push_back(translation_error);
+            // Store the already computed rotation and translation errors
+            rotation_errors.push_back(rot_error);
+            translation_errors.push_back(trans_error);
             
             if (opt.verbose) {
                 std::cout << "Problem " << problem << ": Expected " << expected_inliers 
                           << " inliers, found " << inliers_count << " inliers, " 
                           << stats.iters << " iterations" 
-                          << ", rot_err=" << std::fixed << std::setprecision(2) << rotation_error << "°"
-                          << ", trans_err=" << translation_error << "°" << std::endl;
+                          << ", rot_err=" << std::fixed << std::setprecision(2) << rot_error << "°"
+                          << ", trans_err=" << trans_error << "°" << std::endl;
             }
         } else {
-            // ENHANCED: Report failed problems in verbose mode
+            // ENHANCED: Report failed problems in verbose mode with reason
             if (opt.verbose) {
+                std::string failure_reason = "No inliers found";
+                if (stats.num_inliers > 0) {
+                    failure_reason = "Poor accuracy (rot=" + std::to_string(rot_error) + "°, trans=" + std::to_string(trans_error) + "°)";
+                    if (stats.num_inliers < std::max(size_t(8), static_cast<size_t>(expected_inliers * 0.5))) {
+                        failure_reason += " or insufficient inliers";
+                    }
+                }
                 std::cout << "Problem " << problem << ": FAILED - Expected " << expected_inliers 
                           << " inliers, found " << inliers_count << " inliers, " 
-                          << stats.iters << " iterations (hit max limit)" << std::endl;
+                          << stats.iters << " iterations - " << failure_reason << std::endl;
             }
         }
         
@@ -1433,6 +896,8 @@ int main(int argc, char* argv[]) {
             opt.num_problems = std::stoul(argv[++i]);
         } else if (arg == "--max-iterations" && i + 1 < argc) {
             opt.max_iterations = std::stoul(argv[++i]);
+        } else if (arg == "--min-iterations" && i + 1 < argc) {
+            opt.min_iterations = std::stoul(argv[++i]);
         } else if (arg == "--shuffle-data" && i + 1 < argc) {
             opt.shuffle_data = (std::string(argv[++i]) == "true");
         } else if (arg == "--final-refinement" && i + 1 < argc) {

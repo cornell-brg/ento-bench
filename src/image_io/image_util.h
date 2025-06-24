@@ -311,7 +311,7 @@ void sift_smooth_efficient(const ImageT& src, ImageT& dst, float sigma) {
     }
     
     // Compile-time kernel array
-    float kernel[MaxKernelSize];
+    static float kernel[MaxKernelSize];
     
     // Generate kernel values (SIFT++ approach)
     for (int j = 0; j < kernel_size; ++j) {
@@ -330,7 +330,7 @@ void sift_smooth_efficient(const ImageT& src, ImageT& dst, float sigma) {
     
     // Compile-time ring buffer for horizontal blur results
     // Only stores MaxKernelSize rows instead of full image
-    float ring[MaxKernelSize][width];
+    static float ring[MaxKernelSize][320]; // @TODO : FIX THIS TO NOT BE HARDCODED...
     
     // Process each row
     for (int row = 0; row < height; ++row) {

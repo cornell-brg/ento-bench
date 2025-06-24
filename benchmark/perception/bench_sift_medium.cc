@@ -79,7 +79,7 @@ int main()
   using Problem = FeatureRecognitionProblem<Kernel, MaxFeats, Rows, Cols, PixT, true, false>;
 
   const char* base_path = DATASET_PATH;
-  const char* rel_path  = "feat2d/sift_medium_data.txt";  // TODO: Create dataset
+  const char* rel_path  = "feat2d/fastbrief_medium_books_data.txt";  // TODO: Create dataset
 
   char dataset_path[512];
   char output_path[256];

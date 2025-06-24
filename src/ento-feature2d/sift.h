@@ -47,7 +47,7 @@ class SIFTDoGOctave
   static constexpr int RingSize_ = RingSize;
   static constexpr int KernelSize = 5;
 
-  ImageT& input_img_;
+  ImageT* input_img_;
 
   // OLD: using DoGImageT_ = Image<Height_, Width_, DoGPixelT_>;
   using DoGImageViewT_ = ImageView<DoGPixelT_>;
@@ -74,7 +74,7 @@ public:
               DoGImageViewT_& orientation_buf)
     : Height_(img.rows()),
       Width_(img.cols()),
-      input_img_(img),
+      input_img_(&img),
       gaussian_buffers_{gauss_buf_0, gauss_buf_1},
       gaussian_prev_p_(&gaussian_buffers_[1]),
       gaussian_curr_p_(&gaussian_buffers_[0]),
@@ -121,7 +121,7 @@ public:
     // Step 1: Normalize input image (like test 3 and SIFT++)
     for (int y = 0; y < Height_; ++y)
       for (int x = 0; x < Width_; ++x)
-        gaussian_prev()(y, x) = static_cast<DoGPixelT_>(input_img_(y, x)) / 255.0f;
+        gaussian_prev()(y, x) = static_cast<DoGPixelT_>((*input_img_)(y, x)) / 255.0f;
 
     ENTO_DEBUG("Input image normalized:");
     //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 17, 16, 15, 15));
@@ -138,7 +138,7 @@ public:
     float dsigma0 = sigma0 * sqrtf(1.0f - 1.0f / (sigmak*sigmak));  // SIFT++ dsigma0
     
     ENTO_DEBUG("SIFT++ parameters: S=%d, smin=%d, sigmak=%.6f, sigma0=%.6f, dsigma0=%.6f", S, smin, sigmak, sigma0, dsigma0);
-    printf("SIFT++ parameters: S=%d, smin=%d, sigmak=%.6f, sigma0=%.6f, dsigma0=%.6f\n", S, smin, sigmak, sigma0, dsigma0);
+    //printf("SIFT++ parameters: S=%d, smin=%d, sigmak=%.6f, sigma0=%.6f, dsigma0=%.6f\n", S, smin, sigmak, sigma0, dsigma0);
 
     // Step 3: Initial smoothing (exactly from SIFT++ process())
     // From SIFT++: sa = sigma0 * powf(sigmak, smin), sb = sigman / powf(2.0f, omin)
@@ -147,14 +147,14 @@ public:
     float initial_sigma = sqrtf(sa*sa - sb*sb);  // sqrt(sa^2 - sb^2)
     
     ENTO_DEBUG("Initial smoothing: sa=%.6f, sb=%.6f, initial_sigma=%.6f", sa, sb, initial_sigma);
-    printf("Initial smoothing: sa=%.6f, sb=%.6f, initial_sigma=%.6f\n", sa, sb, initial_sigma);
+    //printf("Initial smoothing: sa=%.6f, sb=%.6f, initial_sigma=%.6f\n", sa, sb, initial_sigma);
     
     // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
     sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), initial_sigma);
     // G(-1) is now in gaussian_curr()
     
     ENTO_DEBUG("After initial smoothing G(smin=%d): sigma=%.6f", smin, initial_sigma);
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
 
     // Step 4: Incremental inter-level smoothing with DoG computation
     // From SIFT++: for(int s = smin+1 ; s <= smax ; ++s) { float sd = dsigma0 * powf(sigmak, s); }
@@ -169,8 +169,8 @@ public:
     compute_DoG(dog_ring_[0], gaussian_curr(), gaussian_prev());  // G(0) - G(-1)
     
     ENTO_DEBUG("After inter-level G(0): sd=%.6f", sd0);
-    printf("Inter-level G(0): sd=%.6f\n", sd0);
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
+    //printf("Inter-level G(0): sd=%.6f\n", sd0);
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
 
     // G(1) = smooth(G(0), dsigma0 * sigmak^1)  
     float sd1 = dsigma0 * powf(sigmak, 1);  // s=1
@@ -181,10 +181,10 @@ public:
     // Compute DoG(0) = G(1) - G(0) as soon as we have both
     compute_DoG(dog_ring_[1], gaussian_curr(), gaussian_prev());  // G(1) - G(0)
     ENTO_DEBUG("DoG[0] (G1 - G0):");
-    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[0], 17, 16, 7, 7));
+    //ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[0], 17, 16, 7, 7));
     
     ENTO_DEBUG("After inter-level G(1): sd=%.6f", sd1);
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
 
     // G(2) = smooth(G(1), dsigma0 * sigmak^2)
     float sd2 = dsigma0 * powf(sigmak, 2);  // s=2
@@ -196,10 +196,10 @@ public:
     // Compute DoG(1) = G(2) - G(1) as soon as we have both
     compute_DoG(dog_ring_[2], gaussian_curr(), gaussian_prev());  // G(2) - G(1)
     ENTO_DEBUG("DoG[1] (G2 - G1):");
-    ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[1], 17, 16, 7, 7));
+    //ENTO_DEBUG_IMAGE(make_centered_view(dog_ring_[1], 17, 16, 7, 7));
     
     ENTO_DEBUG("After inter-level G(2): sd=%.6f", sd2);
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 17, 16, 15, 15));
 
     // G(3) = smooth(G(2), dsigma0 * sigmak^3) 
     // float sd3 = dsigma0 * powf(sigmak, 3);  // s=3
@@ -223,6 +223,7 @@ public:
     
     // After initialization: gaussian_prev() = G(2), gaussian_curr() = G(3)
     // This is perfect for potential step() calls
+    ENTO_DEBUG("Finished init");
   }
 
   bool step()
@@ -243,8 +244,8 @@ public:
     swap_gaussians();
     // OLD: sift_smooth_efficient<DoGImageT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
     sift_smooth_efficient<DoGImageViewT_, 17>(gaussian_prev(), gaussian_curr(), delta_sigma);
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
-    ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_prev(), 16, 16, 5, 5));
+    //ENTO_DEBUG_IMAGE(make_centered_view(gaussian_curr(), 16, 16, 5, 5));
 
     int next = (dog_head_ + 1) % 3; // next in dog_ring_
     compute_DoG(dog_ring_[next], gaussian_curr(), gaussian_prev());
@@ -329,7 +330,7 @@ private:
     // Normalize input image into gaussian_prev()
     for (int y = 0; y < Height_; ++y) {
       for (int x = 0; x < Width_; ++x) {
-        gaussian_prev()(y, x) = static_cast<DoGPixelT_>(input_img_(y, x)) / 255.0f;
+        gaussian_prev()(y, x) = static_cast<DoGPixelT_>((*input_img_)(y, x)) / 255.0f;
       }
     }
   }
@@ -433,7 +434,7 @@ public:
   Image<Height_, Width_, DoGPixelT_> dog_buffer_2_;
   Image<Height_, Width_, DoGPixelT_> orientation_buffer_;
 
-  ImageT& input_img_;
+  ImageT* input_img_;
   
   FeatureArray<KeypointT_, MaxKeypoints>& feats_;
 
@@ -452,7 +453,7 @@ public:
     auto orientation_view = make_image_view(orientation_buffer_, 0, 0, Height_, Width_);
 
     // 1. Compute DoG pyramid
-    SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers> octave(input_img_, 
+    SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers> octave(*input_img_, 
                                                           gauss_view_0, gauss_view_1,
                                                           dog_view_0, dog_view_1, dog_view_2,
                                                           orientation_view);
@@ -525,7 +526,7 @@ public:
                      const DoGImageViewT_& gradient_magnitude,
                      const DoGImageViewT_& gradient_orientation)
   {
-    printf("DEBUG: Processing keypoint at (%.1f, %.1f) with response=%.6f\n", kp.x, kp.y, kp.response);
+    //printf("DEBUG: Processing keypoint at (%.1f, %.1f) with response=%.6f\n", kp.x, kp.y, kp.response);
   
     // Step 1: Orientation Assignment
     float orientations[4];
@@ -547,7 +548,7 @@ public:
     }
   }
 
-  SIFTDriver(ImageT& img, FeatureArray<KeypointT_, MaxKeypoints>& feats) : input_img_{img}, feats_{feats} {}
+  SIFTDriver(ImageT& img, FeatureArray<KeypointT_, MaxKeypoints>& feats) : input_img_{&img}, feats_{feats} {}
   
   // Get access to the current octave (valid only after run() is called)
   SIFTDoGOctave<ImageT, DoGPixelT, NumDoGLayers>* get_current_octave() { return current_octave_; }

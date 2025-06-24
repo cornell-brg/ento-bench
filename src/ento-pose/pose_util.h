@@ -38,8 +38,26 @@ struct BundleOptions {
         TRUNCATED_LE_ZACH
     } loss_type = LossType::CAUCHY;
     Scalar loss_scale = 1.0;
-    Scalar gradient_tol = 1e-10;
-    Scalar step_tol = 1e-8;
+    
+    // ✅ ADDED: Constexpr tolerance selection based on scalar precision
+    static constexpr Scalar default_gradient_tol() {
+        if constexpr (std::is_same_v<Scalar, float>) {
+            return 1e-6;  // Appropriate for float32
+        } else {
+            return 1e-10; // Higher precision for double
+        }
+    }
+    
+    static constexpr Scalar default_step_tol() {
+        if constexpr (std::is_same_v<Scalar, float>) {
+            return 1e-5;  // Appropriate for float32
+        } else {
+            return 1e-8;  // Higher precision for double
+        }
+    }
+    
+    Scalar gradient_tol = default_gradient_tol();
+    Scalar step_tol = default_step_tol();
     Scalar initial_lambda = 1e-3;
     Scalar min_lambda = 1e-10;
     Scalar max_lambda = 1e10;

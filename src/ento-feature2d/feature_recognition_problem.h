@@ -70,7 +70,7 @@ public:
   
 
   // Input and Output containers for the Kernel Under Test
-  Image<Rows, Cols, PixelType> img_;
+  inline static Image<Rows, Cols, PixelType> img_;
 
   std::conditional_t<DoDetection_,
                      FeatureArray<KeypointT_, NumFeats>,
@@ -602,9 +602,9 @@ deserialize_impl(const char* line)
   if constexpr (!DoDescription)
   {
     // Expect exactly two fields: image_path, feature_path
-    int num_parsed = sscanf(line, "%255[^,],%255s", image_path, feature_path);
+    int num_parsed = sscanf(line, "%255[^,],%255[^,],%255s", image_path, feature_path, desc_path);
 
-    if (num_parsed != 2)
+    if (num_parsed != 3)
     {
       ENTO_ERROR("Failed to parse expected fields (image_path, feature_path). Parsed: %d", num_parsed);
       return false;
@@ -612,6 +612,7 @@ deserialize_impl(const char* line)
 
     ENTO_DEBUG("Image Path: %s", image_path);
     ENTO_DEBUG("Feature Path: %s", feature_path);
+    ENTO_DEBUG("Descriptor Path: %s", desc_path);
 
     char resolved_image[256], resolved_feature[256];
     EntoUtil::resolve_path(image_path, resolved_image, sizeof(resolved_image));

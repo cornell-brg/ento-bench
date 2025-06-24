@@ -81,7 +81,7 @@ RansacStats<typename Solver::scalar_type> estimate_absolute_pose(
         
         for (size_t k = 0; k < points2D.size(); ++k) {
             if ((*inliers)[k]) {
-                points2D_inliers.push_back(points2D[k] * scale);
+                points2D_inliers.push_back(points2D_calib[k] * scale);
                 points3D_inliers.push_back(points3D[k]);
             }
         }
@@ -91,7 +91,7 @@ RansacStats<typename Solver::scalar_type> estimate_absolute_pose(
             (points2D_inliers, points3D_inliers, norm_camera, pose, bundle_opt_scaled);
     }
 
-    // Recompute inliers for the best pose
+    // Recompute inliers for the best pose (after potential bundle adjustment)
     get_inliers<Scalar, N>(*pose, points2D_calib, points3D, ransac_opt_scaled.max_reproj_error * ransac_opt_scaled.max_reproj_error, inliers);
     
     // Debug: After get_inliers
@@ -149,19 +149,10 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
     }
   }
 
-  // DEBUG: Print first few points after normalization
-  ENTO_DEBUG("DEBUG: First 5 points after normalization:");
-  for (size_t i = 0; i < std::min(size_t(5), x1_calib.size()); ++i) {
-    ENTO_DEBUG("  Point %zu: x1_calib=(%f,%f) x2_calib=(%f,%f)", i, 
-               x1_calib[i](0), x1_calib[i](1), x2_calib[i](0), x2_calib[i](1));
-  }
-  ENTO_DEBUG("DEBUG: Total points: %zu, RANSAC threshold: %f", x1_calib.size(), ransac_opt.max_epipolar_error);
-
-  // Run RANSAC
-  ENTO_DEBUG("Hello...");
-  // The threshold is already in the right units since camera.unproject() handles the conversion
+  // Scale threshold for normalized coordinates (following PoseLib convention)
   RansacOptions<Scalar> ransac_opt_scaled = ransac_opt;
-  ransac_opt_scaled.max_epipolar_error = ransac_opt.max_epipolar_error / camera1.focal();
+  ransac_opt_scaled.max_epipolar_error = 
+      ransac_opt.max_epipolar_error * 0.5 * (1.0 / camera1.focal() + 1.0 / camera2.focal());
 
   // Run RANSAC
   RansacStats<Scalar> stats = ransac_relpose<Solver, N>(x1_calib, x2_calib, ransac_opt_scaled, relative_pose, inliers);

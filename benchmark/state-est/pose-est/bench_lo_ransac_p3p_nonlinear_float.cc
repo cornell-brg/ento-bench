@@ -77,8 +77,8 @@ int main()
   // Bundle adjustment options for nonlinear refinement
   BundleOptions<Scalar> bundle_opt;
   bundle_opt.loss_type = BundleOptions<Scalar>::LossType::TRUNCATED;
-  bundle_opt.loss_scale = 1.0;
-  bundle_opt.max_iterations = 10;
+  bundle_opt.loss_scale = 0.5 * ransac_opt.max_reproj_error;  // PoseLib heuristic
+  bundle_opt.max_iterations = 100;  // PoseLib default
   bundle_opt.verbose = false;
 
   RansacSolver robust_solver(ransac_opt, bundle_opt, camera);

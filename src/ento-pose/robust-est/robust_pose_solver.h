@@ -10,7 +10,7 @@
 namespace EntoPose
 {
 
-template <typename Solver, size_t N = 0>
+template <typename Solver, typename CameraModel = IdentityCameraModel<typename Solver::scalar_type>, size_t N = 0>
 class RobustRelativePoseSolver {
 public:
     using Scalar = typename Solver::scalar_type;
@@ -18,8 +18,8 @@ public:
     
     RobustRelativePoseSolver(const RansacOptions<Scalar>& options, 
                             const BundleOptions<Scalar>& bundle_options,
-                            const Camera<Scalar>& camera1,
-                            const Camera<Scalar>& camera2)
+                            const Camera<Scalar, CameraModel>& camera1,
+                            const Camera<Scalar, CameraModel>& camera2)
         : options_(options)
         , bundle_options_(bundle_options)
         , camera1_(camera1)
@@ -34,12 +34,12 @@ public:
         if (inliers) {
 
             ENTO_DEBUG("Calling estimate_relative_pose in RobustRelativePoseSolver.");
-            stats = estimate_relative_pose<Solver, N>(x1, x2, camera1_, camera2_, 
+            stats = estimate_relative_pose<Solver, N, CameraModel>(x1, x2, camera1_, camera2_, 
                                                      options_, bundle_options_,
                                                      best_pose, inliers);
         } else {
             EntoUtil::EntoContainer<uint8_t, N> temp_inliers;
-            stats = estimate_relative_pose<Solver, N>(x1, x2, camera1_, camera2_,
+            stats = estimate_relative_pose<Solver, N, CameraModel>(x1, x2, camera1_, camera2_,
                                                      options_, bundle_options_,
                                                      best_pose, &temp_inliers);
         }
@@ -50,11 +50,11 @@ public:
 private:
     const RansacOptions<Scalar>& options_;
     const BundleOptions<Scalar>& bundle_options_;
-    const Camera<Scalar>& camera1_;
-    const Camera<Scalar>& camera2_;
+    const Camera<Scalar, CameraModel>& camera1_;
+    const Camera<Scalar, CameraModel>& camera2_;
 };
 
-template <typename Solver, size_t N = 0>
+template <typename Solver, typename CameraModel = IdentityCameraModel<typename Solver::scalar_type>, size_t N = 0>
 class RobustAbsolutePoseSolver {
 public:
     using Scalar = typename Solver::scalar_type;
@@ -62,7 +62,7 @@ public:
     
     RobustAbsolutePoseSolver(const RansacOptions<Scalar>& options,
                             const BundleOptions<Scalar>& bundle_options,
-                            const Camera<Scalar>& camera)
+                            const Camera<Scalar, CameraModel>& camera)
         : options_(options)
         , bundle_options_(bundle_options)
         , camera_(camera) {}
@@ -90,7 +90,7 @@ public:
 private:
     const RansacOptions<Scalar>& options_;
     const BundleOptions<Scalar>& bundle_options_;
-    const Camera<Scalar>& camera_;
+    const Camera<Scalar, CameraModel>& camera_;
 };
 
 } // namespace EntoPose

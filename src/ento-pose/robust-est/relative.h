@@ -36,7 +36,32 @@ public:
 
   void generate_models(EntoContainer<CameraPose<Scalar>, MaxSolns> *models)
   {
-    sampler.generate_sample(&sample);
+    // ✅ ADDED: Sample validation for 8pt algorithm robustness
+    constexpr size_t max_validation_attempts = 50;  // Prevent infinite loops
+    size_t validation_attempts = 0;
+    bool sample_valid = false;
+    
+    do {
+      sampler.generate_sample(&sample);
+      validation_attempts++;
+      
+      // For 8pt algorithm, apply sample validation
+      if constexpr (sample_size_ == 8) {
+        sample_valid = SampleValidation::is_valid_8pt_sample<Scalar>(x1, x2, sample);
+        if (!sample_valid) {
+          ENTO_DEBUG("[8pt] Rejected degenerate sample (attempt %zu/%zu)", validation_attempts, max_validation_attempts);
+        }
+      } else {
+        // For 5pt and other algorithms, accept all samples (they're more robust)
+        sample_valid = true;
+      }
+      
+    } while (!sample_valid && validation_attempts < max_validation_attempts);
+    
+    // If we couldn't find a valid sample, proceed anyway (better than infinite loop)
+    if (!sample_valid) {
+      ENTO_DEBUG("[8pt] Warning: Using potentially degenerate sample after %zu attempts", max_validation_attempts);
+    }
     
     // Clear and properly populate the sample containers
     x1_sample_.clear();
