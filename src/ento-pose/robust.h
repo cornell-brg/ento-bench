@@ -159,6 +159,8 @@ RansacStats<typename Solver::scalar_type> estimate_relative_pose(
 
   if (ransac_opt.final_refinement) {
     EntoUtil::EntoContainer<Vec2<Scalar>, N> x1_inliers, x2_inliers;
+    x1_inliers.clear(); 
+    x2_inliers.clear();
     for (size_t k = 0; k < num_pts; ++k) {
         if ((*inliers)[k]) {
         x1_inliers.push_back(x1_calib[k]);

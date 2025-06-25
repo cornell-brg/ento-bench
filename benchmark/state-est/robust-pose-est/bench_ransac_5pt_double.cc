@@ -63,11 +63,12 @@ int main()
 
   // RANSAC configuration (MCU-optimized parameters)
   EntoPose::RansacOptions<Scalar> ransac_options;
-  ransac_options.max_iters = 10000;
+  ransac_options.max_iters = 10000;  // TEMPORARY: Diagnostic cap to test iteration count hypothesis
   ransac_options.min_iters = 20;                    // MCU-optimized minimum
   ransac_options.max_epipolar_error = 3.0;          // MCU-optimized threshold for 5pt
   ransac_options.success_prob = 0.99;
   ransac_options.final_refinement = true;           // Enable bundle adjustment
+  ransac_options.lo_type = EntoPose::LocalRefinementType::BundleAdjust;
   
   // Bundle adjustment options (PoseLib-inspired configuration)
   EntoPose::BundleOptions<Scalar> bundle_opt;

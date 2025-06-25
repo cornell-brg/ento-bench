@@ -402,6 +402,12 @@ function(add_benchmark TARGET_NAME)
     #  LIBRARIES ${ARG_LIBRARIES}
     #)
   endif()
+  target_link_options(${TARGET_NAME} PRIVATE
+      -Wl,-Map=${CMAKE_BINARY_DIR}/${TARGET_NAME}.map
+      -Wl,--cref
+      -Wl,--gc-sections
+      -Wl,--print-memory-usage
+    )
 
   # Set output directory based on the target's category
   # get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)

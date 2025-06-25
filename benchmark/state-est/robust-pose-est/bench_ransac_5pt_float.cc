@@ -58,11 +58,12 @@ int main()
 
   // Configure RANSAC options (MCU-optimized parameters)
   EntoPose::RansacOptions<Scalar> ransac_opt;
-  ransac_opt.max_iters = 10000;
+  ransac_opt.max_iters = 200;
   ransac_opt.min_iters = 20;                    // MCU-optimized minimum
   ransac_opt.max_epipolar_error = 3.0;          // MCU-optimized threshold for 5pt
   ransac_opt.success_prob = 0.99;
   ransac_opt.final_refinement = true;           // Enable bundle adjustment
+  ransac_opt.lo_type = EntoPose::LocalRefinementType::BundleAdjust;
   
   // Camera configuration (SimplePinholeCameraModel with focal=500.0 to match dataset)  
   using CameraModel = EntoPose::SimplePinholeCameraModel<Scalar>;

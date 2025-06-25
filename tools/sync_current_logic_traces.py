@@ -257,23 +257,22 @@ def main():
         print(args.directory / f'{args.directory.name}.csv')
         combined_pm = separate_and_combine(args.directory)
         sal_files = list(args.directory.glob(f'{args.directory.name}.csv'))
+        print(sal_files)
         if len(sal_files) > 1:
             print("Found multiple logical analyzer traces. " + \
                   f"Taking the first one: {sal_files[0]}.")
-        else:
-            sal_files = list(args.directory.glob('digital.csv'))
-            if len(sal_files) > 1:
-                print("Found multiple logical analyzer traces. " + \
-                      f"Taking the first one: {sal_files[0]}.")
-            else:
-                return FileNotFoundError("Could not find sal file.")
+        if len(sal_files) == 0:
+            return FileNotFoundError("Could not find sal file.")
+        sal_file = sal_files[0]
+        print("Hello")
         print(args.directory)
         print(sal_files)
         
         sal_file = sal_files[0]
         filled_sal_file = process_sal(sal_file, field_order=args.field_order)
-        combined_pm = separate_and_combine(args.directory)
+        print("merging")
         merged_pm_sal = combine_files(combined_pm, filled_sal_file)
+        print("finished")
 
 
 if __name__ == '__main__':

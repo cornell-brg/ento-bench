@@ -103,8 +103,8 @@
 
     "bench-mahony-q7-24-imu": {
       "reps": 1,
-      "inner_reps": 10,
-      "verbosity": 1,
+      "inner_reps": 1,
+      "verbosity": 0,
       "enable_caches": true,
       "max_problems": 100
     },

@@ -422,41 +422,64 @@ struct RobustAbsolutePoseProblem :
       this->initialize_inliers();
     }
 
-    // Parse quaternion (4 floats)
-    Scalar qi = 0;
+    // Helper lambda to parse a single scalar value with appropriate format specifier
+    auto parse_scalar = [](const char* str, Scalar* value) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,", value);
+        } else {
+            return sscanf(str, "%f,", value);
+        }
+    };
+    
+    // Helper lambda to parse two scalar values with appropriate format specifier
+    auto parse_two_scalars = [](const char* str, Scalar* x, Scalar* y) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,%lf,", x, y);
+        } else {
+            return sscanf(str, "%f,%f,", x, y);
+        }
+    };
+    
+    // Helper lambda to parse three scalar values with appropriate format specifier
+    auto parse_three_scalars = [](const char* str, Scalar* x, Scalar* y, Scalar* z) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,%lf,%lf", x, y, z);
+        } else {
+            return sscanf(str, "%f,%f,%f", x, y, z);
+        }
+    };
+
+    // Parse quaternion (4 scalars) with appropriate format specifier
     for (int i = 0; i < 4; ++i) {
-      if (sscanf(pos, "%f,", &qi) != 1) {
+      if (parse_scalar(pos, &this->pose_gt_.q[i]) != 1) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse quaternion component %d", i);
         return false;
       }
-      this->pose_gt_.q[i] = qi;
       pos = strchr(pos, ',') + 1;
     }
 
-    // Parse translation (3 floats)
-    Scalar ti = 0;
+    // Parse translation (3 scalars) with appropriate format specifier
     for (int i = 0; i < 3; ++i) {
-      if (sscanf(pos, "%f,", &ti) != 1) {
+      if (parse_scalar(pos, &this->pose_gt_.t[i]) != 1) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse translation component %d", i);
         return false;
       }
-      this->pose_gt_.t[i] = ti;
       pos = strchr(pos, ',') + 1;
     }
 
-    // Parse scale_gt and focal_gt
-    if (sscanf(pos, "%f,%f,", &this->scale_gt_, &this->focal_gt_) != 2) {
+    // Parse scale_gt and focal_gt with appropriate format specifier
+    if (parse_two_scalars(pos, &this->scale_gt_, &this->focal_gt_) != 2) {
       ENTO_DEBUG("[deserialize_impl] Failed to parse scale_gt and focal_gt");
       return false;
     }
     pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
 
-    // Parse x_point correspondences
+    // Parse x_point correspondences with appropriate format specifier
     Scalar x, y;
     for (std::size_t i = 0; i < x_img_.capacity(); ++i)
     {
-      if (sscanf(pos, "%f,%f,", &x, &y) != 2)
+      if (parse_two_scalars(pos, &x, &y) != 2)
       {
         ENTO_DEBUG("[abspose] failed to parse x[%zu]", i);
         return false; // Parsing failed
@@ -468,13 +491,13 @@ struct RobustAbsolutePoseProblem :
       ENTO_DEBUG("[abspose] pos after x_[%zu]: %s", i, pos);
     }
 
-    // Parse X_point correspondences
+    // Parse X_point correspondences with appropriate format specifier
     Scalar z;
     for (std::size_t i = 0; i < X_world_.capacity(); ++i)
     {
       if ( i != X_world_.capacity() - 1)
       {
-        if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
+        if (parse_three_scalars(pos, &x, &y, &z) != 3)
         {
           ENTO_DEBUG("[abspose] failed to parse X[%zu]", i);
           return false; // Parsing failed
@@ -482,7 +505,7 @@ struct RobustAbsolutePoseProblem :
       }
       else
       {
-        if (sscanf(pos, "%f,%f,%f", &x, &y, &z) != 3)
+        if (parse_three_scalars(pos, &x, &y, &z) != 3)
         {
           ENTO_DEBUG("[abspose] failed to parse X[%zu] (last)", i);
           return false; // Parsing failed
@@ -766,40 +789,54 @@ struct RobustRelativePoseProblem :
       initialize_inliers();
     }
 
-    // Parse quaternion (4 floats)
+    // Helper lambda to parse a single scalar value with appropriate format specifier
+    auto parse_scalar = [](const char* str, Scalar* value) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,", value);
+        } else {
+            return sscanf(str, "%f,", value);
+        }
+    };
+    
+    // Helper lambda to parse two scalar values with appropriate format specifier
+    auto parse_two_scalars = [](const char* str, Scalar* x, Scalar* y) -> int {
+        if constexpr (std::is_same_v<Scalar, double>) {
+            return sscanf(str, "%lf,%lf,", x, y);
+        } else {
+            return sscanf(str, "%f,%f,", x, y);
+        }
+    };
+
+    // Parse quaternion (4 scalars) with appropriate format specifier
     for (int i = 0; i < 4; ++i) {
-      Scalar qi;
-      if (sscanf(pos, "%f,", &qi) != 1) {
+      if (parse_scalar(pos, &pose_gt_.q[i]) != 1) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse quaternion component %d", i);
         return false;
       }
-      pose_gt_.q[i] = qi;
       pos = strchr(pos, ',') + 1;
     }
 
-    // Parse translation (3 floats)
+    // Parse translation (3 scalars) with appropriate format specifier
     for (int i = 0; i < 3; ++i) {
-      Scalar ti;
-      if (sscanf(pos, "%f,", &ti) != 1) {
+      if (parse_scalar(pos, &pose_gt_.t[i]) != 1) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse translation component %d", i);
         return false;
       }
-      pose_gt_.t[i] = ti;
       pos = strchr(pos, ',') + 1;
     }
 
-    // Parse scale_gt and focal_gt
-    if (sscanf(pos, "%f,%f,", &scale_gt_, &focal_gt_) != 2) {
+    // Parse scale_gt and focal_gt with appropriate format specifier
+    if (parse_two_scalars(pos, &scale_gt_, &focal_gt_) != 2) {
       ENTO_DEBUG("[deserialize_impl] Failed to parse scale_gt and focal_gt");
       return false;
     }
     pos = strchr(pos, ',') + 1;
     pos = strchr(pos, ',') + 1;
 
-    // Parse x1_img (2D points from image 1)
+    // Parse x1_img (2D points from image 1) with appropriate format specifier
     for (std::size_t i = 0; i < x1_img_.capacity(); ++i) {
       Scalar x, y;
-      if (sscanf(pos, "%f,%f,", &x, &y) != 2) {
+      if (parse_two_scalars(pos, &x, &y) != 2) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse x1_img point %zu", i);
         return false;
       }
@@ -808,10 +845,10 @@ struct RobustRelativePoseProblem :
       pos = strchr(pos, ',') + 1;
     }
 
-    // Parse x2_img (2D points from image 2)
+    // Parse x2_img (2D points from image 2) with appropriate format specifier
     for (std::size_t i = 0; i < x2_img_.capacity(); ++i) {
       Scalar x, y;
-      if (sscanf(pos, "%f,%f,", &x, &y) != 2) {
+      if (parse_two_scalars(pos, &x, &y) != 2) {
         ENTO_DEBUG("[deserialize_impl] Failed to parse x2_img point %zu", i);
         return false;
       }

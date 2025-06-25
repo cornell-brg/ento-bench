@@ -60,7 +60,7 @@ int main()
     // Configure RANSAC options for LO-RANSAC
     RansacOptions<Scalar> ransac_opt;
     ransac_opt.max_iters = 10000;  // Increased for challenging outlier scenarios
-    ransac_opt.max_reproj_error = 2.5;  // 1.0 noise * 2.5 = 2.5 pixels (same as 8pt for fair comparison)
+    ransac_opt.max_epipolar_error = 2.5;  // 1.0 noise * 2.5 = 2.5 pixels (same as 8pt for fair comparison)
     ransac_opt.success_prob = 0.99;
     ransac_opt.final_refinement = false;
     

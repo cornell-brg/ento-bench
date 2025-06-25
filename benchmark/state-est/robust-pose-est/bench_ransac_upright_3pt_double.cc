@@ -55,7 +55,8 @@ int main()
   ransac_options.max_epipolar_error = 4.0;          // MCU-optimized threshold for upright_3pt
   ransac_options.success_prob = 0.99;
   ransac_options.final_refinement = true;           // Enable bundle adjustment
-  
+  ransac_options.lo_type = EntoPose::LocalRefinementType::BundleAdjust;
+   
   // Bundle adjustment options (PoseLib-inspired configuration)
   EntoPose::BundleOptions<Scalar> bundle_opt;
   bundle_opt.loss_type = EntoPose::BundleOptions<Scalar>::LossType::TRUNCATED;
