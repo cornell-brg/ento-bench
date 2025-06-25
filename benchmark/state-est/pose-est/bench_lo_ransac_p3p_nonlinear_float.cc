@@ -27,7 +27,8 @@ int main()
   using Scalar = float;
   using MinimalSolver = SolverP3P<Scalar>;
   constexpr size_t N = 64;  // Support up to 100 points for robust estimation
-  using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, N>;
+  using CameraModel = EntoPose::IdentityCameraModel<Scalar>;
+  using RansacSolver = RobustAbsolutePoseSolver<MinimalSolver, CameraModel, N>;
   using Problem = RobustAbsolutePoseProblem<Scalar, RansacSolver, N>;
   
   #if defined(SEMIHOSTING)
