@@ -1,0 +1,123 @@
+{
+  "robust-pose-est": {
+    "reps": 1,
+    "inner_reps": 1,
+    "verbosity": 1,
+    "enable_caches": true,
+    "max_problems": 100
+  },
+  "targets": {
+    "bench-ransac-5pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC 5pt relative pose estimation - float precision"
+    },
+    "bench-ransac-upright-3pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright 3pt relative pose estimation - float precision"
+    },
+    "bench-ransac-upright-planar-2pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 2pt relative pose estimation - float precision"
+    },
+    "bench-ransac-upright-planar-3pt-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 3pt relative pose estimation - float precision"
+    },
+    "bench-ransac-upright-planar-3pt-hybrid-float": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 3pt hybrid solver - float precision"
+    },
+    "bench-ransac-5pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC 5pt relative pose estimation - double precision"
+    },
+    "bench-ransac-upright-3pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright 3pt relative pose estimation - double precision"
+    },
+    "bench-ransac-upright-planar-2pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 2pt relative pose estimation - double precision"
+    },
+    "bench-ransac-upright-planar-3pt-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 3pt relative pose estimation - double precision"
+    },
+    "bench-ransac-upright-planar-3pt-hybrid-double": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 100,
+      "description": "RANSAC upright planar 3pt hybrid solver - double precision"
+    },
+    "bench-ransac-pnp": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 50,
+      "description": "Legacy RANSAC PnP absolute pose estimation"
+    },
+    "bench-lo-ransac-pnp": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 30,
+      "description": "Legacy LO-RANSAC PnP with bundle adjustment refinement"
+    },
+    "bench-ransac-relpose": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 50,
+      "description": "Legacy RANSAC relative pose estimation"
+    },
+    "bench-gold-standard": {
+      "reps": 1,
+      "inner_reps": 1,
+      "verbosity": 1,
+      "enable_caches": true,
+      "max_problems": 20,
+      "description": "Gold standard pose estimation benchmarks"
+    }
+  }
+} 
