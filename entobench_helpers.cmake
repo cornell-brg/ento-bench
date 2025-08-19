@@ -57,21 +57,9 @@ function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
   
   # Print what was loaded
   if(CONFIG_ARGS)
-    message(STATUS "Loaded config for '${GROUP_NAME}' from ${CONFIG_FILE}:")
     list(LENGTH CONFIG_ARGS ARG_COUNT)
     math(EXPR PAIRS "${ARG_COUNT} / 2")
-    set(i 0)
-    while(i LESS ARG_COUNT)
-      list(GET CONFIG_ARGS ${i} KEY)
-      math(EXPR i "${i} + 1")
-      if(i LESS ARG_COUNT)
-        list(GET CONFIG_ARGS ${i} VALUE)
-        message(STATUS "  ${KEY}=${VALUE}")
-      else()
-        message(STATUS "  ${KEY}")
-      endif()
-      math(EXPR i "${i} + 1")
-    endwhile()
+    message(STATUS "Loaded config for '${GROUP_NAME}' (${PAIRS} parameters)")
   endif()
 endfunction()
 
@@ -135,21 +123,9 @@ function(parse_target_config_file CONFIG_FILE TARGET_NAME OUTPUT_VAR)
   
   # Print what was loaded
   if(CONFIG_ARGS)
-    message(STATUS "Loaded target-specific config for '${TARGET_NAME}' from ${CONFIG_FILE}:")
     list(LENGTH CONFIG_ARGS ARG_COUNT)
     math(EXPR PAIRS "${ARG_COUNT} / 2")
-    set(i 0)
-    while(i LESS ARG_COUNT)
-      list(GET CONFIG_ARGS ${i} KEY)
-      math(EXPR i "${i} + 1")
-      if(i LESS ARG_COUNT)
-        list(GET CONFIG_ARGS ${i} VALUE)
-        message(STATUS "  ${KEY}=${VALUE}")
-      else()
-        message(STATUS "  ${KEY}")
-      endif()
-      math(EXPR i "${i} + 1")
-    endwhile()
+    message(STATUS "Loaded target-specific config for '${TARGET_NAME}' (${PAIRS} parameters)")
   endif()
 endfunction()
 
@@ -278,8 +254,6 @@ function(add_arm_semihosting_executable TARGET_NAME)
    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message("[ARM semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
-  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
@@ -305,8 +279,6 @@ function(add_arm_executable TARGET_NAME)
    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message(STATUS "[ARM non semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
-  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
@@ -361,17 +333,11 @@ function(add_non_arm_executable TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARG_SOURCES})
   endif()
 
-  message(STATUS "Building ${TARGET_NAME} with the following libs/includes: ${ARG_LIBRARIES}")
-  
-  if("Eigen" IN_LIST ARG_LIBRARIES)
-    message(STATUS "Eigen in libraries list. Adding as include dir...")
+    if("Eigen" IN_LIST ARG_LIBRARIES)
     target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
-    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
-  else()
-    message(STATUS "Eigen not in libraries list: ${ARG_LIBRARIES}")
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message(STATUS "linking ${ARG_LIBRARIES} to ${TARGET_NAME}")
   target_link_libraries(${TARGET_NAME}
     PRIVATE
     ${ARG_LIBRARIES}
@@ -662,9 +628,9 @@ function(add_benchmark_group_target GROUP_NAME)
   
   # Print summary
   list(LENGTH TARGET_LIST TARGET_COUNT)
-  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  message(VERBOSE "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
   if(EXISTS ${PROGRESS_SCRIPT})
-    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
+    message(VERBOSE "Using progress script: ${PROGRESS_SCRIPT}")
   endif()
 endfunction()
 
@@ -738,15 +704,15 @@ function(add_benchmark_group_target_with_config GROUP_NAME)
   
   # Print summary
   list(LENGTH GROUP_TARGETS TARGET_COUNT)
-  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  message(VERBOSE "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
   if(EXISTS ${PROGRESS_SCRIPT})
-    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
-    message(STATUS "Config string: ${CONFIG_STR}")
+    message(VERBOSE "Using progress script: ${PROGRESS_SCRIPT}")
+    message(VERBOSE "Config string: ${CONFIG_STR}")
   endif()
   
   # Pass config string to STM32 targets for OpenOCD log naming
   if(STM32_BUILD AND CONFIG_STR)
-    message(STATUS "Setting up STM32 targets with config: ${CONFIG_STR}")
+    message(VERBOSE "Setting up STM32 targets with config: ${CONFIG_STR}")
     # We'll call add_stm32_targets with config later in the process
   endif()
 endfunction()
