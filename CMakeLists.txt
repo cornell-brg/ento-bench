@@ -19,6 +19,7 @@ option(FETCH_ST_SOURCES "Fetch STMicro CMSIS/HAL Libraries." OFF)
 option(STM32_BUILD "Build for STM32." OFF)
 option(GEM5_BUILD "Build for gem5." OFF)
 option(SEMIHOSTING "Enable semihosting when deployed on MCU." OFF)
+option(ENTO_ENABLE_FAILURE_CHECKS "Enable experimental attitude filter failure checking." ON)
 
 enable_testing()
 
@@ -118,10 +119,7 @@ add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 if(STM32_BUILD)
   add_definitions(-DSTM32_BUILD=1)
   message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
-  message(STATUS "HAL FAMILY PATH ${HAL_${FAMILY}_PATH}")
-
-  message(STATUS "STM Product: ${STM_PRODUCT}")
-  message(STATUS "STM Family: ${STM_FAMILY}")
+  message(VERBOSE "STM Product: ${STM_PRODUCT}, Family: ${STM_FAMILY}")
 
   # Set HAL and CMSIS target library variables dynamically
   if(${STM_FAMILY} STREQUAL "H7")
@@ -153,14 +151,9 @@ if(STM32_BUILD)
   endif()
 
 
-  # Log HAL and CMSIS target library variables
+  # Essential target configuration confirmation
   message(STATUS "CMSIS family target: ${CMSIS_FAMILY_TARGET}")
-  message(STATUS "CMSIS type target: ${CMSIS_TYPE_TARGET}")
-  message(STATUS "HAL RCC target: ${HAL_RCC_TARGET}")
-  message(STATUS "HAL GPIO target: ${HAL_GPIO_TARGET}")
-  message(STATUS "HAL FLASH target: ${HAL_FLASH_TARGET}")
-  message(STATUS "HAL UTILS target: ${HAL_UTILS_TARGET}")
-  message(STATUS "HAL PWR target: ${HAL_PWR_TARGET}")
+  message(VERBOSE "HAL targets: RCC=${HAL_RCC_TARGET}, GPIO=${HAL_GPIO_TARGET}, FLASH=${HAL_FLASH_TARGET}")
 
   #if (FETCH_ST_SOURCES)
   #  stm32_fetch_cmsis(${STM32_FAMILY})
@@ -224,13 +217,13 @@ if(STM32_BUILD)
   if(NOT OPENOCD_EXECUTABLE)
     message(FATAL_ERROR "Could not find OpenOCD executable. Please install OpenOCD or set OPENOCD_EXECUTABLE manually.")
   else()
-    message(STATUS "Using OpenOCD executable: ${OPENOCD_EXECUTABLE}")
+    message(VERBOSE "OpenOCD executable: ${OPENOCD_EXECUTABLE}")
   endif()
 
   if(NOT OPENOCD_INTERFACE)
     message(FATAL_ERROR "Could not find OpenOCD interface configuration (stlink.cfg). Please set OPENOCD_INTERFACE manually.")
   else()
-    message(STATUS "Using OpenOCD interface: ${OPENOCD_INTERFACE}")
+    message(VERBOSE "OpenOCD interface: ${OPENOCD_INTERFACE}")
   endif()
 
   # The STM32 device configuration must be passed in manually
@@ -289,20 +282,16 @@ set(BENCHMARK_DIR benchmark)
 set(EXAMPLE_DIR example)
 
 # Figure out arch
+message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
-  message(STATUS "Detected arch: riscv64")
   add_definitions(-DRV64)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7e-m")
-  message(STATUS "Detected arch: armv7e-m")
   add_definitions(-DARMV7E_M)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv32")
-  message(STATUS "Detected arch: riscv32")
   add_definitions(-DRV32)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i686|i386")
-  message(STATUS "Detected arch: x86_64|i686|i386")
   add_definitions(-DX86)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
-  message(STATUS "Detected arch: arm64|aarch64")
   add_definitions(-DARM64)
 else()
   message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
