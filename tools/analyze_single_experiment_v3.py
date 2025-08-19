@@ -128,7 +128,7 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
                     if verbose:
-                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
+                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_end_idx] ) )
                         print( '    duration: {}'.format( pulse_duration ) )
                         print( '    expected: {}'.format( analyzer_duration ) )
                         print( '    charge: {}'.format( pulse_charge ) )
@@ -153,7 +153,7 @@ def find_first_pulse_window( data, start_idx, end_idx, quick_search_size, high_t
                     pulse_charge = np.trapz( pulse_window['current'], pulse_window['time'] )
                     thresh_charge = high_thresh * analyzer_duration
                     if verbose:
-                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
+                        print( '    falling edge: {}'.format( search_window['time'].loc[pulse_end_idx] ) )
                         print( '    duration: {}'.format( pulse_duration ) )
                         print( '    expected: {}'.format( analyzer_duration ) )
                         print( '    charge: {}'.format( pulse_charge ) )
@@ -276,6 +276,10 @@ def analyze_power_consumption( args ):
                                                      quick_search_size, high_thresh_pct, low_thresh_pct,
                                                      latency_error_ms, verbose )
     if not success:
+        plot_window = data.loc[data.index[0]:selected_indices[1]]
+        analyzer_times = [ selected_indices[0], selected_indices[1] ]
+        plot_segment( plot_dir, trace_width, vertical_width,
+                      plot_window, 1, analyzer_times, [] )
         print( 'Failed to find the first segment' )
         return [], [], [], [], False
 
@@ -348,18 +352,32 @@ def analyze_power_consumption( args ):
         pulse_found = False
         pulse_window = None
 
+        if verbose:
+            print( 'search for segment {}'.format( ( i // 2 ) + 1 ) )
+            print( '  estimated time ( {}, {} )'.format( pulse_start_time_est, pulse_end_time_est ) )
+            print( '  expected duration {}'.format( analyzer_duration ) )
+            print( '  expected current {}'.format( np.mean( avg_currents ) ) )
+            print( '  thresholds ( {}, {} )'.format( low_thresh / 1000, high_thresh / 1000 ) )
+            print( '  quick search window ( {}, {} )'.format( search_window['time'].iloc[0], search_window['time'].iloc[-1] ) )
+
         # search for pulse in expected location based on time delta
         if not search_window[ search_window['current'] <= low_thresh ].index.empty:
             first_low_idx = search_window[ search_window['current'] <= low_thresh ].index[0]
             search_window = search_window.loc[first_low_idx:search_end_idx]
             if not search_window[ search_window['current'] >= high_thresh ].index.empty:
                 pulse_start_idx = search_window[ search_window['current'] >= high_thresh ].index[0]
+                if verbose:
+                    print('    rising edge {}'.format( search_window['time'].loc[pulse_start_idx] ) )
                 pulse_end_idx, success = find_pulse_end_idx( search_window, pulse_start_idx, analyzer_duration, low_thresh )
                 if success:
                     pulse_window = data.loc[pulse_start_idx:pulse_end_idx]
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_avg_current = np.mean( pulse_window['current_mA'] )
                     running_avg_current = np.mean( avg_currents )
+                    if verbose:
+                        print( '      falling edge {}'.format( search_window['time'].loc[pulse_end_idx] ) )
+                        print( '      duration {}'.format( pulse_duration ) )
+                        print( '      current {}'.format( pulse_avg_current ) )
                     if  ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                           ( abs( pulse_avg_current - running_avg_current ) < ( current_error_pct * running_avg_current ) ) ):
                         pulse_found = True
@@ -374,33 +392,32 @@ def analyze_power_consumption( args ):
         pulses_checked = []
         if not pulse_found:
             search_start_idx = prev_pulse_end_idx + 1
-            search_window    = data.loc[search_start_idx:search_end_idx] 
+            search_window    = data.loc[search_start_idx:search_end_idx]
 
             min_current = min( search_window['current'] )
             low_thresh = min_current + ( low_thresh_pct * ( high_current - min_current ) )
 
-            # print( 'performing slow search on segment {}'.format( ( i// 2 ) + 1 ) )
-            # print( '  searching for duration {}'.format( analyzer_duration ) )
-            # print( '  searching for current {}'.format( np.mean( avg_currents ) ) )
-            # print( '  searching with thresholds ( {}, {} )'.format( low_thresh, high_thresh ) )
-            # print( '  from current bounds ( {}, {} )'.format( min_current, high_current ) )
-            # print( '  in current range ( {}, {} )'.format( min( search_window['current'] ), max( search_window['current'] ) ) )
-            # print( '  estimated start time {}'.format( pulse_start_time_est ) ) 
-            # print( '  estimated end time {}'.format( pulse_end_time_est ) ) 
-            # print( '  ========================================' )
+            if verbose:
+                print( '  long search window: ( {}, {} )'.format( search_window['time'].iloc[0], search_window['time'].iloc[-1] ) )
+                print( '  thresholds ( {}, {} )'.format( low_thresh, high_thresh ) )
 
             while not search_window[ search_window['current'] >= high_thresh ].index.empty:
                 pulse_start_idx, success= find_latest_rising_edge_idx( search_window, low_thresh, high_thresh )
                 if not success:
                     # found no rising edges in the search window
                     break
+                if verbose:
+                    print( '    rising edge: {}'.format( search_window['time'].loc[pulse_start_idx] ) )
                 pulse_end_idx, success = find_pulse_end_idx( search_window, pulse_start_idx, analyzer_duration, low_thresh )
                 if success:
                     pulse_window = data.loc[pulse_start_idx:pulse_end_idx]
                     pulse_duration = pulse_window['time'].iloc[-1] - pulse_window['time'].iloc[0]
                     pulse_avg_current = np.mean( pulse_window['current_mA'] )
                     running_avg_current = np.mean( avg_currents )
-                    # print( 'checked for pulse at ( {}, {} )'.format( data['time'].loc[pulse_start_idx], data['time'].loc[pulse_end_idx] ) )
+                    if verbose:
+                        print( '      falling edge {}'.format( search_window['time'].loc[pulse_end_idx] ) )
+                        print( '      duration {}'.format( pulse_duration ) )
+                        print( '      current {}'.format( pulse_avg_current ) )
                     if ( ( abs( pulse_duration - analyzer_duration ) < latency_error_ms ) and
                          ( abs( pulse_avg_current - running_avg_current ) < ( current_error_pct * running_avg_current ) ) ):
                         pulse_found = True
