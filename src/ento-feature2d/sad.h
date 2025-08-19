@@ -38,7 +38,7 @@ inline int sad_safe(const uint8_t* frame1, const uint8_t* frame2, int stride = 3
 }
 
 inline int sad(const uint8_t* frame1, const uint8_t* frame2, int stride = 80) {
-#ifdef ENABLE_VECTORIZATION
+#if ENABLE_VECTORIZATION==1
     // ARM assembly version using USADA8 instruction
     // This is enabled when ENABLE_VECTORIZATION=true in config and running on ARM targets
     int result = 0;
@@ -52,53 +52,53 @@ inline int sad(const uint8_t* frame1, const uint8_t* frame2, int stride = 80) {
         "ldr r5, [%[dst], #4]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
 
-        "ldr r4, [%[src], #(320 * 1)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 1)]\n"
+        "ldr r4, [%[src], #(80 * 1)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 1)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 1 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 1 + 4)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-
-        "ldr r4, [%[src], #(320 * 2)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 2)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 2 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 2 + 4)]\n"
+        "ldr r4, [%[src], #(80 * 1 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 1 + 4)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
 
-        "ldr r4, [%[src], #(320 * 3)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 3)]\n"
+        "ldr r4, [%[src], #(80 * 2)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 2)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 3 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 3 + 4)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-
-        "ldr r4, [%[src], #(320 * 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 4)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 4 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 4 + 4)]\n"
+        "ldr r4, [%[src], #(80 * 2 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 2 + 4)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
 
-        "ldr r4, [%[src], #(320 * 5)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 5)]\n"
+        "ldr r4, [%[src], #(80 * 3)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 3)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 5 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 5 + 4)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-
-        "ldr r4, [%[src], #(320 * 6)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 6)]\n"
-        "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 6 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 6 + 4)]\n"
+        "ldr r4, [%[src], #(80 * 3 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 3 + 4)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
 
-        "ldr r4, [%[src], #(320 * 7)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 7)]\n"
+        "ldr r4, [%[src], #(80 * 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 4)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
-        "ldr r4, [%[src], #(320 * 7 + 4)]\n"        // read data from address + offset
-        "ldr r5, [%[dst], #(320 * 7 + 4)]\n"
+        "ldr r4, [%[src], #(80 * 4 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 4 + 4)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+
+        "ldr r4, [%[src], #(80 * 5)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 5)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+        "ldr r4, [%[src], #(80 * 5 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 5 + 4)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+
+        "ldr r4, [%[src], #(80 * 6)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 6)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+        "ldr r4, [%[src], #(80 * 6 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 6 + 4)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+
+        "ldr r4, [%[src], #(80 * 7)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 7)]\n"
+        "usada8 %[result], r4, r5, %[result]\n"      // difference
+        "ldr r4, [%[src], #(80 * 7 + 4)]\n"        // read data from address + offset
+        "ldr r5, [%[dst], #(80 * 7 + 4)]\n"
         "usada8 %[result], r4, r5, %[result]\n"      // difference
 
         : [result] "+r" (result)

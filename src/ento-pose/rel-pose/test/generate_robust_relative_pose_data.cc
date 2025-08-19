@@ -632,10 +632,12 @@ void test_robust_solver(const Options& opt) {
         
         size_t inliers_count = std::count(inliers_found.begin(), inliers_found.end(), 1);
         
-        // FIXED: Collect iteration statistics for ALL problems, not just successful ones
-        iteration_counts.push_back(stats.iters);
-        
-        if (problem_success) {  // NEW: Use proper success criteria
+        // Record iteration count only if the problem meets success criteria.
+        if (problem_success) {
+            // Only record iteration count if we didn't exhaust the maximum iterations.
+            if (stats.iters < opt.max_iterations) {
+                iteration_counts.push_back(stats.iters);
+            }
             successful_estimates++;
             total_inliers_found += inliers_count;
             total_iterations += stats.iters;

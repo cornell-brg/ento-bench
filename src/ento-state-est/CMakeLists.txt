@@ -10,6 +10,12 @@ add_library(ento-state-est
 )
 
 add_subdirectory(attitude-est)
+
+# Experimental attitude estimation with failure checking
+if(ENTO_ENABLE_FAILURE_CHECKS)
+  add_subdirectory(attitude-est-exp)
+endif()
+
 #target_link_libraries(ento-state-est
   #PRIVATE
   #Eigen
@@ -57,7 +63,7 @@ set(LIBRARIES_test_robofly_ekf_robognat_validation
 #)
 
 foreach(TEST_FILE ${TEST_FILES})
-  message(STATUS "Test file: ${TEST_FILE}")
+
   set(TEST_SRC "test/${TEST_FILE}")
   get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
   string(CONCAT LIBRARY_VAR_NAME "LIBRARIES_" ${TEST_BIN})
