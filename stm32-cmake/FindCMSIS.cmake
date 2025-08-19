@@ -5,16 +5,16 @@
 
 set(CMSIS_RTOS RTOS RTOS_V2)
 
-message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
+message(VERBOSE "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
 if(NOT CMSIS_FIND_COMPONENTS)
-    message(STATUS "Not found CMSIS_FIND_COMPONENTS. Adding ${STM32_SUPPORTED_FAMILIES_LONG_NAME}")
+    message(VERBOSE "No CMSIS_FIND_COMPONENTS specified, using default families")
     set(CMSIS_FIND_COMPONENTS ${STM32_SUPPORTED_FAMILIES_LONG_NAME})
 endif()
 
 if(STM32H7 IN_LIST CMSIS_FIND_COMPONENTS)
     list(REMOVE_ITEM CMSIS_FIND_COMPONENTS STM32H7)
     list(APPEND CMSIS_FIND_COMPONENTS STM32H7_M7 STM32H7_M4)
-    message(STATUS "Added STM32H7_M7 and _M4 to CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
+    message(VERBOSE "Added STM32H7_M7 and M4 cores to CMSIS components")
 endif()
 
 if(STM32WB IN_LIST CMSIS_FIND_COMPONENTS)
@@ -35,7 +35,7 @@ endif()
 list(REMOVE_DUPLICATES CMSIS_FIND_COMPONENTS)
 
 # This section fills the RTOS or family components list
-message(STATUS "CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
+message(VERBOSE "Processing CMSIS components: ${CMSIS_FIND_COMPONENTS}")
 foreach(COMP ${CMSIS_FIND_COMPONENTS})
     string(TOLOWER ${COMP} COMP_L)
     string(TOUPPER ${COMP} COMP)
@@ -43,16 +43,16 @@ foreach(COMP ${CMSIS_FIND_COMPONENTS})
     # Component is RTOS component
     if(${COMP} IN_LIST CMSIS_RTOS)
         list(APPEND CMSIS_FIND_COMPONENTS_RTOS ${COMP})
-        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_RTOS")
+        message(VERBOSE "Added ${COMP} to CMSIS_FIND_COMPONENTS_RTOS")
         continue()
     endif()
 
     # Component is not RTOS component, so check whether it is a family component
-    message(STATUS "Regex on ${COMP} from ${CMSIS_FIND_COMPONENTS}")
+    message(VERBOSE "Checking component ${COMP} for family match")
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP ${COMP})
     if(CMAKE_MATCH_1)
         list(APPEND CMSIS_FIND_COMPONENTS_FAMILIES ${COMP})
-        message(STATUS "Added ${COMP} to CMSIS_FIND_COMPONENTS_FAMILIES")
+        message(VERBOSE "Added ${COMP} to CMSIS_FIND_COMPONENTS_FAMILIES")
     endif()
 endforeach()
 
@@ -64,8 +64,7 @@ if(NOT CMSIS_FIND_COMPONENTS_RTOS)
     set(CMSIS_FIND_COMPONENTS_RTOS ${CMSIS_RTOS})
 endif()
 
-message(STATUS "Search for CMSIS families: ${CMSIS_FIND_COMPONENTS_FAMILIES}")
-message(STATUS "Search for CMSIS RTOS: ${CMSIS_FIND_COMPONENTS_RTOS}")
+message(VERBOSE "CMSIS search - families: ${CMSIS_FIND_COMPONENTS_FAMILIES}, RTOS: ${CMSIS_FIND_COMPONENTS_RTOS}")
 
 include(stm32/devices)
 

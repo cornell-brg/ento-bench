@@ -10,14 +10,14 @@ list(REMOVE_DUPLICATES FreeRTOS_FIND_COMPONENTS)
 
 if((NOT FREERTOS_PATH) AND (DEFINED ENV{FREERTOS_PATH}))
     set(FREERTOS_PATH $ENV{FREERTOS_PATH} CACHE PATH "Path to FreeRTOS")
-    message(STATUS "ENV FREERTOS_PATH specified, using FREERTOS_PATH: ${FREERTOS_PATH}")
+    message(VERBOSE "Using FREERTOS_PATH from environment: ${FREERTOS_PATH}")
 endif()
 
 if(NOT FREERTOS_PATH)
     set(DEFAULT_FREERTOS_PATH "/opt/FreeRTOS")
     if(EXISTS ${DEFAULT_FREERTOS_PATH})
         set(FREERTOS_PATH ${DEFAULT_FREERTOS_PATH} CACHE PATH "Path to FreeRTOS")
-        message(STATUS "No FREERTOS_PATH specified using default: ${DEFAULT_FREERTOS_PATH}")
+        message(VERBOSE "Using default FREERTOS_PATH: ${DEFAULT_FREERTOS_PATH}")
     else()
         message(STATUS
             "No FreeRTOS folder found at default location ${DEFAULT_FREERTOS_PATH}. "
@@ -160,7 +160,7 @@ macro(stm32_find_freertos FreeRTOS_NAMESPACE FREERTOS_PATH)
             target_link_libraries(${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE} INTERFACE FreeRTOS)
             target_sources(${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE} INTERFACE "${FreeRTOS_${PORT}_SOURCE}")
             target_include_directories(${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE} INTERFACE "${FreeRTOS_${PORT}_PATH}")
-            message(trace "FindFreeRTOS: creating target ${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE}")
+            message(TRACE "FindFreeRTOS: creating target ${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE}")
             
             # armv8-m needs additional file even if using "No Trust Zone" port
             if(${PORT} IN_LIST FreeRTOS_armv8_PORTS)
@@ -175,7 +175,7 @@ macro(stm32_find_freertos FreeRTOS_NAMESPACE FREERTOS_PATH)
                                                                                 "${FreeRTOS_${PORT}_PATH}/../secure/secure_context_port.c"
                                                                                 "${FreeRTOS_${PORT}_PATH}/../secure/secure_heap.c"
                                                                                 "${FreeRTOS_${PORT}_PATH}/../secure/secure_init.c")
-                message(trace "FindFreeRTOS: creating target ${FreeRTOS_NAMESPACE}::${PORT}::SECURE")
+                message(TRACE "FindFreeRTOS: creating target ${FreeRTOS_NAMESPACE}::${PORT}::SECURE")
 
                 # non-secure part needs declaratation from secure includes
                 target_include_directories(${FreeRTOS_NAMESPACE}::${PORT}${ARMv8_NON_SECURE} INTERFACE "${FreeRTOS_${PORT}_PATH}/../secure")
@@ -196,12 +196,12 @@ macro(stm32_find_freertos FreeRTOS_NAMESPACE FREERTOS_PATH)
     endforeach()
 endmacro()
 
-message(STATUS "Search for FreeRTOS ports: ${FreeRTOS_FIND_COMPONENTS_PORTS}")
+message(VERBOSE "FreeRTOS search - ports: ${FreeRTOS_FIND_COMPONENTS_PORTS}")
 
 if(NOT FreeRTOS_FIND_COMPONENTS_FAMILIES)
     stm32_find_freertos(FreeRTOS ${FREERTOS_PATH})
 else()
-    message(STATUS "Search for FreeRTOS families: ${FreeRTOS_FIND_COMPONENTS_FAMILIES}")
+    message(VERBOSE "FreeRTOS search - families: ${FreeRTOS_FIND_COMPONENTS_FAMILIES}")
 
     foreach(COMP ${FreeRTOS_FIND_COMPONENTS_FAMILIES})
         string(TOLOWER ${COMP} COMP_L)
@@ -234,7 +234,7 @@ else()
         string(TOLOWER ${FAMILY} FAMILY_L)
         if(NOT STM32_CUBE_${FAMILY}_PATH)
             set(STM32_CUBE_${FAMILY}_PATH /opt/STM32Cube${FAMILY} CACHE PATH "Path to STM32Cube${FAMILY}")
-            message(STATUS "Did not specify STM32_CMSIS_${FAMILY}_PATH, using default STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
+            message(VERBOSE "Using default STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
         endif()
         
         stm32_find_freertos(FreeRTOS::STM32::${FAMILY}${CORE_C} ${STM32_CUBE_${FAMILY}_PATH}/Middlewares/Third_Party/FreeRTOS)

@@ -94,10 +94,7 @@ set(RAM_SIZE "1024K")
 set(HEAP_ORIGIN "")
 set(STM32_CHIP "STM32H7A3ZI" CACHE STRING "Specify the STM32 chip model")
 
-#message(STATUS "Stack size: ${STACK_SIZE}")
-#message(STATUS "Stack origin: ${STACK_ORIGIN}")
-#message(STATUS "Heap size: ${HEAP_SIZE}")
-#message(STATUS "Heap origin: ${HEAP_ORIGIN}")
+
 
 # Customize stack and heap sizes
 #set(MY_STACK_SIZE "0x400")  # For example, set to 2KB
