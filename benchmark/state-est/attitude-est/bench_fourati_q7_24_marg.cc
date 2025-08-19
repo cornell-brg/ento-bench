@@ -32,6 +32,9 @@ int main()
 
   ENTO_BENCH_SETUP();
 
+  // Print benchmark configuration
+  ENTO_BENCH_PRINT_CONFIG();
+
   const char* base_path = DATASET_PATH;
   const char* rel_path = "state-est/tuned_icm42688_1khz_marg_dataset.txt";
   char dataset_path[512];

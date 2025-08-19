@@ -72,6 +72,16 @@ add_benchmark(bench-ekf-truncated-update-float
 list(APPEND BENCH_TARGETS bench-ekf-truncated-update-float)
 
 # =============================================================================
+# Empty baseline (framework overhead)
+# =============================================================================
+
+add_benchmark(bench-empty-ekf
+  SOURCES bench_empty_ekf.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-ekf)
+
+# =============================================================================
 # H7-specific defines (automatic scaling handled in bench_config.h)
 # =============================================================================
 
@@ -128,8 +138,7 @@ set(FLOAT_TARGETS
 set(BASE_INNER_REPS 2)  # From estimation_benchmarks.json "ekf" section
 math(EXPR EFFECTIVE_INNER_REPS "${BASE_INNER_REPS} * ${H7_PERFORMANCE_MULTIPLIER}")
 
-message(STATUS "Base INNER_REPS from JSON: ${BASE_INNER_REPS}")
-message(STATUS "Effective INNER_REPS (with H7 scaling): ${EFFECTIVE_INNER_REPS}")
+message(VERBOSE "EKF INNER_REPS: ${BASE_INNER_REPS} (effective: ${EFFECTIVE_INNER_REPS})")
 
 # Configure EKF benchmarks using the estimation_benchmarks.json config
 # The config system will use the base values, but log files will reflect the effective values
@@ -147,7 +156,7 @@ endif()
 
 message(STATUS "EKF benchmarks configured with automatic H7 scaling")
 if(STM_PRODUCT MATCHES "H7")
-  message(STATUS "H7 detected: INNER_REPS will be automatically scaled by ${H7_PERFORMANCE_MULTIPLIER}x in bench_config.h")
+  message(VERBOSE "H7 detected: INNER_REPS scaled by ${H7_PERFORMANCE_MULTIPLIER}x")
   message(STATUS "Log files will include H7 scaling suffix: ${H7_CONFIG_SUFFIX}")
 else()
   message(STATUS "Non-H7 platform: INNER_REPS will use base values from JSON config")
@@ -156,7 +165,7 @@ endif()
 # =============================================================================
 # Add STM32 targets for flashing/debugging
 # =============================================================================
-message(STATUS "EKF Bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "EKF Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif() # STM32_BUILD 

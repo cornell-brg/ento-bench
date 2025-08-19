@@ -16,8 +16,8 @@ if (GEM5_BUILD)
     message(FATAL_ERROR "GEM5 PATH was not found")
   endif()
 
-  message("Including and linking GEM5 m5ops.")
-  message("Found env path: ${GEM5_PATH}")
+  #message("Including and linking GEM5 m5ops.")
+  #message("Found env path: ${GEM5_PATH}")
 
   set(TARGET_ISA arm)
   #target_include_directories(bench

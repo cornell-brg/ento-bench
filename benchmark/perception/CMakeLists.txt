@@ -16,6 +16,22 @@ set(MODULES
 set(BENCH_TARGETS) # List of targets
 
 # =============================================================================
+# Empty baseline targets (framework overhead)
+# =============================================================================
+
+add_benchmark(bench-empty-feature-recognition
+  SOURCES bench_empty_feature_recognition.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-feature-recognition)
+
+add_benchmark(bench-empty-optical-flow
+  SOURCES bench_empty_optical_flow.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-optical-flow)
+
+# =============================================================================
 # FAST+BRIEF Benchmarks
 # =============================================================================
 
@@ -377,7 +393,7 @@ endif()
 # =============================================================================
 # Add STM32 targets
 # =============================================================================
-message(STATUS "Perception bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "Perception bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif()

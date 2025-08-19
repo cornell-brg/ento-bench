@@ -117,7 +117,7 @@ function(stm32_fetch_cmsis)
         FetchContent_MakeAvailable(STM32-CMSIS)
         set(STM32_CMSIS_PATH ${stm32-cmsis_SOURCE_DIR} PARENT_SCOPE)
 	else()
-		message(INFO "STM32_CMSIS_PATH specified, skipping fetch for STM32-CMSIS")
+		message(VERBOSE "STM32_CMSIS_PATH specified, skipping fetch for STM32-CMSIS")
 	endif()
 
     foreach(FAMILY ${ARGV})
@@ -130,7 +130,7 @@ function(stm32_fetch_cmsis)
             string(TOLOWER ${CMSIS_NAME} CMSIS_NAME_L)
             
             if(STM32_CMSIS_${FAMILY}_PATH)
-                message(INFO "STM32_CMSIS_${FAMILY}_PATH specified, skipping fetch for ${CMSIS_NAME}")
+                message(VERBOSE "STM32_CMSIS_${FAMILY}_PATH specified, skipping fetch for ${CMSIS_NAME}")
                 continue()
             endif()
             
@@ -151,7 +151,7 @@ function(stm32_fetch_hal)
             string(TOLOWER ${HAL_NAME} HAL_NAME_L)
             
             if(STM32_HAL_${FAMILY}_PATH)
-                message(INFO "STM32_HAL_${FAMILY}_PATH specified, skipping fetch for ${HAL_NAME}")
+                message(VERBOSE "STM32_HAL_${FAMILY}_PATH specified, skipping fetch for ${HAL_NAME}")
                 continue()
             endif()
             

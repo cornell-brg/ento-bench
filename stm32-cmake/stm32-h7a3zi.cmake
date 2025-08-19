@@ -21,8 +21,11 @@ add_definitions(-DHARDWARE_FPU_DOUBLE)         # Custom flag to indicate double-
 option(BUILD_H7A3ZIQ "Build for Nucleo board STM32H7A3ZI..." ON)
 
 
-set(CMSIS_FIND_COMPONENTS "STM32H7A3ZI_M7")
-set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32H7A3ZI_M7")
+# Force specific device component to avoid processing entire H7 family
+set(CMSIS_FIND_COMPONENTS "STM32H7A3ZI_M7" CACHE INTERNAL "Specific CMSIS component for H7A3ZI")
+set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32H7A3ZI_M7" CACHE INTERNAL "Specific CMSIS families for H7A3ZI")
+# Override the default to prevent fallback to all families
+set(STM32_SUPPORTED_FAMILIES_LONG_NAME "STM32H7A3ZI_M7" CACHE INTERNAL "Override default families for H7A3ZI")
 
 include(stm32/common)
 include(stm32/devices)
@@ -93,16 +96,3 @@ set(HEAP_SIZE "0x400")
 set(RAM_SIZE "1024K")
 set(HEAP_ORIGIN "")
 set(STM32_CHIP "STM32H7A3ZI" CACHE STRING "Specify the STM32 chip model")
-
-
-
-# Customize stack and heap sizes
-#set(MY_STACK_SIZE "0x400")  # For example, set to 2KB
-#set(MY_HEAP_SIZE "0x19000")   # For example, set to 1KB
-
-# Pass these custom sizes to the linker
-#add_compile_definitions(
-#    STACK_SIZE=${MY_STACK_SIZE}
-#    HEAP_SIZE=${MY_HEAP_SIZE}
-#)
-

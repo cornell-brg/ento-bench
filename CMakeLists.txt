@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(entobench_helpers.cmake)
 
 get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
-message(STATUS "Languages in main CMakeLists.txt after project(): ${languages}")
+message(VERBOSE "Languages in main CMakeLists.txt after project(): ${languages}")
 
 option(FETCH_ST_SOURCES "Fetch STMicro CMSIS/HAL Libraries." OFF)
 option(STM32_BUILD "Build for STM32." OFF)
@@ -31,11 +31,11 @@ set(COMPILE_COMMANDS_DIR "${CMAKE_BINARY_DIR}")
 
 # Path to the .clangd file
 set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
-message(STATUS ".clangd file: ${CLANGD_FILE}")
+message(VERBOSE ".clangd file: ${CLANGD_FILE}")
 
 # Path to the .clangd file
 set(CLANGD_FILE "${CMAKE_SOURCE_DIR}/.clangd")
-message(STATUS ".clangd file: ${CLANGD_FILE}")
+message(VERBOSE ".clangd file: ${CLANGD_FILE}")
 
 # Start building the .clangd file with the compilation database path
 add_custom_target(update_clangd ALL
@@ -83,11 +83,11 @@ if(STM32_BUILD)
     set(ARM_NEWLIB_CXX_INCLUDE "${ARM_TOOLCHAIN_BASE}/arm-none-eabi/include/c++/13.3.1")
 
 
-    message(STATUS "Found ${ARM_GCC}... \n ${ARM_GCC_INCLUDE}, ${ARM_NEWLIB_INCLUDE}")
+    message(VERBOSE "Found ${ARM_GCC}... \n ${ARM_GCC_INCLUDE}, ${ARM_NEWLIB_INCLUDE}")
 
     # Append ARM-specific paths directly to .clangd within the same target
     add_custom_command(
-      TARGET update_clangd
+      TARGET update_clangd POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E echo "  Add:" >> ${CLANGD_FILE}
       COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_INCLUDE}" >> ${CLANGD_FILE}
       COMMAND ${CMAKE_COMMAND} -E echo "   - -I${ARM_NEWLIB_CXX_INCLUDE}" >> ${CLANGD_FILE}
@@ -152,7 +152,7 @@ if(STM32_BUILD)
 
 
   # Essential target configuration confirmation
-  message(STATUS "CMSIS family target: ${CMSIS_FAMILY_TARGET}")
+  message(VERBOSE "CMSIS family target: ${CMSIS_FAMILY_TARGET}")
   message(VERBOSE "HAL targets: RCC=${HAL_RCC_TARGET}, GPIO=${HAL_GPIO_TARGET}, FLASH=${HAL_FLASH_TARGET}")
 
   #if (FETCH_ST_SOURCES)
@@ -167,9 +167,9 @@ if(STM32_BUILD)
   #find_package(CMSIS COMPONENTS CMSIS::STM32::H7::M7 REQUIRED)
   #find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME}::${CORE_C} REQUIRED)
 
-  # Use underscore format for component names (FindCMSIS expects STM32H7A3xx_M7 format)
-  find_package(CMSIS COMPONENTS STM32${STM_TYPE}_${CORE_U} REQUIRED)
-  find_package(HAL COMPONENTS STM32${STM_TYPE}_${CORE_U} REQUIRED)
+  # Use family-level components (toolchain will set specific device details)
+  find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
+  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
 
 
   get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)
@@ -239,7 +239,7 @@ if(STM32_BUILD)
 
 
 elseif(GEM5_BUILD)
-	message(STATUS "Building for gem5.")
+	message(STATUS "Building for gem5...")
 
   # If env variable for GEM5_PATH is not set, then look for it.
   set(GEM5_PATH "$ENV{GEM5_PATH}" CACHE PATH "Path to gem5 installation.")
@@ -265,7 +265,7 @@ else() # Native Build
     endif()
   endif()
 
-	message(STATUS "Building for native.")
+	message(STATUS "Building for native...")
   set(CMAKE_C_COMPILER gcc)
   set(CMAKE_CXX_COMPILER g++)
   set(CMAKE_ASM_COMPILER gcc)
@@ -286,7 +286,7 @@ set(BENCHMARK_DIR benchmark)
 set(EXAMPLE_DIR example)
 
 # Figure out arch
-message(STATUS "Target architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+message(VERBOSE "Target architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
   add_definitions(-DRV64)
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7e-m")
@@ -322,7 +322,7 @@ if(BUILD_H7A3ZIQ)
         # Read the contents of stm32h7xx.h
         file(READ "${STM32H7_HEADER_PATH}" FILE_CONTENTS)
         if(FILE_CONTENTS MATCHES "#elif defined\\(STM32H7A3xx\\) && !defined\\(STM32H7A3xxQ\\)")
-            message(STATUS "The file ${STM32H7_HEADER_PATH} has already been patched. Skipping modification.")
+            message(VERBOSE "The file ${STM32H7_HEADER_PATH} has already been patched. Skipping modification.")
         else()
             # Perform the replacement if the line hasn't been modified
             string(REPLACE "#elif defined(STM32H7A3xx)" "#elif defined(STM32H7A3xx) && !defined(STM32H7A3xxQ)" FILE_CONTENTS "${FILE_CONTENTS}")
@@ -330,7 +330,7 @@ if(BUILD_H7A3ZIQ)
             # Write the modified content back to stm32h7xx.h
             file(WRITE "${STM32H7_HEADER_PATH}" "${FILE_CONTENTS}")
 
-            message(STATUS "Patched ${STM32H7_HEADER_PATH} for H7A3ZIQ build.")
+            message(VERBOSE "Patched ${STM32H7_HEADER_PATH} for H7A3ZIQ build.")
         endif()
     else()
         message(WARNING "File ${STM32H7_HEADER_PATH} not found. Patch not applied.")
