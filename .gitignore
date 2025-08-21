@@ -73,3 +73,6 @@ datasets/homography
 
 tools/*.csv
 tools/*.png
+
+# Ignore other personal directories people made add
+notes/

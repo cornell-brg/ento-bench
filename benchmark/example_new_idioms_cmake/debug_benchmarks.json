@@ -1,0 +1,39 @@
+{
+  "performance-group": {
+    "reps": 3,
+    "inner_reps": 1,
+    "verbosity": 2,
+    "enable_caches": false
+  },
+  "debug-group": {
+    "reps": 2,
+    "verbosity": 2,
+    "do_warmup": true,
+    "enable_caches": false
+  },
+  "quick-test": {
+    "reps": 1,
+    "verbosity": 2,
+    "enable_caches": false
+  },
+  "thorough-test": {
+    "reps": 5,
+    "inner_reps": 1,
+    "verbosity": 2,
+    "max_problems": 10,
+    "do_warmup": true,
+    "enable_caches": false
+  },
+  "adaptive-config": {
+    "reps": 2,
+    "verbosity": 2,
+    "enable_caches": false,
+    "do_warmup": true
+  },
+  "mcu-optimized": {
+    "reps": 3,
+    "inner_reps": 1,
+    "verbosity": 2,
+    "enable_caches": false
+  }
+} 
