@@ -23,7 +23,8 @@ int relpose_upright_planar_3pt(const EntoContainer<Vec3<Scalar>, N> &x1,
 {
     output->clear();
     
-    const size_t n = x1.size();
+    //const size_t n = x1.size();
+    const size_t n = N;
     
     if (n < 3) {
         // Not enough points

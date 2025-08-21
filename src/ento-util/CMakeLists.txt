@@ -66,7 +66,7 @@ foreach(TEST_FILE ${TEST_FILES})
       LIBRARIES ${TEST_LIBRARIES}
     )
   else()
-    message(STATUS "Building ${TEST_BIN} for native")
+    message(VERBOSE "Building ${TEST_BIN} for native")
     add_non_arm_executable(${TEST_BIN}
       EXCLUDE TRUE
       SOURCES ${TEST_SRC}

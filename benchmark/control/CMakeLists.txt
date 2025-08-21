@@ -130,6 +130,31 @@ list(APPEND BENCH_TARGETS bench-tinympc-paper-spec)
 # list(APPEND BENCH_TARGETS bench-tinympc-horizon-comparison)
 
 # =============================================================================
+# Empty baseline benchmarks (framework overhead only)
+# =============================================================================
+
+# Empty Geometric Control Baseline Benchmark
+add_benchmark(bench-empty-geometric-control
+    SOURCES bench_empty_geometric_control.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-geometric-control)
+
+# Empty Adaptive Control Baseline Benchmark
+add_benchmark(bench-empty-adaptive-control
+    SOURCES bench_empty_adaptive_control.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-adaptive-control)
+
+# Empty Optimal Control Baseline Benchmark
+add_benchmark(bench-empty-opt-control
+    SOURCES bench_empty_opt_control.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-opt-control)
+
+# =============================================================================
 # H7-specific defines (automatic scaling handled in bench_config.h)
 # =============================================================================
 
@@ -151,8 +176,7 @@ endforeach()
 set(BASE_INNER_REPS 1)  # Default for control benchmarks
 math(EXPR EFFECTIVE_INNER_REPS "${BASE_INNER_REPS} * ${H7_PERFORMANCE_MULTIPLIER}")
 
-message(STATUS "Base INNER_REPS for control: ${BASE_INNER_REPS}")
-message(STATUS "Effective INNER_REPS (with H7 scaling): ${EFFECTIVE_INNER_REPS}")
+message(VERBOSE "Control INNER_REPS: ${BASE_INNER_REPS} (effective: ${EFFECTIVE_INNER_REPS})")
 
 # =============================================================================
 # Apply Configuration Using Config File with Target-Specific Support
@@ -187,13 +211,13 @@ endif()
 
 message(STATUS "Control benchmarks configured with automatic H7 scaling")
 if(STM_PRODUCT MATCHES "H7")
-  message(STATUS "H7 detected: INNER_REPS will be automatically scaled by ${H7_PERFORMANCE_MULTIPLIER}x in bench_config.h")
+  message(VERBOSE "H7 detected: INNER_REPS scaled by ${H7_PERFORMANCE_MULTIPLIER}x")
   message(STATUS "Log files will include H7 scaling suffix: ${H7_CONFIG_SUFFIX}")
 else()
   message(STATUS "Non-H7 platform: INNER_REPS will use base values from config")
 endif()
 
-message(STATUS "Control Bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "Control Bench targets: ${BENCH_TARGETS}")
 
 # =============================================================================
 # Add STM32 targets for flashing/debugging

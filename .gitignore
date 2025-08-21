@@ -48,6 +48,7 @@ __pycache__/
 
 # My own stash files (DERIN)
 stash/
+archived-results/
 *.dump
 *.txt
 *.map
@@ -72,3 +73,6 @@ datasets/homography
 
 tools/*.csv
 tools/*.png
+
+# Ignore other personal directories people made add
+notes/

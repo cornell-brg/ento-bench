@@ -13,14 +13,8 @@ if(STM32_BUILD)
     gpio_util.cc
   )
 
-  message(STATUS "HAL RCC Target: ${HAL_RCC_TARGET}")
-  message(STATUS "HAL GPIO Target ${HAL_GPIO_TARGET}")
-  message(STATUS "CMSIS Target: ${CMSIS_TYPE_TARGET}")
-  message(STATUS "CMSIS Family Target in MCU Util: ${CMSIS_FAMILY_TARGET}")
-  message(STATUS "HAL Bus Target: ${HAL_BUS_TARGET}")
-  message(STATUS "HAL Pwr Target: ${HAL_PWR_TARGET}")
-  message(STATUS "HAL Utils Target: ${HAL_UTILS_TARGET}")
-  message(STATUS "Src files for ento-mcu: ${SRC_FILES}")
+  message(VERBOSE "MCU targets: CMSIS=${CMSIS_TYPE_TARGET}, HAL RCC/GPIO/PWR configured")
+  message(VERBOSE "ento-mcu source files: ${SRC_FILES}")
   add_library(ento-mcu STATIC
     ${SRC_FILES})
   add_library(ento-mcu-semihosted STATIC

@@ -12,6 +12,12 @@
 #include <ento-state-est/attitude-est/madgwick_fixed.h>
 #include <ento-state-est/attitude-est/fourati_nonlinear.h>
 #include <ento-state-est/attitude-est/fourati_fixed.h>
+#include <ento-state-est/attitude-est-exp/kernels/mahoney_checked.h>
+#include <ento-state-est/attitude-est-exp/kernels/mahoney_fixed_checked.h>
+#include <ento-state-est/attitude-est-exp/kernels/madgwick_checked.h>
+#include <ento-state-est/attitude-est-exp/kernels/madgwick_fixed_checked.h>
+#include <ento-state-est/attitude-est-exp/kernels/fourati_checked.h>
+#include <ento-state-est/attitude-est-exp/kernels/fourati_fixed_checked.h>
 
 namespace EntoAttitude
 {
@@ -89,36 +95,49 @@ public:
 
   // Constructor for Mahoney filters (kp, ki parameters)
   template<typename T = Kernel>
- AttitudeProblem(Kernel kernel, Scalar kp, Scalar ki, 
+  AttitudeProblem(Kernel kernel, Scalar kp, Scalar ki, 
                  typename std::enable_if_t<std::is_same_v<T, FilterMahoney<Scalar, UseMag>> ||
-                                          std::is_same_v<T, FilterMahonyFixed<Scalar, UseMag>>>* = nullptr)
-    : kernel_(std::move(kernel)), kp_(kp), ki_(ki), gain_(Scalar(0.0f)), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
+                                          std::is_same_v<T, FilterMahonyFixed<Scalar, UseMag>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterMahoneyChecked<Scalar, UseMag>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterMahoneyFixedChecked<Scalar, UseMag>>>* = nullptr)
+    : kernel_(std::move(kernel)), kp_(kp), ki_(ki), gain_(Scalar(0.0f)), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {
+        // Set parameters for checked Mahoney filters
+        if constexpr (std::is_same_v<T, EntoAttitudeExp::FilterMahoneyChecked<Scalar, UseMag>>) {
+            kernel_.setParameters(kp, ki);
+        } else if constexpr (std::is_same_v<T, EntoAttitudeExp::FilterMahoneyFixedChecked<Scalar, UseMag>>) {
+            kernel_.setParameters(kp, ki);
+        }
+    }
 
   // Constructor for Madgwick filters (gain parameter)  
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel, Scalar gain,
-                 typename std::enable_if_t<std::is_same_v<T, FilterMadgwick<Scalar, UseMag>>>* = nullptr)
+                 typename std::enable_if_t<std::is_same_v<T, FilterMadgwick<Scalar, UseMag>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterMadgwickChecked<Scalar, UseMag>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 
   // Constructor for Madgwick fixed-point filters (gain parameter)  
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel, Scalar gain,
-                 typename std::enable_if_t<std::is_same_v<T, FilterMadgwickFixed<Scalar, UseMag>>>* = nullptr)
+                 typename std::enable_if_t<std::is_same_v<T, FilterMadgwickFixed<Scalar, UseMag>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterMadgwickFixedChecked<Scalar, UseMag>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 
   // Constructor for Fourati filters (gain parameter)  
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel, Scalar gain,
-                 typename std::enable_if_t<std::is_same_v<T, FilterFourati<Scalar>>>* = nullptr)
+                 typename std::enable_if_t<std::is_same_v<T, FilterFourati<Scalar>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterFouratiChecked<Scalar>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 
   // Constructor for Fourati fixed-point filters (gain parameter)  
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel, Scalar gain,
-                 typename std::enable_if_t<std::is_same_v<T, FilterFouratiFixed<Scalar>>>* = nullptr)
+                 typename std::enable_if_t<std::is_same_v<T, FilterFouratiFixed<Scalar>> ||
+                                          std::is_same_v<T, EntoAttitudeExp::FilterFouratiFixedChecked<Scalar>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(gain), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 
-  // Constructor for fixed-point filters (already have internal state) - excludes FilterMadgwickFixed, FilterMahoney, FilterMahonyFixed, FilterFourati, FilterFouratiFixed
+  // Constructor for fixed-point filters (already have internal state) - excludes FilterMadgwickFixed, FilterMahoney, FilterMahonyFixed, FilterFourati, FilterFouratiFixed and their checked variants
   template<typename T = Kernel>
   AttitudeProblem(Kernel kernel,
                  typename std::enable_if_t<!std::is_same_v<T, FilterMahoney<Scalar, UseMag>> && 
@@ -126,7 +145,13 @@ public:
                                           !std::is_same_v<T, FilterMadgwickFixed<Scalar, UseMag>> &&
                                           !std::is_same_v<T, FilterMahonyFixed<Scalar, UseMag>> &&
                                           !std::is_same_v<T, FilterFourati<Scalar>> &&
-                                          !std::is_same_v<T, FilterFouratiFixed<Scalar>>>* = nullptr)
+                                          !std::is_same_v<T, FilterFouratiFixed<Scalar>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterMadgwickChecked<Scalar, UseMag>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterMadgwickFixedChecked<Scalar, UseMag>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterMahoneyChecked<Scalar, UseMag>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterMahoneyFixedChecked<Scalar, UseMag>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterFouratiChecked<Scalar>> &&
+                                          !std::is_same_v<T, EntoAttitudeExp::FilterFouratiFixedChecked<Scalar>>>* = nullptr)
     : kernel_(std::move(kernel)), kp_(Scalar(0.0f)), ki_(Scalar(0.0f)), gain_(Scalar(0.0f)), bias_(Scalar(0.0f), Scalar(0.0f), Scalar(0.0f)) {}
 };
 
@@ -340,6 +365,24 @@ void AttitudeProblem<Scalar, Kernel, UseMag, IsFilter>::solve_impl()
     } else if constexpr (std::is_same_v<Kernel, FilterFouratiFixed<Scalar>>) {
         // Fourati fixed-point filter: needs gain, g_q, m_q (MARG only, same interface as FilterFourati)
         static_assert(UseMag, "Fourati fixed-point filter requires magnetometer data (MARG)");
+        // Convert AttitudeMeasurement to MARGMeasurement for Fourati
+        MARGMeasurement<Scalar> marg_meas;
+        marg_meas.gyr = measurement_.gyr;
+        marg_meas.acc = measurement_.acc;
+        marg_meas.mag = measurement_.mag;
+        q_ = kernel_(q_prev_, marg_meas, dt_, gain_, g_q_, m_q_);
+    } else if constexpr (std::is_same_v<Kernel, EntoAttitudeExp::FilterFouratiChecked<Scalar>>) {
+        // Fourati checked filter: needs gain, g_q, m_q (MARG only, same interface as FilterFourati)
+        static_assert(UseMag, "Fourati checked filter requires magnetometer data (MARG)");
+        // Convert AttitudeMeasurement to MARGMeasurement for Fourati
+        MARGMeasurement<Scalar> marg_meas;
+        marg_meas.gyr = measurement_.gyr;
+        marg_meas.acc = measurement_.acc;
+        marg_meas.mag = measurement_.mag;
+        q_ = kernel_(q_prev_, marg_meas, dt_, gain_, g_q_, m_q_);
+    } else if constexpr (std::is_same_v<Kernel, EntoAttitudeExp::FilterFouratiFixedChecked<Scalar>>) {
+        // Fourati fixed-point checked filter: needs gain, g_q, m_q (MARG only, same interface as FilterFourati)
+        static_assert(UseMag, "Fourati fixed-point checked filter requires magnetometer data (MARG)");
         // Convert AttitudeMeasurement to MARGMeasurement for Fourati
         MARGMeasurement<Scalar> marg_meas;
         marg_meas.gyr = measurement_.gyr;

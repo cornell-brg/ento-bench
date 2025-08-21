@@ -17,7 +17,23 @@ set(MODULES
 set(BENCH_TARGETS) # List of targets
 
 # =============================================================================
-# RANSAC Relative Pose Benchmarks - Float Precision
+# Empty baseline targets (framework overhead only)
+# =============================================================================
+
+add_benchmark(bench-empty-robust-rel-pose
+  SOURCES bench_empty_robust_rel_pose.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-robust-rel-pose)
+
+add_benchmark(bench-empty-robust-abs-pose
+  SOURCES bench_empty_robust_abs_pose.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-robust-abs-pose)
+
+# =============================================================================
+# RANSAC Relative Pose Benchmarks - Modern EntoBench Idioms
 # =============================================================================
 
 # RANSAC 5pt Benchmark - Float
@@ -126,64 +142,64 @@ create_benchmark_runner_script()
 # =============================================================================
 
 # Float precision RANSAC benchmarks
-add_benchmark_group_runner(ransac-float
-  TARGETS ${RANSAC_FLOAT_TARGETS}
-  TIMEOUT 180
-  OUTPUT_TIMEOUT 30
-)
+#add_benchmark_group_runner(ransac-float
+#  TARGETS ${RANSAC_FLOAT_TARGETS}
+#  TIMEOUT 180
+#  OUTPUT_TIMEOUT 30
+#)
 
 # Double precision RANSAC benchmarks
-add_benchmark_group_runner(ransac-double
-  TARGETS ${RANSAC_DOUBLE_TARGETS}
-  TIMEOUT 180
-  OUTPUT_TIMEOUT 30
-)
+#add_benchmark_group_runner(ransac-double
+#  TARGETS ${RANSAC_DOUBLE_TARGETS}
+#  TIMEOUT 180
+#  OUTPUT_TIMEOUT 30
+#)
 
 # All new RANSAC benchmarks (float + double)
-add_benchmark_group_runner(ransac-all
-  TARGETS ${RANSAC_FLOAT_TARGETS} ${RANSAC_DOUBLE_TARGETS}
-  TIMEOUT 240
-  OUTPUT_TIMEOUT 40
-)
+#add_benchmark_group_runner(ransac-all
+#  TARGETS ${RANSAC_FLOAT_TARGETS} ${RANSAC_DOUBLE_TARGETS}
+#  TIMEOUT 240
+#  OUTPUT_TIMEOUT 40
+#)
 
 
 # Quick test subset
-add_benchmark_group_runner(robust-quick
-  TARGETS ${QUICK_TEST_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+#add_benchmark_group_runner(robust-quick
+#  TARGETS ${QUICK_TEST_TARGETS}
+#  TIMEOUT 120
+#  OUTPUT_TIMEOUT 20
+#)
 
 # All robust pose benchmarks
-add_benchmark_group_runner(robust-all
-  TARGETS ${BENCH_TARGETS}
-  TIMEOUT 300
-  OUTPUT_TIMEOUT 50
-)
+#add_benchmark_group_runner(robust-all
+#  TARGETS ${BENCH_TARGETS}
+#  TIMEOUT 300
+#  OUTPUT_TIMEOUT 50
+#)
 
 # =============================================================================
 # Convenience Targets for Common Use Cases
 # =============================================================================
 
-add_custom_target(bench-robust-float
-  DEPENDS bench-ransac-float-run
-  COMMENT "Alias for bench-ransac-float-run"
-)
-
-add_custom_target(bench-robust-double
-  DEPENDS bench-ransac-double-run
-  COMMENT "Alias for bench-ransac-double-run"
-)
-
-add_custom_target(bench-robust-quick
-  DEPENDS bench-robust-quick-run
-  COMMENT "Alias for bench-robust-quick-run"
-)
-
-add_custom_target(bench-robust-all
-  DEPENDS bench-robust-all-run
-  COMMENT "Alias for bench-robust-all-run"
-)
+#add_custom_target(bench-robust-float
+#  DEPENDS bench-ransac-float-run
+#  COMMENT "Alias for bench-ransac-float-run"
+#)
+#
+#add_custom_target(bench-robust-double
+#  DEPENDS bench-ransac-double-run
+#  COMMENT "Alias for bench-ransac-double-run"
+#)
+#
+#add_custom_target(bench-robust-quick
+#  DEPENDS bench-robust-quick-run
+#  COMMENT "Alias for bench-robust-quick-run"
+#)
+#
+#add_custom_target(bench-robust-all
+#  DEPENDS bench-robust-all-run
+#  COMMENT "Alias for bench-robust-all-run"
+#)
 
 # Help target to list available benchmark groups
 add_custom_target(bench-robust-help
@@ -250,7 +266,7 @@ endif()
 # =============================================================================
 # Add STM32 targets for flashing/debugging
 # =============================================================================
-message(STATUS "Robust Pose Bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "Robust Pose Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif() 

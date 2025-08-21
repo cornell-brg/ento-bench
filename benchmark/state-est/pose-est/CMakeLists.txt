@@ -430,122 +430,122 @@ set(PERFORMANCE_TARGETS ${ALL_POSE_TARGETS})
 # Create the benchmark runner script
 create_benchmark_runner_script()
 
-# Quick test group (fast benchmarks for testing)
-add_benchmark_group_runner(quick-test
-  TARGETS ${QUICK_TEST_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+# Quick test group (fast benchmarks for testing) - DISABLED FOR AE
+# add_benchmark_group_runner(quick-test
+#   TARGETS ${QUICK_TEST_TARGETS}
+#   TIMEOUT 60
+#   OUTPUT_TIMEOUT 10
+# )
 
-# Absolute pose benchmarks
-add_benchmark_group_runner(absolute-pose
-  TARGETS ${ABSOLUTE_POSE_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+# Absolute pose benchmarks - DISABLED FOR AE
+# add_benchmark_group_runner(absolute-pose
+#   TARGETS ${ABSOLUTE_POSE_TARGETS}
+#   TIMEOUT 60
+#   OUTPUT_TIMEOUT 10
+# )
 
-# Relative pose benchmarks
-add_benchmark_group_runner(relative-pose
-  TARGETS ${RELATIVE_POSE_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+# Relative pose benchmarks - DISABLED FOR AE
+# add_benchmark_group_runner(relative-pose
+#   TARGETS ${RELATIVE_POSE_TARGETS}
+#   TIMEOUT 60
+#   OUTPUT_TIMEOUT 10
+# )
 
 # DLT scaling benchmarks (longer timeout for larger problems)
-add_benchmark_group_runner(dlt-scaling
-  TARGETS ${DLT_SCALING_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(dlt-scaling
+#  TARGETS ${DLT_SCALING_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
 # 8pt scaling benchmarks
-add_benchmark_group_runner(8pt-scaling
-  TARGETS ${8PT_SCALING_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(8pt-scaling
+#  TARGETS ${8PT_SCALING_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
 # Upright planar benchmarks
-add_benchmark_group_runner(upright-planar
-  TARGETS ${UPRIGHT_PLANAR_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(upright-planar
+#  TARGETS ${UPRIGHT_PLANAR_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
 # Upright planar scaling benchmarks
-add_benchmark_group_runner(upright-planar-scaling
-  TARGETS ${UPRIGHT_PLANAR_SCALING_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(upright-planar-scaling
+#  TARGETS ${UPRIGHT_PLANAR_SCALING_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
 # Gold standard benchmarks (longer timeout for bundle adjustment)
-add_benchmark_group_runner(gold-standard
-  TARGETS ${GOLD_STANDARD_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+#add_benchmark_group_runner(gold-standard
+#  TARGETS ${GOLD_STANDARD_TARGETS}
+#  TIMEOUT 120
+#  OUTPUT_TIMEOUT 20
+#)
 
 # LO-RANSAC robust pose estimation benchmarks (longer timeout for RANSAC iterations)
-add_benchmark_group_runner(lo-ransac
-  TARGETS ${LO_RANSAC_TARGETS}
-  TIMEOUT 180
-  OUTPUT_TIMEOUT 30
-)
+#add_benchmark_group_runner(lo-ransac
+#  TARGETS ${LO_RANSAC_TARGETS}
+#  TIMEOUT 180
+#  OUTPUT_TIMEOUT 30
+#)
 
 # All basic pose estimation benchmarks
-add_benchmark_group_runner(all-pose
-  TARGETS ${ALL_POSE_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(all-pose
+#  TARGETS ${ALL_POSE_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
 # Comprehensive performance evaluation
-add_benchmark_group_runner(performance
-  TARGETS ${PERFORMANCE_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+#add_benchmark_group_runner(performance
+#  TARGETS ${PERFORMANCE_TARGETS}
+#  TIMEOUT 120
+#  OUTPUT_TIMEOUT 20
+#)
 
 # =============================================================================
 # Convenience Targets for Common Use Cases
 # =============================================================================
 
 # Add convenience aliases that match common naming patterns
-add_custom_target(bench-pose-quick
-  DEPENDS bench-quick-test-run
-  COMMENT "Alias for bench-quick-test-run"
-)
+#add_custom_target(bench-pose-quick
+#  DEPENDS bench-quick-test-run
+#  COMMENT "Alias for bench-quick-test-run"
+#)
 
-add_custom_target(bench-pose-absolute
-  DEPENDS bench-absolute-pose-run
-  COMMENT "Alias for bench-absolute-pose-run"
-)
+#add_custom_target(bench-pose-absolute
+#  DEPENDS bench-absolute-pose-run
+#  COMMENT "Alias for bench-absolute-pose-run"
+#)
 
-add_custom_target(bench-pose-relative
-  DEPENDS bench-relative-pose-run
-  COMMENT "Alias for bench-relative-pose-run"
-)
+#add_custom_target(bench-pose-relative
+#  DEPENDS bench-relative-pose-run
+#  COMMENT "Alias for bench-relative-pose-run"
+#)
 
-add_custom_target(bench-pose-gold-standard
-  DEPENDS bench-gold-standard-run
-  COMMENT "Alias for bench-gold-standard-run"
-)
+#add_custom_target(bench-pose-gold-standard
+#  DEPENDS bench-gold-standard-run
+#  COMMENT "Alias for bench-gold-standard-run"
+#)
 
-add_custom_target(bench-pose-lo-ransac
-  DEPENDS bench-lo-ransac-run
-  COMMENT "Alias for bench-lo-ransac-run"
-)
+#add_custom_target(bench-pose-lo-ransac
+#  DEPENDS bench-lo-ransac-run
+#  COMMENT "Alias for bench-lo-ransac-run"
+#)
 
-add_custom_target(bench-pose-all
-  DEPENDS bench-all-pose-run
-  COMMENT "Alias for bench-all-pose-run"
-)
+#add_custom_target(bench-pose-all
+#  DEPENDS bench-all-pose-run
+#  COMMENT "Alias for bench-all-pose-run"
+#)
 
-add_custom_target(bench-pose-performance
-  DEPENDS bench-performance-run
-  COMMENT "Alias for bench-performance-run"
-)
+#add_custom_target(bench-pose-performance
+#  DEPENDS bench-performance-run
+#  COMMENT "Alias for bench-performance-run"
+#)
 
 # Help target to list available benchmark groups
 add_custom_target(bench-pose-help
@@ -621,7 +621,29 @@ endif()
 # =============================================================================
 # Add STM32 targets for flashing/debugging
 # =============================================================================
-message(STATUS "Pose Bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "Pose Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
+
+# =============================================================================
+# Empty baseline targets (framework overhead only)
+# =============================================================================
+
+add_benchmark(bench-empty-rel-pose
+  SOURCES bench_empty_rel_pose.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-rel-pose)
+
+add_benchmark(bench-empty-abs-pose
+  SOURCES bench_empty_abs_pose.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-abs-pose)
+
+add_benchmark(bench-empty-homography
+  SOURCES bench_empty_homography.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-homography)
 
 endif()

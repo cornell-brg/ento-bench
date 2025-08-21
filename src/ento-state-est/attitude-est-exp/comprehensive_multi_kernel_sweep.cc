@@ -1,0 +1,1873 @@
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <string>
+#include <vector>
+#include <array>
+#include <map>
+#include <sstream>
+#include <algorithm>
+#include <cassert>
+
+// Core attitude estimation (needed for AttitudeProblem)
+#include <ento-state-est/attitude-est/attitude_estimation_problem.h>
+#include <ento-state-est/attitude-est/attitude_measurement.h>
+
+// Q-format generator with all filter aliases
+#include <ento-state-est/attitude-est-exp/kernels/qformat_generator.h>
+
+// Utilities
+#include <ento-util/debug.h>
+
+// Use the necessary namespaces (same as working version)
+using namespace EntoAttitude;
+using namespace EntoAttitudeExp;
+
+namespace EntoAttitudeExp {
+
+std::string get_dataset_path(const std::string& dataset_type, const std::string& mode) {
+    std::string base_path = "../datasets/state-est/";
+    
+    if (dataset_type == "icm") {
+        if (mode == "IMU") {
+            return base_path + "tuned_icm42688_1khz_imu_dataset.txt";
+        } else {
+            return base_path + "tuned_icm42688_1khz_marg_dataset.txt";
+        }
+    } else if (dataset_type == "steering") {
+        if (mode == "IMU") {
+            return base_path + "attitude/gamma-bot-imu-data-iiswc25_-_1637steering_L0R182__1k_800hz__sensor1_imu_dataset.txt";
+        } else {
+            return base_path + "attitude/gamma-bot-imu-data-iiswc25_-_1637steering_L0R182__1k_800hz__sensor1_marg_dataset.txt";
+        }
+    } else if (dataset_type == "straight") {
+        if (mode == "IMU") {
+            return base_path + "attitude/gamma-bot-imu-data-iiswc25_-_1647straig_L182R127__1k_800hz__sensor1_imu_dataset.txt";
+        } else {
+            return base_path + "attitude/gamma-bot-imu-data-iiswc25_-_1647straig_L182R127__1k_800hz__sensor1_marg_dataset.txt";
+        }
+    } else {
+        throw std::runtime_error("Unknown dataset type: " + dataset_type + ". Valid options: icm, steering, straight");
+    }
+}
+
+//------------------------------------------------------------------------------
+// Multi-kernel test runner structure
+//------------------------------------------------------------------------------
+struct MultiKernelTestResult {
+    std::string kernel_name;
+    std::string format_name;
+    std::string mode;  // "IMU" or "MARG"
+    int integer_bits;
+    int fractional_bits;
+    int total_bits;
+    bool is_float;
+    std::string underlying_type;
+    size_t total_samples;
+    size_t failures;
+    double failure_rate;
+    size_t overflow_count;
+    size_t bad_norm_count;
+    size_t near_zero_div_count;
+    size_t excessive_err_count;
+    double runtime_ms;
+    bool test_succeeded;
+    std::string error_message;
+};
+
+//------------------------------------------------------------------------------
+// Madgwick kernel test runner (simplified to match working version)
+//------------------------------------------------------------------------------
+template<typename FilterType, typename Scalar>
+MultiKernelTestResult test_madgwick_kernel(const std::string& kernel_name, 
+                                         const QFormatSpec& spec,
+                                         const std::string& dataset_path) {
+    
+    MultiKernelTestResult result;
+    result.kernel_name = kernel_name;
+    result.format_name = spec.name();
+    result.integer_bits = spec.integer_bits;
+    result.fractional_bits = spec.fractional_bits;
+    result.total_bits = spec.total_bits;
+    result.is_float = spec.is_float;
+    result.underlying_type = spec.underlying_type;
+    result.test_succeeded = true;
+    result.mode = spec.mode;
+    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    try {
+        // Create the checked kernel and problem (same as working version)
+        FilterType kernel;
+        FailureFlags failure_flags;
+        kernel.setFailureFlags(&failure_flags);
+
+        // Create problem using generic constructor with GAIN parameter for Madgwick
+        AttitudeProblem<Scalar, FilterType, FilterType::UseMag_> problem(kernel, Scalar(0.001));
+        
+        // Open dataset file (same as working version)
+        std::ifstream input_file(dataset_path);
+        if (!input_file.is_open()) {
+            result.test_succeeded = false;
+            result.error_message = "Failed to open dataset file";
+            return result;
+        }
+        
+        FailureStats stats;
+        std::string line;
+        size_t line_count = 0;
+        
+        // Skip header line if present (same as working version)
+        if (std::getline(input_file, line) && line.find("Attitude Estimation Problem") != std::string::npos) {
+            // Header found, continue
+        } else {
+            // No header, rewind to beginning
+            input_file.clear();
+            input_file.seekg(0);
+        }
+        
+        // Process each sample (BACK TO WORKING VERSION)
+        while (std::getline(input_file, line) && !line.empty()) {
+            line_count++;
+            
+            // Deserialize the line (same as working version)
+            if (!problem.deserialize_impl(line.c_str())) {
+                continue; // Skip invalid lines
+            }
+            
+            // Run the filter (same as working version) - solve_impl() calls the filter!
+            problem.solve_impl();
+            
+            // Record failure statistics (same as working version)
+            stats.add_failure(failure_flags);
+        }
+        
+        input_file.close();
+        
+        // Record results
+        result.total_samples = line_count;
+        result.failures = stats.any_failure_count;
+        result.failure_rate = (line_count > 0) ? (100.0 * stats.any_failure_count / line_count) : 0.0;
+        result.overflow_count = stats.overflow_count;
+        result.bad_norm_count = stats.bad_norm_count;
+        result.near_zero_div_count = stats.near_zero_div_count;
+        result.excessive_err_count = stats.excessive_err_count;
+        
+    } catch (const std::exception& e) {
+        result.test_succeeded = false;
+        result.error_message = std::string("Exception: ") + e.what();
+        result.failure_rate = 100.0;  // Mark as failed
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    result.runtime_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    
+    return result;
+}
+
+//------------------------------------------------------------------------------
+// Mahoney kernel test runner (different interface than Madgwick)
+//------------------------------------------------------------------------------
+template<typename FilterType, typename Scalar>
+MultiKernelTestResult test_mahoney_kernel(const std::string& kernel_name, 
+                                         const QFormatSpec& spec,
+                                         const std::string& dataset_path) {
+    MultiKernelTestResult result;
+    result.kernel_name = kernel_name;
+    result.format_name = spec.name();
+    result.mode = spec.mode;
+    result.integer_bits = spec.integer_bits;
+    result.fractional_bits = spec.fractional_bits;
+    result.total_bits = spec.total_bits;
+    result.is_float = spec.is_float;
+    result.underlying_type = spec.underlying_type;
+    result.test_succeeded = true;
+    
+    // DEBUG: Add debug prints for Q2.14, Q3.13, Q4.12 to compare
+    bool debug_this_format = (spec.integer_bits == 2 && spec.fractional_bits == 14) ||
+                            (spec.integer_bits == 3 && spec.fractional_bits == 13) ||
+                            (spec.integer_bits == 4 && spec.fractional_bits == 12);
+    if (debug_this_format) {
+        printf("DEBUG MAHONEY %s: Starting test for format %s (Range: ±%d, Precision: 2^-%d = %.6f)\n", 
+               spec.name().c_str(), spec.name().c_str(), 
+               1 << (spec.integer_bits - 1), spec.fractional_bits,
+               1.0 / (1 << spec.fractional_bits));
+    }
+    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    try {
+        // Create the checked kernel and problem (EXACT SAME AS MADGWICK)
+        FilterType kernel;
+        FailureFlags failure_flags;
+        kernel.setFailureFlags(&failure_flags);
+        
+        // Create problem using Mahoney constructor with kp, ki parameters
+        AttitudeProblem<Scalar, FilterType, FilterType::UseMag_> problem(kernel, Scalar(0.1), Scalar(0.01));
+        
+        // Open dataset file (same as working version)
+        std::ifstream input_file(dataset_path);
+        if (!input_file.is_open()) {
+            result.test_succeeded = false;
+            result.error_message = "Failed to open dataset file";
+            return result;
+        }
+        
+        FailureStats stats;
+        std::string line;
+        size_t line_count = 0;
+        
+        // Skip header line if present (same as working version)
+        if (std::getline(input_file, line) && line.find("Attitude Estimation Problem") != std::string::npos) {
+            // Header found, continue
+        } else {
+            // No header, rewind to beginning
+            input_file.clear();
+            input_file.seekg(0);
+        }
+        
+        // Process each sample (EXACT SAME AS MADGWICK)
+        while (std::getline(input_file, line) && !line.empty()) {
+            line_count++;
+            
+            // Deserialize the line (same as working version)
+            if (!problem.deserialize_impl(line.c_str())) {
+                continue; // Skip invalid lines
+            }
+            
+            // Run the filter (same as working version) - solve_impl() calls the filter!
+            problem.solve_impl();
+            
+            // Record failure statistics (same as working version)
+            stats.add_failure(failure_flags);
+        }
+        
+        input_file.close();
+        
+        // Record results (same as Madgwick version)
+        result.total_samples = line_count;
+        result.failures = stats.any_failure_count;
+        result.failure_rate = (line_count > 0) ? (100.0 * stats.any_failure_count / line_count) : 0.0;
+        result.overflow_count = stats.overflow_count;
+        result.bad_norm_count = stats.bad_norm_count;
+        result.near_zero_div_count = stats.near_zero_div_count;
+        result.excessive_err_count = stats.excessive_err_count;
+        
+    } catch (const std::exception& e) {
+        result.test_succeeded = false;
+        result.error_message = std::string("Exception: ") + e.what();
+        result.failure_rate = 100.0;  // Mark as failed
+        if (debug_this_format) {
+            printf("DEBUG MAHONEY Q3.13: Exception caught: %s\n", e.what());
+        }
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    result.runtime_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    
+    return result;
+}
+
+//------------------------------------------------------------------------------
+// Fourati kernel test runner (different interface than Madgwick)
+//------------------------------------------------------------------------------
+template<typename FilterType, typename Scalar>
+MultiKernelTestResult test_fourati_kernel(const std::string& kernel_name, 
+                                         const QFormatSpec& spec,
+                                         const std::string& dataset_path) {
+    MultiKernelTestResult result;
+    result.kernel_name = kernel_name;
+    result.format_name = spec.name();
+    result.mode = spec.mode;
+    assert(spec.mode == "MARG");
+    result.integer_bits = spec.integer_bits;
+    result.fractional_bits = spec.fractional_bits;
+    result.total_bits = spec.total_bits;
+    result.is_float = spec.is_float;
+    result.underlying_type = spec.underlying_type;
+    result.test_succeeded = true;
+    
+    // DEBUG: Add debug prints for Q2.14, Q3.13, Q4.12 to compare
+    bool debug_this_format = (spec.integer_bits == 2 && spec.fractional_bits == 14) ||
+                            (spec.integer_bits == 3 && spec.fractional_bits == 13) ||
+                            (spec.integer_bits == 4 && spec.fractional_bits == 12);
+    if (debug_this_format) {
+        printf("DEBUG MAHONEY %s: Starting test for format %s (Range: ±%d, Precision: 2^-%d = %.6f)\n", 
+               spec.name().c_str(), spec.name().c_str(), 
+               1 << (spec.integer_bits - 1), spec.fractional_bits,
+               1.0 / (1 << spec.fractional_bits));
+    }
+    
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    try {
+        // Create the checked kernel and problem (EXACT SAME AS MADGWICK)
+        FilterType kernel;
+        FailureFlags failure_flags;
+        kernel.setFailureFlags(&failure_flags);
+        
+        // Create problem using Mahoney constructor with kp, ki parameters
+        AttitudeProblem<Scalar, FilterType, true> problem(kernel, Scalar(0.1));
+        
+        // Open dataset file (same as working version)
+        std::ifstream input_file(dataset_path);
+        if (!input_file.is_open()) {
+            result.test_succeeded = false;
+            result.error_message = "Failed to open dataset file";
+            return result;
+        }
+        
+        FailureStats stats;
+        std::string line;
+        size_t line_count = 0;
+        
+        // Skip header line if present (same as working version)
+        if (std::getline(input_file, line) && line.find("Attitude Estimation Problem") != std::string::npos) {
+            // Header found, continue
+        } else {
+            // No header, rewind to beginning
+            input_file.clear();
+            input_file.seekg(0);
+        }
+        
+        // Process each sample (EXACT SAME AS MADGWICK)
+        while (std::getline(input_file, line) && !line.empty()) {
+            line_count++;
+            
+            // Deserialize the line (same as working version)
+            if (!problem.deserialize_impl(line.c_str())) {
+                continue; // Skip invalid lines
+            }
+            
+            // Run the filter (same as working version) - solve_impl() calls the filter!
+            problem.solve_impl();
+            
+            // Record failure statistics (same as working version)
+            stats.add_failure(failure_flags);
+        }
+        
+        input_file.close();
+        
+        // Record results (same as Madgwick version)
+        result.total_samples = line_count;
+        result.failures = stats.any_failure_count;
+        result.failure_rate = (line_count > 0) ? (100.0 * stats.any_failure_count / line_count) : 0.0;
+        result.overflow_count = stats.overflow_count;
+        result.bad_norm_count = stats.bad_norm_count;
+        result.near_zero_div_count = stats.near_zero_div_count;
+        result.excessive_err_count = stats.excessive_err_count;
+        
+    } catch (const std::exception& e) {
+        result.test_succeeded = false;
+        result.error_message = std::string("Exception: ") + e.what();
+        result.failure_rate = 100.0;  // Mark as failed
+        if (debug_this_format) {
+            printf("DEBUG MAHONEY Q3.13: Exception caught: %s\n", e.what());
+        }
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    result.runtime_ms = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    
+    return result;
+}
+
+//------------------------------------------------------------------------------
+// Main testing function (simplified dataset loading)
+//------------------------------------------------------------------------------
+std::vector<MultiKernelTestResult> run_multi_kernel_sweep(const std::string& dataset_type) {
+    std::cout << "Using dataset type: " << dataset_type << std::endl;
+    
+    // Test that we can read both IMU and MARG dataset files
+    std::string imu_path = get_dataset_path(dataset_type, "IMU");
+    std::string marg_path = get_dataset_path(dataset_type, "MARG");
+    
+    std::cout << "IMU dataset: " << imu_path << std::endl;
+    std::cout << "MARG dataset: " << marg_path << std::endl;
+    
+    std::ifstream test_imu(imu_path);
+    std::ifstream test_marg(marg_path);
+    if (!test_imu.is_open()) {
+        std::cerr << "Failed to open IMU dataset file: " << imu_path << std::endl;
+        return {};
+    }
+    if (!test_marg.is_open()) {
+        std::cerr << "Failed to open MARG dataset file: " << marg_path << std::endl;
+        return {};
+    }
+    test_imu.close();
+    test_marg.close();
+    
+    std::vector<MultiKernelTestResult> results;
+    
+    // Define all Q-format specifications
+    std::vector<QFormatSpec> format_specs = {
+        // Floating-point formats
+        {32, 0, 32, true, "float", "IMU"},
+        {32, 0, 32, true, "float", "MARG"},
+        {64, 0, 64, true, "double", "IMU"},
+        {64, 0, 64, true, "double", "MARG"},
+        
+        // 16-bit Q-formats: Q1.15 through Q15.1 (IMU)
+        {1, 15, 16, false, "int16_t", "IMU"}, {2, 14, 16, false, "int16_t", "IMU"}, {3, 13, 16, false, "int16_t", "IMU"},
+        {4, 12, 16, false, "int16_t", "IMU"}, {5, 11, 16, false, "int16_t", "IMU"}, {6, 10, 16, false, "int16_t", "IMU"},
+        {7, 9, 16, false, "int16_t", "IMU"}, {8, 8, 16, false, "int16_t", "IMU"}, {9, 7, 16, false, "int16_t", "IMU"},
+        {10, 6, 16, false, "int16_t", "IMU"}, {11, 5, 16, false, "int16_t", "IMU"}, {12, 4, 16, false, "int16_t", "IMU"},
+        {13, 3, 16, false, "int16_t", "IMU"}, {14, 2, 16, false, "int16_t", "IMU"}, {15, 1, 16, false, "int16_t", "IMU"},
+
+        // 16-bit Q-formats: Q1.15 through Q15.1 (MARG)
+        {1, 15, 16, false, "int16_t", "MARG"}, {2, 14, 16, false, "int16_t", "MARG"}, {3, 13, 16, false, "int16_t", "MARG"},
+        {4, 12, 16, false, "int16_t", "MARG"}, {5, 11, 16, false, "int16_t", "MARG"}, {6, 10, 16, false, "int16_t", "MARG"},
+        {7, 9, 16, false, "int16_t", "MARG"}, {8, 8, 16, false, "int16_t", "MARG"}, {9, 7, 16, false, "int16_t", "MARG"},
+        {10, 6, 16, false, "int16_t", "MARG"}, {11, 5, 16, false, "int16_t", "MARG"}, {12, 4, 16, false, "int16_t", "MARG"},
+        {13, 3, 16, false, "int16_t", "MARG"}, {14, 2, 16, false, "int16_t", "MARG"}, {15, 1, 16, false, "int16_t", "MARG"},
+        
+        // 32-bit Q-formats: Q1.31 through Q31.1 (IMU)
+        {1, 31, 32, false, "int32_t", "IMU"}, {2, 30, 32, false, "int32_t", "IMU"}, {3, 29, 32, false, "int32_t", "IMU"},
+        {4, 28, 32, false, "int32_t", "IMU"}, {5, 27, 32, false, "int32_t", "IMU"}, {6, 26, 32, false, "int32_t", "IMU"},
+        {7, 25, 32, false, "int32_t", "IMU"}, {8, 24, 32, false, "int32_t", "IMU"}, {9, 23, 32, false, "int32_t", "IMU"},
+        {10, 22, 32, false, "int32_t", "IMU"}, {11, 21, 32, false, "int32_t", "IMU"}, {12, 20, 32, false, "int32_t", "IMU"},
+        {13, 19, 32, false, "int32_t", "IMU"}, {14, 18, 32, false, "int32_t", "IMU"}, {15, 17, 32, false, "int32_t", "IMU"},
+        {16, 16, 32, false, "int32_t", "IMU"}, {17, 15, 32, false, "int32_t", "IMU"}, {18, 14, 32, false, "int32_t", "IMU"},
+        {19, 13, 32, false, "int32_t", "IMU"}, {20, 12, 32, false, "int32_t", "IMU"}, {21, 11, 32, false, "int32_t", "IMU"},
+        {22, 10, 32, false, "int32_t", "IMU"}, {23, 9, 32, false, "int32_t", "IMU"}, {24, 8, 32, false, "int32_t", "IMU"},
+        {25, 7, 32, false, "int32_t", "IMU"}, {26, 6, 32, false, "int32_t", "IMU"}, {27, 5, 32, false, "int32_t", "IMU"},
+        {28, 4, 32, false, "int32_t", "IMU"}, {29, 3, 32, false, "int32_t", "IMU"}, {30, 2, 32, false, "int32_t", "IMU"},
+        {31, 1, 32, false, "int32_t", "IMU"},
+
+        // 32-bit Q-formats: Q1.31 through Q31.1 (MARG)
+        {1, 31, 32, false, "int32_t", "MARG"}, {2, 30, 32, false, "int32_t", "MARG"}, {3, 29, 32, false, "int32_t", "MARG"},
+        {4, 28, 32, false, "int32_t", "MARG"}, {5, 27, 32, false, "int32_t", "MARG"}, {6, 26, 32, false, "int32_t", "MARG"},
+        {7, 25, 32, false, "int32_t", "MARG"}, {8, 24, 32, false, "int32_t", "MARG"}, {9, 23, 32, false, "int32_t", "MARG"},
+        {10, 22, 32, false, "int32_t", "MARG"}, {11, 21, 32, false, "int32_t", "MARG"}, {12, 20, 32, false, "int32_t", "MARG"},
+        {13, 19, 32, false, "int32_t", "MARG"}, {14, 18, 32, false, "int32_t", "MARG"}, {15, 17, 32, false, "int32_t", "MARG"},
+        {16, 16, 32, false, "int32_t", "MARG"}, {17, 15, 32, false, "int32_t", "MARG"}, {18, 14, 32, false, "int32_t", "MARG"},
+        {19, 13, 32, false, "int32_t", "MARG"}, {20, 12, 32, false, "int32_t", "MARG"}, {21, 11, 32, false, "int32_t", "MARG"},
+        {22, 10, 32, false, "int32_t", "MARG"}, {23, 9, 32, false, "int32_t", "MARG"}, {24, 8, 32, false, "int32_t", "MARG"},
+        {25, 7, 32, false, "int32_t", "MARG"}, {26, 6, 32, false, "int32_t", "MARG"}, {27, 5, 32, false, "int32_t", "MARG"},
+        {28, 4, 32, false, "int32_t", "MARG"}, {29, 3, 32, false, "int32_t", "MARG"}, {30, 2, 32, false, "int32_t", "MARG"},
+        {31, 1, 32, false, "int32_t", "MARG"},
+    };
+    
+    std::cout << "\nTesting " << format_specs.size() << " formats across 3 kernels (Madgwick, Mahoney, Fourati)..." << std::endl;
+    std::cout << "Total test combinations: " << (format_specs.size() * 3) << std::endl << std::endl;
+    
+    // Test each format with each kernel
+    for (const auto& spec : format_specs) {
+        std::cout << "Testing format: " << spec.name() << " (" << spec.full_name() << ")" << std::endl;
+        std::string dataset_path = get_dataset_path(dataset_type, spec.mode);
+        try {
+            //==================================================================
+            // MADGWICK KERNEL TESTS - All 48 formats
+            //==================================================================
+            if (spec.is_float && spec.total_bits == 32) {
+                if (spec.mode.compare("IMU")==0) {
+                    auto result = test_madgwick_kernel<FilterMadgwickFloatChecked<false>, float>("Madgwick", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Madgwick Float: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+                }
+                else
+                {
+                    auto result = test_madgwick_kernel<FilterMadgwickFloatChecked<true>, float>("Madgwick", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Madgwick Float: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+                }
+            } else if (spec.is_float && spec.total_bits == 64) {
+                if (spec.mode.compare("IMU")==0) {
+                    auto result = test_madgwick_kernel<FilterMadgwickDoubleChecked<false>, double>("Madgwick", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Madgwick Double: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+                }
+                else
+                {
+                    auto result = test_madgwick_kernel<FilterMadgwickDoubleChecked<true>, double>("Madgwick", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Madgwick Double: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+                }
+            } else {
+                // Fixed-point formats - dispatch based on exact format
+                if (spec.integer_bits == 1 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ1_15<false>, FixedPoint<1,15,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ1_15<true>, FixedPoint<1,15,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 2 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ2_14<false>, FixedPoint<2,14,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ2_14<true>, FixedPoint<2,14,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 3 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ3_13<false>, FixedPoint<3,13,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ3_13<true>, FixedPoint<3,13,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 4 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ4_12<false>, FixedPoint<4,12,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ4_12<true>, FixedPoint<4,12,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 5 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ5_11<false>, FixedPoint<5,11,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ5_11<true>, FixedPoint<5,11,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 6 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ6_10<false>, FixedPoint<6,10,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ6_10<true>, FixedPoint<6,10,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 7 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ7_9<false>, FixedPoint<7,9,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ7_9<true>, FixedPoint<7,9,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 8 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ8_8<false>, FixedPoint<8,8,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ8_8<true>, FixedPoint<8,8,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 9 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ9_7<false>, FixedPoint<9,7,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ9_7<true>, FixedPoint<9,7,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 10 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ10_6<false>, FixedPoint<10,6,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ10_6<true>, FixedPoint<10,6,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 11 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ11_5<false>, FixedPoint<11,5,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ11_5<true>, FixedPoint<11,5,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 12 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ12_4<false>, FixedPoint<12,4,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ12_4<true>, FixedPoint<12,4,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 13 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ13_3<false>, FixedPoint<13,3,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ13_3<true>, FixedPoint<13,3,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 14 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ14_2<false>, FixedPoint<14,2,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ14_2<true>, FixedPoint<14,2,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 15 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ15_1<false>, FixedPoint<15,1,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ15_1<true>, FixedPoint<15,1,int16_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                }
+                // 32-bit Q-formats for Madgwick
+                else if (spec.integer_bits == 1 && spec.fractional_bits == 31) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ1_31<false>, FixedPoint<1,31,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ1_31<true>, FixedPoint<1,31,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 2 && spec.fractional_bits == 30) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ2_30<false>, FixedPoint<2,30,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ2_30<true>, FixedPoint<2,30,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 3 && spec.fractional_bits == 29) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ3_29<false>, FixedPoint<3,29,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ3_29<true>, FixedPoint<3,29,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 4 && spec.fractional_bits == 28) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ4_28<false>, FixedPoint<4,28,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ4_28<true>, FixedPoint<4,28,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 5 && spec.fractional_bits == 27) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ5_27<false>, FixedPoint<5,27,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ5_27<true>, FixedPoint<5,27,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 6 && spec.fractional_bits == 26) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ6_26<false>, FixedPoint<6,26,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ6_26<true>, FixedPoint<6,26,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 7 && spec.fractional_bits == 25) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ7_25<false>, FixedPoint<7,25,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ7_25<true>, FixedPoint<7,25,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 8 && spec.fractional_bits == 24) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ8_24<false>, FixedPoint<8,24,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ8_24<true>, FixedPoint<8,24,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 9 && spec.fractional_bits == 23) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ9_23<false>, FixedPoint<9,23,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ9_23<true>, FixedPoint<9,23,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 10 && spec.fractional_bits == 22) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ10_22<false>, FixedPoint<10,22,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ10_22<true>, FixedPoint<10,22,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 11 && spec.fractional_bits == 21) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ11_21<false>, FixedPoint<11,21,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ11_21<true>, FixedPoint<11,21,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 12 && spec.fractional_bits == 20) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ12_20<false>, FixedPoint<12,20,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ12_20<true>, FixedPoint<12,20,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 13 && spec.fractional_bits == 19) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ13_19<false>, FixedPoint<13,19,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ13_19<true>, FixedPoint<13,19,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 14 && spec.fractional_bits == 18) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ14_18<false>, FixedPoint<14,18,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ14_18<true>, FixedPoint<14,18,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 15 && spec.fractional_bits == 17) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ15_17<false>, FixedPoint<15,17,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ15_17<true>, FixedPoint<15,17,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 16 && spec.fractional_bits == 16) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ16_16<false>, FixedPoint<16,16,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ16_16<true>, FixedPoint<16,16,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 17 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ17_15<false>, FixedPoint<17,15,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ17_15<true>, FixedPoint<17,15,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 18 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ18_14<false>, FixedPoint<18,14,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ18_14<true>, FixedPoint<18,14,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 19 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ19_13<false>, FixedPoint<19,13,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ19_13<true>, FixedPoint<19,13,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 20 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ20_12<false>, FixedPoint<20,12,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ20_12<true>, FixedPoint<20,12,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 21 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ21_11<false>, FixedPoint<21,11,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ21_11<true>, FixedPoint<21,11,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 22 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ22_10<false>, FixedPoint<22,10,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ22_10<true>, FixedPoint<22,10,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 23 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ23_9<false>, FixedPoint<23,9,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ23_9<true>, FixedPoint<23,9,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 24 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ24_8<false>, FixedPoint<24,8,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ24_8<true>, FixedPoint<24,8,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 25 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ25_7<false>, FixedPoint<25,7,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ25_7<true>, FixedPoint<25,7,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 26 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ26_6<false>, FixedPoint<26,6,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ26_6<true>, FixedPoint<26,6,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 27 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ27_5<false>, FixedPoint<27,5,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ27_5<true>, FixedPoint<27,5,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 28 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ28_4<false>, FixedPoint<28,4,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ28_4<true>, FixedPoint<28,4,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 29 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ29_3<false>, FixedPoint<29,3,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ29_3<true>, FixedPoint<29,3,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 30 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ30_2<false>, FixedPoint<30,2,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ30_2<true>, FixedPoint<30,2,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 31 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_madgwick_kernel<FilterQ31_1<false>, FixedPoint<31,1,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_madgwick_kernel<FilterQ31_1<true>, FixedPoint<31,1,int32_t>>("Madgwick", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                }
+                std::cout << "  Madgwick (" << spec.mode << ") " << spec.name() << ": " << std::fixed << std::setprecision(3) << results.back().failure_rate << "% failure rate" << std::endl;
+            }
+            
+            //==================================================================
+            // MAHONEY KERNEL TESTS - All 48 formats (comprehensive sweep)
+            //==================================================================
+            
+            // Float and Double (perfect baselines)
+            if (spec.is_float && spec.total_bits == 32) {
+                if (spec.mode.compare("IMU")==0) {
+                    auto result = test_mahoney_kernel<FilterMahoneyFloat<false>, float>("Mahoney", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Mahoney Float: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                } else {
+                    auto result = test_mahoney_kernel<FilterMahoneyFloat<true>, float>("Mahoney", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Mahoney Float: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                }
+            }
+            if (spec.is_float && spec.total_bits == 64) {
+                if (spec.mode.compare("IMU")==0) {
+                    auto result = test_mahoney_kernel<FilterMahoneyDouble<false>, double>("Mahoney", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Mahoney Double: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                } else {
+                    auto result = test_mahoney_kernel<FilterMahoneyDouble<true>, double>("Mahoney", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Mahoney Double: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                }
+            }
+            
+            // ALL 16-bit Q-formats (15 combinations: Q1.15 through Q15.1)
+            if (!spec.is_float && spec.total_bits == 16) {
+                if (spec.integer_bits == 1 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ1_15<false>, FixedPoint<1,15,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q1.15: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ1_15<true>, FixedPoint<1,15,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q1.15: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 2 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ2_14<false>, FixedPoint<2,14,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q2.14: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ2_14<true>, FixedPoint<2,14,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q2.14: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 3 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ3_13<false>, FixedPoint<3,13,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q3.13: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ3_13<true>, FixedPoint<3,13,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q3.13: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 4 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ4_12<false>, FixedPoint<4,12,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q4.12: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ4_12<true>, FixedPoint<4,12,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q4.12: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 5 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ5_11<false>, FixedPoint<5,11,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q5.11: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ5_11<true>, FixedPoint<5,11,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q5.11: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 6 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ6_10<false>, FixedPoint<6,10,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q6.10: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ6_10<true>, FixedPoint<6,10,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q6.10: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 7 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ7_9<false>, FixedPoint<7,9,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q7.9: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ7_9<true>, FixedPoint<7,9,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q7.9: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 8 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ8_8<false>, FixedPoint<8,8,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q8.8: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ8_8<true>, FixedPoint<8,8,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q8.8: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 9 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ9_7<false>, FixedPoint<9,7,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q9.7: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ9_7<true>, FixedPoint<9,7,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q9.7: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 10 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ10_6<false>, FixedPoint<10,6,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q10.6: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ10_6<true>, FixedPoint<10,6,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q10.6: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 11 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ11_5<false>, FixedPoint<11,5,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q11.5: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ11_5<true>, FixedPoint<11,5,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q11.5: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 12 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ12_4<false>, FixedPoint<12,4,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q12.4: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ12_4<true>, FixedPoint<12,4,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q12.4: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 13 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ13_3<false>, FixedPoint<13,3,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q13.3: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ13_3<true>, FixedPoint<13,3,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q13.3: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 14 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ14_2<false>, FixedPoint<14,2,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q14.2: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ14_2<true>, FixedPoint<14,2,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q14.2: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 15 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ15_1<false>, FixedPoint<15,1,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q15.1: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ15_1<true>, FixedPoint<15,1,int16_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q15.1: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+            }
+            
+            // ALL 32-bit Q-formats (31 combinations: Q1.31 through Q31.1)
+            if (!spec.is_float && spec.total_bits == 32) {
+                if (spec.integer_bits == 1 && spec.fractional_bits == 31) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ1_31<false>, FixedPoint<1,31,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q1.31: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ1_31<true>, FixedPoint<1,31,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q1.31: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 2 && spec.fractional_bits == 30) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ2_30<false>, FixedPoint<2,30,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q2.30: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ2_30<true>, FixedPoint<2,30,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q2.30: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 3 && spec.fractional_bits == 29) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ3_29<false>, FixedPoint<3,29,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q3.29: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ3_29<true>, FixedPoint<3,29,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q3.29: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 4 && spec.fractional_bits == 28) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ4_28<false>, FixedPoint<4,28,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q4.28: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ4_28<true>, FixedPoint<4,28,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q4.28: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 5 && spec.fractional_bits == 27) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ5_27<false>, FixedPoint<5,27,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q5.27: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ5_27<true>, FixedPoint<5,27,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q5.27: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 6 && spec.fractional_bits == 26) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ6_26<false>, FixedPoint<6,26,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q6.26: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ6_26<true>, FixedPoint<6,26,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q6.26: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 7 && spec.fractional_bits == 25) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ7_25<false>, FixedPoint<7,25,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q7.25: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ7_25<true>, FixedPoint<7,25,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q7.25: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 8 && spec.fractional_bits == 24) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ8_24<false>, FixedPoint<8,24,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q8.24: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ8_24<true>, FixedPoint<8,24,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q8.24: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 9 && spec.fractional_bits == 23) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ9_23<false>, FixedPoint<9,23,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q9.23: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ9_23<true>, FixedPoint<9,23,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q9.23: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 10 && spec.fractional_bits == 22) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ10_22<false>, FixedPoint<10,22,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q10.22: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ10_22<true>, FixedPoint<10,22,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q10.22: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 11 && spec.fractional_bits == 21) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ11_21<false>, FixedPoint<11,21,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q11.21: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ11_21<true>, FixedPoint<11,21,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q11.21: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 12 && spec.fractional_bits == 20) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ12_20<false>, FixedPoint<12,20,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q12.20: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ12_20<true>, FixedPoint<12,20,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q12.20: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 13 && spec.fractional_bits == 19) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ13_19<false>, FixedPoint<13,19,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q13.19: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ13_19<true>, FixedPoint<13,19,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q13.19: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 14 && spec.fractional_bits == 18) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ14_18<false>, FixedPoint<14,18,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q14.18: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ14_18<true>, FixedPoint<14,18,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q14.18: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 15 && spec.fractional_bits == 17) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ15_17<false>, FixedPoint<15,17,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q15.17: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ15_17<true>, FixedPoint<15,17,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q15.17: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 16 && spec.fractional_bits == 16) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ16_16<false>, FixedPoint<16,16,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q16.16: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ16_16<true>, FixedPoint<16,16,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q16.16: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 17 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ17_15<false>, FixedPoint<17,15,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q17.15: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ17_15<true>, FixedPoint<17,15,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q17.15: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 18 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ18_14<false>, FixedPoint<18,14,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q18.14: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ18_14<true>, FixedPoint<18,14,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q18.14: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 19 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ19_13<false>, FixedPoint<19,13,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q19.13: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ19_13<true>, FixedPoint<19,13,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q19.13: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 20 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ20_12<false>, FixedPoint<20,12,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q20.12: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ20_12<true>, FixedPoint<20,12,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q20.12: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 21 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ21_11<false>, FixedPoint<21,11,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q21.11: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ21_11<true>, FixedPoint<21,11,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q21.11: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 22 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ22_10<false>, FixedPoint<22,10,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q22.10: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ22_10<true>, FixedPoint<22,10,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q22.10: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 23 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ23_9<false>, FixedPoint<23,9,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q23.9: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ23_9<true>, FixedPoint<23,9,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q23.9: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 24 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ24_8<false>, FixedPoint<24,8,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q24.8: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ24_8<true>, FixedPoint<24,8,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q24.8: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 25 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ25_7<false>, FixedPoint<25,7,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q25.7: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ25_7<true>, FixedPoint<25,7,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q25.7: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 26 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ26_6<false>, FixedPoint<26,6,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q26.6: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ26_6<true>, FixedPoint<26,6,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q26.6: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 27 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ27_5<false>, FixedPoint<27,5,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q27.5: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ27_5<true>, FixedPoint<27,5,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q27.5: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 28 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ28_4<false>, FixedPoint<28,4,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q28.4: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ28_4<true>, FixedPoint<28,4,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q28.4: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 29 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ29_3<false>, FixedPoint<29,3,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q29.3: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ29_3<true>, FixedPoint<29,3,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q29.3: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 30 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ30_2<false>, FixedPoint<30,2,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q30.2: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ30_2<true>, FixedPoint<30,2,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q30.2: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+                if (spec.integer_bits == 31 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ31_1<false>, FixedPoint<31,1,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q31.1: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    } else {
+                        auto result = test_mahoney_kernel<FilterMahoneyQ31_1<true>, FixedPoint<31,1,int32_t>>("Mahoney", spec, dataset_path);
+                        results.push_back(result);
+                        std::cout << "  Mahoney (" << spec.mode << ") Q31.1: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failures" << std::endl;
+                    }
+                }
+            }
+
+            //==================================================================
+            // FOURATI KERNEL TESTS - All 48 formats (comprehensive sweep)
+            //==================================================================
+
+            if (spec.mode.compare("IMU")!=0) {
+            if (spec.is_float && spec.total_bits == 32) {
+                    auto result = test_fourati_kernel<FilterFouratiChecked<float>, float>("Fourati", spec, dataset_path);
+                    results.push_back(result);
+                    std::cout << "  Fourati Float: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+            } else if (spec.is_float && spec.total_bits == 64) {
+                auto result = test_fourati_kernel<FilterFouratiChecked<double>, double>("Fourati", spec, dataset_path);
+                results.push_back(result);
+                std::cout << "  Fourati Double: " << std::fixed << std::setprecision(3) << result.failure_rate << "% failure rate" << std::endl;
+            } else {
+                // Fixed-point formats - dispatch based on exact format
+                if (spec.integer_bits == 1 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ1_15, FixedPoint<1,15,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ1_15, FixedPoint<1,15,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 2 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ2_14, FixedPoint<2,14,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ2_14, FixedPoint<2,14,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 3 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ3_13, FixedPoint<3,13,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ3_13, FixedPoint<3,13,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 4 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ4_12, FixedPoint<4,12,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ4_12, FixedPoint<4,12,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 5 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ5_11, FixedPoint<5,11,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ5_11, FixedPoint<5,11,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 6 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ6_10, FixedPoint<6,10,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ6_10, FixedPoint<6,10,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 7 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ7_9, FixedPoint<7,9,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ7_9, FixedPoint<7,9,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 8 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ8_8, FixedPoint<8,8,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ8_8, FixedPoint<8,8,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 9 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ9_7, FixedPoint<9,7,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ9_7, FixedPoint<9,7,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 10 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ10_6, FixedPoint<10,6,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ10_6, FixedPoint<10,6,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 11 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ11_5, FixedPoint<11,5,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ11_5, FixedPoint<11,5,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 12 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ12_4, FixedPoint<12,4,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ12_4, FixedPoint<12,4,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 13 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ13_3, FixedPoint<13,3,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ13_3, FixedPoint<13,3,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 14 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ14_2, FixedPoint<14,2,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ14_2, FixedPoint<14,2,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 15 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ15_1, FixedPoint<15,1,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ15_1, FixedPoint<15,1,int16_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                }
+                // 32-bit Q-formats for Fourati
+                else if (spec.integer_bits == 1 && spec.fractional_bits == 31) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ1_31, FixedPoint<1,31,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ1_31, FixedPoint<1,31,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 2 && spec.fractional_bits == 30) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ2_30, FixedPoint<2,30,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ2_30, FixedPoint<2,30,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 3 && spec.fractional_bits == 29) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ3_29, FixedPoint<3,29,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ3_29, FixedPoint<3,29,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 4 && spec.fractional_bits == 28) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ4_28, FixedPoint<4,28,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ4_28, FixedPoint<4,28,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 5 && spec.fractional_bits == 27) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ5_27, FixedPoint<5,27,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ5_27, FixedPoint<5,27,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 6 && spec.fractional_bits == 26) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ6_26, FixedPoint<6,26,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ6_26, FixedPoint<6,26,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 7 && spec.fractional_bits == 25) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ7_25, FixedPoint<7,25,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ7_25, FixedPoint<7,25,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 8 && spec.fractional_bits == 24) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ8_24, FixedPoint<8,24,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ8_24, FixedPoint<8,24,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 9 && spec.fractional_bits == 23) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ9_23, FixedPoint<9,23,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ9_23, FixedPoint<9,23,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 10 && spec.fractional_bits == 22) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ10_22, FixedPoint<10,22,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ10_22, FixedPoint<10,22,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 11 && spec.fractional_bits == 21) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ11_21, FixedPoint<11,21,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ11_21, FixedPoint<11,21,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 12 && spec.fractional_bits == 20) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ12_20, FixedPoint<12,20,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ12_20, FixedPoint<12,20,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 13 && spec.fractional_bits == 19) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ13_19, FixedPoint<13,19,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ13_19, FixedPoint<13,19,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 14 && spec.fractional_bits == 18) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ14_18, FixedPoint<14,18,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ14_18, FixedPoint<14,18,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 15 && spec.fractional_bits == 17) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ15_17, FixedPoint<15,17,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ15_17, FixedPoint<15,17,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 16 && spec.fractional_bits == 16) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ16_16, FixedPoint<16,16,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ16_16, FixedPoint<16,16,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 17 && spec.fractional_bits == 15) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ17_15, FixedPoint<17,15,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ17_15, FixedPoint<17,15,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 18 && spec.fractional_bits == 14) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ18_14, FixedPoint<18,14,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ18_14, FixedPoint<18,14,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 19 && spec.fractional_bits == 13) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ19_13, FixedPoint<19,13,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ19_13, FixedPoint<19,13,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 20 && spec.fractional_bits == 12) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ20_12, FixedPoint<20,12,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ20_12, FixedPoint<20,12,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 21 && spec.fractional_bits == 11) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ21_11, FixedPoint<21,11,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ21_11, FixedPoint<21,11,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 22 && spec.fractional_bits == 10) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ22_10, FixedPoint<22,10,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ22_10, FixedPoint<22,10,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 23 && spec.fractional_bits == 9) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ23_9, FixedPoint<23,9,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ23_9, FixedPoint<23,9,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 24 && spec.fractional_bits == 8) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ24_8, FixedPoint<24,8,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ24_8, FixedPoint<24,8,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 25 && spec.fractional_bits == 7) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ25_7, FixedPoint<25,7,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ25_7, FixedPoint<25,7,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 26 && spec.fractional_bits == 6) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ26_6, FixedPoint<26,6,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ26_6, FixedPoint<26,6,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 27 && spec.fractional_bits == 5) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ27_5, FixedPoint<27,5,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ27_5, FixedPoint<27,5,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 28 && spec.fractional_bits == 4) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ28_4, FixedPoint<28,4,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ28_4, FixedPoint<28,4,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 29 && spec.fractional_bits == 3) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ29_3, FixedPoint<29,3,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ29_3, FixedPoint<29,3,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 30 && spec.fractional_bits == 2) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ30_2, FixedPoint<30,2,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ30_2, FixedPoint<30,2,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                } else if (spec.integer_bits == 31 && spec.fractional_bits == 1) {
+                    if (spec.mode.compare("IMU")==0) {
+                        auto result = test_fourati_kernel<FilterFouratiQ31_1, FixedPoint<31,1,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    } else {
+                        auto result = test_fourati_kernel<FilterFouratiQ31_1, FixedPoint<31,1,int32_t>>("Fourati", spec, dataset_path);
+                        results.push_back(result);
+                    }
+                }
+                std::cout << "  Fourati (" << spec.mode << ") " << spec.name() << ": " << std::fixed << std::setprecision(3) << results.back().failure_rate << "% failure rate" << std::endl;
+            }}
+        } catch (const std::exception& e) {
+            std::cerr << "Error testing format " << spec.name() << ": " << e.what() << std::endl;
+        }
+        
+        std::cout << std::endl; // Separate formats
+    }
+    
+    return results;
+}
+
+} // namespace EntoAttitudeExp
+
+
+//------------------------------------------------------------------------------
+// Main function
+//------------------------------------------------------------------------------
+int main(int argc, char* argv[]) 
+{
+    ENTO_INFO("Starting comprehensive Q-format sweep for attitude estimation...");
+    
+    // Parse command line arguments
+    std::string dataset_type = "icm"; // Default
+    
+    if (argc > 1) {
+        dataset_type = argv[1];
+    }
+    
+    // Validate dataset type
+    if (dataset_type != "icm" && dataset_type != "steering" && dataset_type != "straight") {
+        std::cerr << "Error: Invalid dataset type '" << dataset_type << "'" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [dataset_type]" << std::endl;
+        std::cerr << "Valid dataset types:" << std::endl;
+        std::cerr << "  icm       - ICM42688 tuned dataset (default)" << std::endl;
+        std::cerr << "  steering  - Gamma-bot steering maneuvers" << std::endl;
+        std::cerr << "  straight  - Gamma-bot straight flight" << std::endl;
+        return 1;
+    }
+    
+    ENTO_INFO("Dataset type: %s", dataset_type.c_str());
+    
+    auto results = EntoAttitudeExp::run_multi_kernel_sweep(dataset_type);
+    
+    if (results.empty()) {
+        ENTO_INFO("ERROR: No results generated!");
+        return 1;
+    }
+    
+    // Write results to CSV with dataset type in filename
+    std::string csv_filename = "multi_kernel_qformat_sweep_" + dataset_type + "_results.csv";
+    std::ofstream csv_file(csv_filename);
+    csv_file << "Kernel,Format,IntegerBits,FractionalBits,TotalBits,IsFloat,UnderlyingType,Mode,"
+             << "TotalSamples,Failures,FailureRate,RuntimeMs,TestSucceeded,"
+             << "OverflowCount,BadNormCount,NearZeroDivCount,ExcessiveErrCount,ErrorMessage\n";
+    
+    for (const auto& result : results) {
+        csv_file << result.kernel_name << ","
+                 << result.format_name << ","
+                 << result.integer_bits << ","
+                 << result.fractional_bits << ","
+                 << result.total_bits << ","
+                 << (result.is_float ? "true" : "false") << ","
+                 << result.underlying_type << ","
+                 << result.mode << ","
+                 << result.total_samples << ","
+                 << result.failures << ","
+                 << std::fixed << std::setprecision(3) << result.failure_rate << ","
+                 << std::fixed << std::setprecision(3) << result.runtime_ms << ","
+                 << (result.test_succeeded ? "true" : "false") << ","
+                 << result.overflow_count << ","
+                 << result.bad_norm_count << ","
+                 << result.near_zero_div_count << ","
+                 << result.excessive_err_count << ","
+                 << result.error_message << "\n";
+    }
+    csv_file.close();
+    
+    ENTO_INFO("Results written to %s", csv_filename.c_str());
+    ENTO_INFO("Comprehensive Q-format sweep completed successfully!");
+    return 0;
+}

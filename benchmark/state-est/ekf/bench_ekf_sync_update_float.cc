@@ -88,7 +88,7 @@ int main()
   
   problem.setInitialConditions(x0, P0);
 
-  printf("File path: %s\n", dataset_path);
+  // printf removed to avoid pulling in heavy printf implementation
 
   // Construct harness and run
   ENTO_BENCH_HARNESS_TYPE(Problem);

@@ -88,8 +88,6 @@ int main()
   
   problem.setInitialConditions(x0, P0);
 
-  printf("File path: %s\n", dataset_path);
-
   // Construct harness and run
   ENTO_BENCH_HARNESS_TYPE(Problem);
   BenchHarness harness(problem, "Bench EKF Truncated Update [float]",

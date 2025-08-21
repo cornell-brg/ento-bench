@@ -1,3 +1,1 @@
-add_subdirectory(benchmark-example)
-add_subdirectory(blas-comparison)
-add_subdirectory(benchmark-example-v2)
+add_subdirectory(ento-bench-example)

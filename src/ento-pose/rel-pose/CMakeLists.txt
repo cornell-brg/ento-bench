@@ -112,11 +112,10 @@ set(LIBRARIES_test_upright_three_pt
 )
 
 foreach(TEST_FILE ${TEST_FILES})
-  message(STATUS "Test file: ${TEST_FILE}")
+
   set(TEST_SRC "test/${TEST_FILE}")
   get_filename_component(TEST_BIN ${TEST_FILE} NAME_WE)
   string(CONCAT LIBRARY_VAR_NAME "LIBRARIES_" ${TEST_BIN})
-  message(STATUS ${${LIBRARY_VAR_NAME}})
   set(TEST_LIBRARIES ${${LIBRARY_VAR_NAME}})
   add_ento_test(
     ${TEST_BIN}
@@ -124,3 +123,16 @@ foreach(TEST_FILE ${TEST_FILES})
     LIBRARIES ${TEST_LIBRARIES}
   )
 endforeach()
+
+add_executable(bench_rel_min_solvers
+  test/bench_rel_min_solvers.cc
+)
+
+target_include_directories(bench_rel_min_solvers
+  PRIVATE
+  ${EIGEN_DIR}
+)
+
+target_link_libraries(bench_rel_min_solvers
+  ento_util ento-rel-pose ento-pose
+)

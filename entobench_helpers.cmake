@@ -57,21 +57,9 @@ function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
   
   # Print what was loaded
   if(CONFIG_ARGS)
-    message(STATUS "Loaded config for '${GROUP_NAME}' from ${CONFIG_FILE}:")
     list(LENGTH CONFIG_ARGS ARG_COUNT)
     math(EXPR PAIRS "${ARG_COUNT} / 2")
-    set(i 0)
-    while(i LESS ARG_COUNT)
-      list(GET CONFIG_ARGS ${i} KEY)
-      math(EXPR i "${i} + 1")
-      if(i LESS ARG_COUNT)
-        list(GET CONFIG_ARGS ${i} VALUE)
-        message(STATUS "  ${KEY}=${VALUE}")
-      else()
-        message(STATUS "  ${KEY}")
-      endif()
-      math(EXPR i "${i} + 1")
-    endwhile()
+    message(VERBOSE "Loaded config for '${GROUP_NAME}' (${PAIRS} parameters)")
   endif()
 endfunction()
 
@@ -135,21 +123,9 @@ function(parse_target_config_file CONFIG_FILE TARGET_NAME OUTPUT_VAR)
   
   # Print what was loaded
   if(CONFIG_ARGS)
-    message(STATUS "Loaded target-specific config for '${TARGET_NAME}' from ${CONFIG_FILE}:")
     list(LENGTH CONFIG_ARGS ARG_COUNT)
     math(EXPR PAIRS "${ARG_COUNT} / 2")
-    set(i 0)
-    while(i LESS ARG_COUNT)
-      list(GET CONFIG_ARGS ${i} KEY)
-      math(EXPR i "${i} + 1")
-      if(i LESS ARG_COUNT)
-        list(GET CONFIG_ARGS ${i} VALUE)
-        message(STATUS "  ${KEY}=${VALUE}")
-      else()
-        message(STATUS "  ${KEY}")
-      endif()
-      math(EXPR i "${i} + 1")
-    endwhile()
+    message(VERBOSE "Loaded target-specific config for '${TARGET_NAME}' (${PAIRS} parameters)")
   endif()
 endfunction()
 
@@ -174,7 +150,7 @@ function(configure_benchmark_group_from_file GROUP_NAME CONFIG_FILE)
     # Create the group target
     add_benchmark_group_target(${GROUP_NAME} ${TARGET_LIST})
     
-    message(STATUS "Configured group '${GROUP_NAME}' from ${CONFIG_FILE}")
+    message(VERBOSE "Configured group '${GROUP_NAME}' from ${CONFIG_FILE}")
   else()
     message(WARNING "No configuration found for group '${GROUP_NAME}' in ${CONFIG_FILE}")
   endif()
@@ -205,7 +181,7 @@ function(add_configured_benchmark_group_from_file GROUP_NAME)
     parse_benchmark_config_file(${GROUP_CONFIG_FILE} ${GROUP_NAME} FILE_CONFIG_ARGS)
     if(FILE_CONFIG_ARGS)
       set(FINAL_CONFIG_ARGS ${FILE_CONFIG_ARGS})
-      message(STATUS "Using config file ${GROUP_CONFIG_FILE} for group '${GROUP_NAME}'")
+      message(VERBOSE "Using config file ${GROUP_CONFIG_FILE} for group '${GROUP_NAME}'")
     endif()
   endif()
   
@@ -231,7 +207,7 @@ function(add_configured_benchmark_group_from_file GROUP_NAME)
     endif()
     
     if(FINAL_CONFIG_ARGS)
-      message(STATUS "Using fallback configuration for group '${GROUP_NAME}'")
+      message(VERBOSE "Using fallback configuration for group '${GROUP_NAME}'")
     endif()
   endif()
   
@@ -278,8 +254,6 @@ function(add_arm_semihosting_executable TARGET_NAME)
    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message("[ARM semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
-  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
@@ -305,8 +279,6 @@ function(add_arm_executable TARGET_NAME)
    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message(STATUS "[ARM non semihosting build] Libs to link for ${TARGET_NAME}: ${ARG_LIBRARIES}")
-  message(STATUS "Linker Options: ${CMAKE_EXE_LINKER_FLAGS}")
   target_link_libraries(${TARGET_NAME}
     PUBLIC
     ${ARG_LIBRARIES}
@@ -361,17 +333,11 @@ function(add_non_arm_executable TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARG_SOURCES})
   endif()
 
-  message(STATUS "Building ${TARGET_NAME} with the following libs/includes: ${ARG_LIBRARIES}")
-  
-  if("Eigen" IN_LIST ARG_LIBRARIES)
-    message(STATUS "Eigen in libraries list. Adding as include dir...")
+    if("Eigen" IN_LIST ARG_LIBRARIES)
     target_include_directories(${TARGET_NAME} PRIVATE ${EIGEN_DIR})
-    list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
-  else()
-    message(STATUS "Eigen not in libraries list: ${ARG_LIBRARIES}")
+   list(REMOVE_ITEM ARG_LIBRARIES Eigen)  # Remove Eigen from the libraries to avoid linking it
   endif()
 
-  message(STATUS "linking ${ARG_LIBRARIES} to ${TARGET_NAME}")
   target_link_libraries(${TARGET_NAME}
     PRIVATE
     ${ARG_LIBRARIES}
@@ -539,7 +505,7 @@ function(add_ento_test TARGET_NAME)
   cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
 
   if (NOT GEM5_ARMV7E-M_BUILD AND NOT STM32_BUILD)
-    message(STATUS "Building ${TEST_BIN} for native")
+    message(VERBOSE "Building ${TEST_BIN} for native")
     add_non_arm_executable(${TARGET_NAME}
       EXCLUDE TRUE
       SOURCES ${ARG_SOURCES}
@@ -553,9 +519,9 @@ function(add_stm32_targets target_list)
   # Parse optional configuration string argument
   cmake_parse_arguments(STM32 "" "CONFIG_STR" "" ${ARGN})
   
-  message(STATUS "Inside add_stm32_targets: ${target_list}")
+  message(VERBOSE "Inside add_stm32_targets: ${target_list}")
   foreach(target_name IN LISTS target_list)
-    MESSAGE(INFO "Added stm32 target: ${target_name}")
+    MESSAGE(VERBOSE "Added stm32 target: ${target_name}")
     if(STM32_CONFIG_STR)
       add_stm32_target(${target_name} CONFIG_STR ${STM32_CONFIG_STR})
     else()
@@ -662,9 +628,9 @@ function(add_benchmark_group_target GROUP_NAME)
   
   # Print summary
   list(LENGTH TARGET_LIST TARGET_COUNT)
-  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  message(VERBOSE "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
   if(EXISTS ${PROGRESS_SCRIPT})
-    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
+    message(VERBOSE "Using progress script: ${PROGRESS_SCRIPT}")
   endif()
 endfunction()
 
@@ -738,15 +704,15 @@ function(add_benchmark_group_target_with_config GROUP_NAME)
   
   # Print summary
   list(LENGTH GROUP_TARGETS TARGET_COUNT)
-  message(STATUS "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
+  message(VERBOSE "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
   if(EXISTS ${PROGRESS_SCRIPT})
-    message(STATUS "Using progress script: ${PROGRESS_SCRIPT}")
-    message(STATUS "Config string: ${CONFIG_STR}")
+    message(VERBOSE "Using progress script: ${PROGRESS_SCRIPT}")
+    message(VERBOSE "Config string: ${CONFIG_STR}")
   endif()
   
   # Pass config string to STM32 targets for OpenOCD log naming
   if(STM32_BUILD AND CONFIG_STR)
-    message(STATUS "Setting up STM32 targets with config: ${CONFIG_STR}")
+    message(VERBOSE "Setting up STM32 targets with config: ${CONFIG_STR}")
     # We'll call add_stm32_targets with config later in the process
   endif()
 endfunction()
@@ -822,23 +788,23 @@ function(configure_benchmark_target TARGET_NAME)
       set(CONFIG_STR "${CONFIG_STR}_nocache")
     endif()
     set_target_properties(${TARGET_NAME} PROPERTIES BENCH_CONFIG_STR "${CONFIG_STR}")
-    message(STATUS "Configured ${TARGET_NAME} with:")
+    message(VERBOSE "Configured ${TARGET_NAME} with:")
     if(DEFINED BENCH_REPS)
-      message(STATUS "  REPS=${BENCH_REPS}")
+      message(VERBOSE "  REPS=${BENCH_REPS}")
     endif()
     if(DEFINED BENCH_INNER_REPS)
-      message(STATUS "  INNER_REPS=${BENCH_INNER_REPS}")
+      message(VERBOSE "  INNER_REPS=${BENCH_INNER_REPS}")
     endif()
     if(DEFINED BENCH_VERBOSITY)
-      message(STATUS "  VERBOSITY=${BENCH_VERBOSITY}")
+      message(VERBOSE "  VERBOSITY=${BENCH_VERBOSITY}")
     endif()
     if(DEFINED BENCH_MAX_PROBLEMS)
-      message(STATUS "  MAX_PROBLEMS=${BENCH_MAX_PROBLEMS}")
+      message(VERBOSE "  MAX_PROBLEMS=${BENCH_MAX_PROBLEMS}")
     endif()
-    message(STATUS "  DO_WARMUP=${BENCH_DO_WARMUP}")
-    message(STATUS "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
-    message(STATUS "  ENABLE_VECTORIZATION=${BENCH_ENABLE_VECTORIZATION}")
-    message(STATUS "  BENCH_CONFIG_STR=${CONFIG_STR}")
+    message(VERBOSE "  DO_WARMUP=${BENCH_DO_WARMUP}")
+    message(VERBOSE "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
+    message(VERBOSE "  ENABLE_VECTORIZATION=${BENCH_ENABLE_VECTORIZATION}")
+    message(VERBOSE "  BENCH_CONFIG_STR=${CONFIG_STR}")
   else()
     message(WARNING "Target ${TARGET_NAME} does not exist, cannot configure benchmark parameters")
   endif()
@@ -926,22 +892,22 @@ function(add_configured_benchmark_group_target GROUP_NAME)
   
   # Print configuration summary for the group
   list(LENGTH TARGET_LIST TARGET_COUNT)
-  message(STATUS "Applied configuration to ${TARGET_COUNT} targets in group '${GROUP_NAME}':")
+  message(VERBOSE "Applied configuration to ${TARGET_COUNT} targets in group '${GROUP_NAME}':")
   if(DEFINED GROUP_REPS)
-    message(STATUS "  Group REPS=${GROUP_REPS}")
+    message(VERBOSE "  Group REPS=${GROUP_REPS}")
   endif()
   if(DEFINED GROUP_INNER_REPS)
-    message(STATUS "  Group INNER_REPS=${GROUP_INNER_REPS}")
+    message(VERBOSE "  Group INNER_REPS=${GROUP_INNER_REPS}")
   endif()
   if(DEFINED GROUP_VERBOSITY)
-    message(STATUS "  Group VERBOSITY=${GROUP_VERBOSITY}")
+    message(VERBOSE "  Group VERBOSITY=${GROUP_VERBOSITY}")
   endif()
   if(DEFINED GROUP_MAX_PROBLEMS)
-    message(STATUS "  Group MAX_PROBLEMS=${GROUP_MAX_PROBLEMS}")
+    message(VERBOSE "  Group MAX_PROBLEMS=${GROUP_MAX_PROBLEMS}")
   endif()
-  message(STATUS "  Group DO_WARMUP=${GROUP_DO_WARMUP}")
-  message(STATUS "  Group ENABLE_CACHES=${GROUP_ENABLE_CACHES}")
-  message(STATUS "  Group ENABLE_VECTORIZATION=${GROUP_ENABLE_VECTORIZATION}")
+  message(VERBOSE "  Group DO_WARMUP=${GROUP_DO_WARMUP}")
+  message(VERBOSE "  Group ENABLE_CACHES=${GROUP_ENABLE_CACHES}")
+  message(VERBOSE "  Group ENABLE_VECTORIZATION=${GROUP_ENABLE_VECTORIZATION}")
 endfunction()
 
 # Enhanced function that configures targets first, then creates group
@@ -1039,7 +1005,7 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
     ${GROUP_ENABLE_VECTORIZATION}
   )
   
-  message(STATUS "Stored benchmark config string: ${CONFIG_STR}")
+  message(VERBOSE "Stored benchmark config string: ${CONFIG_STR}")
 endfunction()
 
 # Enhanced function to configure benchmark group with both group and target-specific configs
@@ -1147,9 +1113,9 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
         # If target-specific config exists, it overrides group config
         if(TARGET_CONFIG_ARGS)
           set(FINAL_CONFIG_ARGS ${TARGET_CONFIG_ARGS})
-          message(STATUS "Using target-specific config for ${target_name}")
+          message(VERBOSE "Using target-specific config for ${target_name}")
         else()
-          message(STATUS "Using group config for ${target_name}")
+          message(VERBOSE "Using group config for ${target_name}")
         endif()
       endif()
       
@@ -1188,7 +1154,7 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   
   add_benchmark_group_target_with_config(${GROUP_NAME} ${CONFIG_PARAMS})
   
-  message(STATUS "Stored benchmark config string: ${CONFIG_STR}")
+  message(VERBOSE "Stored benchmark config string: ${CONFIG_STR}")
 endfunction()
 
 # =============================================================================
@@ -1429,7 +1395,7 @@ message(STATUS \"[EntoBench] Full report: \${SUMMARY_FILE}\")
 message(STATUS \"[EntoBench] Benchmark run completed!\")
 ")
 
-  message(STATUS "Created benchmark runner script: ${RUNNER_SCRIPT}")
+  message(VERBOSE "Created benchmark runner script: ${RUNNER_SCRIPT}")
 endfunction()
 
 # Function to add a benchmark group runner target with timeout support
@@ -1511,11 +1477,11 @@ function(add_benchmark_group_runner GROUP_NAME)
   
   # Print summary
   list(LENGTH RUNNER_TARGETS TARGET_COUNT)
-  message(STATUS "Created benchmark runner '${RUNNER_TARGET}' with ${TARGET_COUNT} targets")
-  message(STATUS "  Timeout: ${RUNNER_TIMEOUT}s, Output timeout: ${RUNNER_OUTPUT_TIMEOUT}s")
-  message(STATUS "  Results directory: ${RUNNER_RESULTS_DIR}")
+  message(VERBOSE "Created benchmark runner '${RUNNER_TARGET}' with ${TARGET_COUNT} targets")
+  message(VERBOSE "  Timeout: ${RUNNER_TIMEOUT}s, Output timeout: ${RUNNER_OUTPUT_TIMEOUT}s")
+  message(VERBOSE "  Results directory: ${RUNNER_RESULTS_DIR}")
   if(CONFIG_STR)
-    message(STATUS "  Config string: ${CONFIG_STR}")
+    message(VERBOSE "  Config string: ${CONFIG_STR}")
   endif()
 endfunction()
 

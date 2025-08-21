@@ -25,9 +25,9 @@
     },
     "bench-template-mpc-float": {
       "reps": 1,
-      "inner_reps": 1,
+      "inner_reps": 2,
       "verbosity": 1,
-      "enable_caches": true,
+      "enable_caches": false,
       "max_problems": 100,
       "description": "Template MPC benchmark with 12-state helix trajectory following (horizon=3)"
     },

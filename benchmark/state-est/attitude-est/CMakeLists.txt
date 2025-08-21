@@ -151,6 +151,16 @@ add_benchmark(bench-fourati-q3-12-marg
 list(APPEND BENCH_TARGETS bench-fourati-q3-12-marg)
 
 # =============================================================================
+# Empty baseline target (framework overhead)
+# =============================================================================
+
+add_benchmark(bench-empty-attitude-est
+  SOURCES bench_empty_attitude_est.cc
+  LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-empty-attitude-est)
+
+# =============================================================================
 # Define Benchmark Groups for Organized Testing
 # =============================================================================
 
@@ -224,110 +234,110 @@ set(PERFORMANCE_ATTITUDE_TARGETS ${ALL_ATTITUDE_TARGETS})
 create_benchmark_runner_script()
 
 # Quick test group (fast benchmarks for testing)
-add_benchmark_group_runner(attitude-quick-test
-  TARGETS ${QUICK_ATTITUDE_TEST_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(attitude-quick-test
+#  TARGETS ${QUICK_ATTITUDE_TEST_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
 # Algorithm-based groups
-add_benchmark_group_runner(mahony
-  TARGETS ${MAHONY_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(mahony
+#  TARGETS ${MAHONY_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
-add_benchmark_group_runner(madgwick
-  TARGETS ${MADGWICK_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(madgwick
+#  TARGETS ${MADGWICK_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
-add_benchmark_group_runner(fourati
-  TARGETS ${FOURATI_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(fourati
+#  TARGETS ${FOURATI_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
 # Data type groups
-add_benchmark_group_runner(attitude-float
-  TARGETS ${FLOAT_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(attitude-float
+#  TARGETS ${FLOAT_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
-add_benchmark_group_runner(attitude-double
-  TARGETS ${DOUBLE_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(attitude-double
+#  TARGETS ${DOUBLE_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
-add_benchmark_group_runner(attitude-fixed-point
-  TARGETS ${FIXED_POINT_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(attitude-fixed-point
+#  TARGETS ${FIXED_POINT_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
 # Sensor configuration groups
-add_benchmark_group_runner(attitude-imu-only
-  TARGETS ${IMU_ONLY_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(attitude-imu-only
+#  TARGETS ${IMU_ONLY_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
-add_benchmark_group_runner(attitude-marg
-  TARGETS ${MARG_TARGETS}
-  TIMEOUT 60
-  OUTPUT_TIMEOUT 10
-)
+#add_benchmark_group_runner(attitude-marg
+#  TARGETS ${MARG_TARGETS}
+#  TIMEOUT 60
+#  OUTPUT_TIMEOUT 10
+#)
 
 # Comprehensive groups
-add_benchmark_group_runner(all-attitude
-  TARGETS ${ALL_ATTITUDE_TARGETS}
-  TIMEOUT 90
-  OUTPUT_TIMEOUT 15
-)
+#add_benchmark_group_runner(all-attitude
+#  TARGETS ${ALL_ATTITUDE_TARGETS}
+#  TIMEOUT 90
+#  OUTPUT_TIMEOUT 15
+#)
 
-add_benchmark_group_runner(attitude-performance
-  TARGETS ${PERFORMANCE_ATTITUDE_TARGETS}
-  TIMEOUT 120
-  OUTPUT_TIMEOUT 20
-)
+#add_benchmark_group_runner(attitude-performance
+#  TARGETS ${PERFORMANCE_ATTITUDE_TARGETS}
+#  TIMEOUT 120
+#  OUTPUT_TIMEOUT 20
+#)
 
 # =============================================================================
 # Convenience Targets for Common Use Cases
 # =============================================================================
 
 # Add convenience aliases that match common naming patterns
-add_custom_target(bench-attitude-quick
-  DEPENDS bench-attitude-quick-test-run
-  COMMENT "Alias for bench-attitude-quick-test-run"
-)
-
-add_custom_target(bench-attitude-mahony
-  DEPENDS bench-mahony-run
-  COMMENT "Alias for bench-mahony-run"
-)
-
-add_custom_target(bench-attitude-madgwick
-  DEPENDS bench-madgwick-run
-  COMMENT "Alias for bench-madgwick-run"
-)
-
-add_custom_target(bench-attitude-fourati
-  DEPENDS bench-fourati-run
-  COMMENT "Alias for bench-fourati-run"
-)
-
-add_custom_target(bench-attitude-all
-  DEPENDS bench-all-attitude-run
-  COMMENT "Alias for bench-all-attitude-run"
-)
-
-add_custom_target(bench-attitude-performance
-  DEPENDS bench-attitude-performance-run
-  COMMENT "Alias for bench-attitude-performance-run"
-)
+#add_custom_target(bench-attitude-quick
+#  DEPENDS bench-attitude-quick-test-run
+#  COMMENT "Alias for bench-attitude-quick-test-run"
+#)
+#
+#add_custom_target(bench-attitude-mahony
+#  DEPENDS bench-mahony-run
+#  COMMENT "Alias for bench-mahony-run"
+#)
+#
+#add_custom_target(bench-attitude-madgwick
+#  DEPENDS bench-madgwick-run
+#  COMMENT "Alias for bench-madgwick-run"
+#)
+#
+#add_custom_target(bench-attitude-fourati
+#  DEPENDS bench-fourati-run
+#  COMMENT "Alias for bench-fourati-run"
+#)
+#
+#add_custom_target(bench-attitude-all
+#  DEPENDS bench-all-attitude-run
+#  COMMENT "Alias for bench-all-attitude-run"
+#)
+#
+#add_custom_target(bench-attitude-performance
+#  DEPENDS bench-attitude-performance-run
+#  COMMENT "Alias for bench-attitude-performance-run"
+#)
 
 # Help target to list available benchmark groups
 add_custom_target(bench-attitude-help
@@ -399,7 +409,7 @@ endif()
 # =============================================================================
 # Add STM32 targets for flashing/debugging
 # =============================================================================
-message(STATUS "Attitude Bench targets: ${BENCH_TARGETS}")
+message(VERBOSE "Attitude Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif() 

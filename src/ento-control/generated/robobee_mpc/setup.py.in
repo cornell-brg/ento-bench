@@ -1,0 +1,19 @@
+from setuptools import setup
+
+setup(
+    name="robobee_mpc",
+    version="0.1.0",
+    description="Python bindings for Robobee UprightMPC2 controller",
+    author="Ento Bench",
+    author_email="",
+    packages=[],
+    package_data={
+        "": ["*.so"],
+    },
+    include_package_data=True,
+    install_requires=[
+        "numpy",
+        "osqp",
+        "scipy",
+    ],
+) 

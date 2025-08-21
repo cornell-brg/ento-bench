@@ -1,0 +1,62 @@
+// Example showing how to use MultiOctaveSIFTDriver
+#include "src/ento-feature2d/multi_octave_sift.h"
+#include "src/ento-feature2d/sift.h"
+#include <image_io/Image.h>
+#include <ento-util/containers.h>
+#include <iostream>
+
+using namespace EntoFeature2D;
+
+int main() {
+  // 1. Load your input image (320x320 example)
+  Image<320, 320, uint8_t> input_image;
+  // ... load image from file or generate test data ...
+  
+  // 2. Create feature storage for final results
+  FeatureArray<SIFTKeypoint<>, 1000> all_sift_features;
+  
+  // 3. Create multi-octave SIFT driver
+  auto multi_sift = MultiOctaveSIFTDriver<320, 320, 1000, 4>(input_image);
+  
+  // 4. Run SIFT across all octaves
+  if (multi_sift.run(input_image, all_sift_features)) {
+    std::cout << "SUCCESS: Found " << all_sift_features.size() 
+              << " SIFT features across all octaves" << std::endl;
+    
+    // 5. Process results - all coordinates are in original image space
+    for (int i = 0; i < all_sift_features.size(); ++i) {
+      const auto& kp = all_sift_features[i];
+      std::cout << "Feature " << i << ": "
+                << "pos=(" << kp.x << "," << kp.y << ") "
+                << "scale=" << kp.scale << " "
+                << "orientation=" << kp.orientation << " "
+                << "response=" << kp.response << std::endl;
+    }
+    
+    // 6. Debug: Check features per octave
+    for (int octave = 0; octave < 4; ++octave) {
+      const auto& octave_features = multi_sift.get_octave_features(octave);
+      std::cout << "Octave " << octave << ": " << octave_features.size() 
+                << " features" << std::endl;
+    }
+    
+  } else {
+    std::cout << "FAILED: No SIFT features detected" << std::endl;
+    return -1;
+  }
+  
+  return 0;
+}
+
+// Alternative: Use your existing single-octave driver directly
+void single_octave_example() {
+  Image<320, 320, uint8_t> input_image;
+  FeatureArray<SIFTKeypoint<>, 500> features;
+  
+  // Your existing single-octave SIFT driver works exactly as before
+  SIFTDriver<Image<320, 320, uint8_t>, 500> sift_driver(input_image, features);
+  
+  if (sift_driver.run(input_image)) {
+    std::cout << "Single octave: " << features.size() << " features" << std::endl;
+  }
+} 

@@ -136,9 +136,7 @@ endif()
 list(REMOVE_DUPLICATES HAL_FIND_COMPONENTS_DRIVERS)
 list(REMOVE_DUPLICATES HAL_FIND_COMPONENTS_DRIVERS_LL)
 
-message(STATUS "Search for HAL families: ${HAL_FIND_COMPONENTS_FAMILIES}")
-message(STATUS "Search for HAL drivers: ${HAL_FIND_COMPONENTS_DRIVERS}")
-message(STATUS "Search for HAL LL drivers: ${HAL_FIND_COMPONENTS_DRIVERS_LL}")
+message(VERBOSE "HAL search: families=${HAL_FIND_COMPONENTS_FAMILIES}, drivers=${HAL_FIND_COMPONENTS_DRIVERS}")
 
 foreach(COMP ${HAL_FIND_COMPONENTS_FAMILIES})
     string(TOUPPER ${COMP} COMP_U)
@@ -159,12 +157,12 @@ foreach(COMP ${HAL_FIND_COMPONENTS_FAMILIES})
 
     if((NOT STM32_HAL_${FAMILY}_PATH) AND (NOT STM32_CUBE_${FAMILY}_PATH) AND (DEFINED ENV{STM32_CUBE_${FAMILY}_PATH}))
         set(STM32_CUBE_${FAMILY}_PATH $ENV{STM32_CUBE_${FAMILY}_PATH} CACHE PATH "Path to STM32Cube${FAMILY}")
-        message(STATUS "ENV STM32_CUBE_${FAMILY}_PATH specified, using STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
+        message(VERBOSE "Using ENV STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
     endif()
 
     if((NOT STM32_HAL_${FAMILY}_PATH) AND (NOT STM32_CUBE_${FAMILY}_PATH))
         set(STM32_CUBE_${FAMILY}_PATH /opt/STM32Cube${FAMILY} CACHE PATH "Path to STM32Cube${FAMILY}")
-        message(STATUS "Neither STM32_CUBE_${FAMILY}_PATH nor STM32_HAL_${FAMILY}_PATH specified using default STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
+        message(VERBOSE "Using default STM32_CUBE_${FAMILY}_PATH: ${STM32_CUBE_${FAMILY}_PATH}")
     endif()
 
     #Checking HAL patch or release version
@@ -182,7 +180,7 @@ foreach(COMP ${HAL_FIND_COMPONENTS_FAMILIES})
         endif()
     endif()
     if(NOT VERSION_INFO)
-        message(STATUS "Could not read the HAL version from package.xml for ${COMP}")
+        message(VERBOSE "HAL version detection failed for ${COMP}")
     endif()
 
     find_path(HAL_${FAMILY}_PATH

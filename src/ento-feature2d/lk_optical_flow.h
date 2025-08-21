@@ -143,10 +143,10 @@ public:
 };
 
 // Static member definitions - required for static member variables
-// template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
-// ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::prevPyramid_;
-// 
-// template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
-// ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::nextPyramid_;
+//template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+//ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::prevPyramid_;
+//
+//template <size_t NUM_LEVELS, size_t IMG_WIDTH, size_t IMG_HEIGHT, size_t WIN_DIM, typename CoordT, typename PixelT, size_t NumFeats>
+//ImagePyramid<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, PixelT> LucasKanadeOFKernel<NUM_LEVELS, IMG_WIDTH, IMG_HEIGHT, WIN_DIM, CoordT, PixelT, NumFeats>::nextPyramid_;
 
 #endif // LK_OPTICAL_FLOW_H

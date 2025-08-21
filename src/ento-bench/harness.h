@@ -222,7 +222,7 @@ public:
       rep_metrics_({0, 0, 0, 0, 0}),
       name_(name)
   {
-    init_roi_tracking();
+    //init_roi_tracking();
 
     if constexpr (DoWarmup)
     {
@@ -261,6 +261,12 @@ public:
 #endif
 
   auto run() {
+    __asm__ volatile("" ::: "memory");
+    init_roi_tracking();
+#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+    __asm__ volatile("" ::: "memory");
+    Delay::ms(5);
+#endif
     if constexpr (Problem::RequiresDataset_)
     {
       if (!experiment_io_.is_input_open()) 
@@ -280,8 +286,9 @@ public:
         
     ENTO_DEBUG("Running benchmark %s...\n", name_);
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-    trigger_pin_high();
+    //trigger_pin_high();
     Delay::ms(100);
+    //Delay::ms(500);
 
     //software_delay_cycles(1000000);
 #endif // defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
@@ -302,6 +309,7 @@ public:
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(10);
+        //Delay::ms(50);
 #endif
         start_roi();
 
@@ -315,6 +323,7 @@ public:
         // Get Stats. Update global metrics.
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         Delay::ms(10);
+        //Delay::ms(50);
 #endif
         rep_metrics_ = get_roi_stats();
 
@@ -386,6 +395,7 @@ public:
       while (experiment_io_.read_next(problem_) && (MaxProblems == 0 || i < MaxProblems))
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+        trigger_pin_high();
         Delay::ms(50);
 #endif
         //software_delay_cycles(100000); // delay in between experiments
