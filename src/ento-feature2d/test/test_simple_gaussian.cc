@@ -9,7 +9,7 @@
 #include <cmath>
 
 // Include the Python-generated golden reference data
-#include "../../../gaussian_test_data.h"
+#include "gaussian_test_data.h"
 
 #include "ento-feature2d/sift.h"
 

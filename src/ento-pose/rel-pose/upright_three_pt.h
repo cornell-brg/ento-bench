@@ -7,6 +7,7 @@
 #include <ento-math/quaternion.h>
 #include <ento-pose/pose_util.h>
 #include <ento-util/containers.h>
+#include <ento-pose/abs-pose/p3p.h>
 
 namespace EntoPose {
 
@@ -88,7 +89,7 @@ int relpose_upright_3pt(const EntoUtil::EntoContainer<EntoMath::Vec3<Scalar>, N>
     bool G = EntoPose::solve_cubic_single_real(k2, k1, k0, s);
 
     Mat3 C = D1 + s * D2;
-    std::array<Vec3, 2> pq = EntoPose::compute_pq(C);
+    std::array<Vec3, 2> pq = compute_pq(C);
 
     int n_sols = 0;
     for (int i = 0; i < 2; ++i) {

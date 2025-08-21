@@ -94,13 +94,22 @@ public:
   explicit FixedPoint(UnderlyingType raw_value) : value(raw_value) {}
 
   // Constructor for int32_t (only when UnderlyingType is NOT int32_t and NOT int16_t)
-  explicit FixedPoint(int32_t i) requires SignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
+  explicit FixedPoint(int32_t i) requires 
+    SignedIntegral<UnderlyingType> &&
+    (!std::is_same_v<UnderlyingType, int32_t>) &&
+    (!std::is_same_v<UnderlyingType, int16_t>) &&
+    (!std::is_same_v<UnderlyingType, int>) &&
+    std::is_same_v<int32_t, int> : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
 
   // Constructor for uint32_t (only when UnderlyingType is NOT uint32_t and NOT int16_t)
   explicit FixedPoint(uint32_t u) requires UnsignedIntegral<UnderlyingType> && (!std::is_same_v<UnderlyingType, uint32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(u << FractionalBits)) {}
 
   // Constructor for int (only when UnderlyingType is NOT int and NOT int32_t and NOT int16_t)
-  FixedPoint(int i) requires (!std::is_same_v<UnderlyingType, int>) && (!std::is_same_v<UnderlyingType, int32_t>) && (!std::is_same_v<UnderlyingType, int16_t>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
+  FixedPoint(int i) requires
+    (!std::is_same_v<UnderlyingType, int>) && 
+    (!std::is_same_v<UnderlyingType, int32_t>) && 
+    (!std::is_same_v<UnderlyingType, int16_t>) &&
+    (!std::is_same_v<int32_t, int>) : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
 
   // Special constructor for int16_t underlying type to handle int literals
   FixedPoint(int i) requires std::is_same_v<UnderlyingType, int16_t> : value(static_cast<UnderlyingType>(i << FractionalBits)) {}
@@ -148,6 +157,10 @@ public:
     return static_cast<int32_t>(value >> FractionalBits);
   }
 
+  explicit operator long() const {
+    return static_cast<long>(value >> FractionalBits);
+  }
+
   // Casting to int
   explicit operator float() const {
     return static_cast<float>(value) / (1 << FractionalBits);
@@ -155,7 +168,7 @@ public:
 
   // Casting to int
   explicit operator int64_t() const {
-    return static_cast<int64_t>(value) / (1 << FractionalBits);
+    return static_cast<int64_t>(value >> FractionalBits);
   }
 
   // Conversion operators

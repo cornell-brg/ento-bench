@@ -28,6 +28,8 @@ private:
 public:
   static constexpr bool RequiresDataset_ = true;
   static constexpr bool SaveResults_ = true;
+  static constexpr bool RequiresSetup_ = false;
+  static constexpr int SetupLines_ = 0;
 
 #ifdef NATIVE
   std::string serialize_impl() const

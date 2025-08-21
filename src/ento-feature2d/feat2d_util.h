@@ -17,9 +17,9 @@ struct Keypoint
   CoordT x;
   CoordT y;
 
-  Keypoint() : x(0), y(0) {}
+  Keypoint() : x(CoordT{0}), y(CoordT{0}) {}
   Keypoint(CoordT _x, CoordT _y)
-    : x(_x), y(_y) {}
+    : x(CoordT{_x}), y(CoordT{_y}) {}
   Keypoint(const Keypoint&) = default;
   Keypoint(Keypoint&&) = default;
   Keypoint& operator=(const Keypoint&) = default;
@@ -30,7 +30,7 @@ template <typename CoordT = int16_t>
 struct FastKeypoint : public Keypoint<CoordT>
 {
   int score;
-  FastKeypoint() : Keypoint<CoordT>(0, 0), score(0) {}
+  FastKeypoint() : Keypoint<CoordT>(CoordT{0}, CoordT{0}), score(0) {}
    FastKeypoint(CoordT _x, CoordT _y) 
     : Keypoint<CoordT>(_x, _y), score(0) {}
   FastKeypoint(CoordT _x, CoordT _y, int _score)
