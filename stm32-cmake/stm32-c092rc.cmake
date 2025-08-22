@@ -88,4 +88,7 @@ if (FETCH_ST_SOURCES)
   stm32_fetch_hal(C0)
 endif()
 
-set(CMAKE_SYSTEM_PROCESSOR armv7e-m) 
+# Explicitly set HAL components to avoid fallback to all families
+set(HAL_FIND_COMPONENTS "STM32C0")
+
+set(CMAKE_SYSTEM_PROCESSOR cortex-m0plus) 

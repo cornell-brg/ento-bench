@@ -118,11 +118,13 @@ add_compile_definitions($<$<CONFIG:Release>:NDEBUG>)
 
 if(STM32_BUILD)
   add_definitions(-DSTM32_BUILD=1)
-  message(STATUS "Building for ${STM_FAMILY_LONG_NAME}")
+  message(STATUS "Building for ${STM32_FAMILY_LONG_NAME}")
   message(VERBOSE "STM Product: ${STM_PRODUCT}, Family: ${STM_FAMILY}")
 
   # Set HAL and CMSIS target library variables dynamically
+  message(STATUS "CMakeLists Debug: STM_FAMILY='${STM_FAMILY}', checking if H7...")
   if(${STM_FAMILY} STREQUAL "H7")
+    message(STATUS "CMakeLists Debug: H7 branch - setting CORE_C to ::M7")
     # Special case for H7 family which requires an additional M7
     set(CORE_U M7)
     set(CORE_C "::M7")
@@ -134,9 +136,10 @@ if(STM32_BUILD)
     set(HAL_UTILS_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_UTILS")
     set(HAL_PWR_TARGET "HAL::STM32::${STM_FAMILY}::M7::LL_PWR")
     set(HAL_CORTEX_TARGET "HAL::STM32::${STM_FAMILY}::M7::CORTEX")
-    set(STM_FAMILY_LONG_NAME ${STM_FAMILY_LONG_NAME}_M7)
+    set(STM32_FAMILY_LONG_NAME ${STM32_FAMILY_LONG_NAME}_M7)
     set(STM32_TARGET "STM32::${STM_TYPE}::M7")
   else()
+    message(STATUS "CMakeLists Debug: Non-H7 branch - setting CORE_C to empty")
     set(CORE_U "")
     set(CORE_C "")
     set(CMSIS_FAMILY_TARGET "CMSIS::STM32::${STM_FAMILY}")
@@ -168,8 +171,19 @@ if(STM32_BUILD)
   #find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME}::${CORE_C} REQUIRED)
 
   # Use family-level components (toolchain will set specific device details)
-  find_package(CMSIS COMPONENTS ${STM_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
-  find_package(HAL COMPONENTS ${STM_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
+  message(STATUS "CMakeLists Debug: About to call find_package with:")
+  message(STATUS "  STM32_FAMILY_LONG_NAME='${STM32_FAMILY_LONG_NAME}'")
+  message(STATUS "  CORE_C='${CORE_C}'")
+  message(STATUS "  Combined: '${STM32_FAMILY_LONG_NAME}${CORE_C}'")
+  
+  # HACKY WORKAROUND: For U5, override the HAL_FIND_COMPONENTS if it's wrong
+  if(${STM_FAMILY} STREQUAL "U5")
+    message(STATUS "CMakeLists Debug: U5 family detected, forcing HAL_FIND_COMPONENTS to STM32U5")
+    set(HAL_FIND_COMPONENTS "STM32U5")
+  endif()
+  
+  find_package(CMSIS COMPONENTS ${STM32_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
+  find_package(HAL COMPONENTS ${STM32_FAMILY_LONG_NAME}${CORE_C} REQUIRED)
 
 
   get_property(all_definitions DIRECTORY PROPERTY COMPILE_DEFINITIONS)

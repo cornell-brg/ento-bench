@@ -40,20 +40,26 @@ endfunction()
 #  - Step 3 : Checking the other requested components (Expected to be drivers)
 ################################################################################
 # Step 1 : Checking all the requested families
+message(STATUS "FindHAL Debug: HAL_FIND_COMPONENTS=${HAL_FIND_COMPONENTS}")
 foreach(COMP ${HAL_FIND_COMPONENTS})
     string(TOUPPER ${COMP} COMP_U)
     string(REGEX MATCH "^STM32([CFGHLMUW]P?[0-9BL])([0-9A-Z][0-9M][A-Z][0-9A-Z])?_?(M0PLUS|M4|M7)?.*$" COMP_U ${COMP_U})
+    message(STATUS "FindHAL Debug: Processing component ${COMP}, regex match: ${CMAKE_MATCH_1}")
     if(CMAKE_MATCH_1) #Matches the family part of the provided STM32<FAMILY>[..] component
         list(APPEND HAL_FIND_COMPONENTS_FAMILIES ${COMP})
-        message(TRACE "FindHAL: append COMP ${COMP} to HAL_FIND_COMPONENTS_FAMILIES")
+        message(STATUS "FindHAL Debug: append COMP ${COMP} to HAL_FIND_COMPONENTS_FAMILIES")
     else()
         list(APPEND HAL_FIND_COMPONENTS_UNHANDLED ${COMP})
+        message(STATUS "FindHAL Debug: append COMP ${COMP} to HAL_FIND_COMPONENTS_UNHANDLED")
     endif()
 endforeach()
 
 # If no family requested look for all families
 if(NOT HAL_FIND_COMPONENTS_FAMILIES)
     set(HAL_FIND_COMPONENTS_FAMILIES ${STM32_SUPPORTED_FAMILIES_LONG_NAME})
+    message(STATUS "FindHAL Debug: No families requested, using all supported: ${HAL_FIND_COMPONENTS_FAMILIES}")
+else()
+    message(STATUS "FindHAL Debug: Families explicitly requested: ${HAL_FIND_COMPONENTS_FAMILIES}")
 endif()
 
 # Step 2 : Generating all the valid drivers from requested families
