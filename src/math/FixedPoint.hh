@@ -157,9 +157,12 @@ public:
     return static_cast<int32_t>(value >> FractionalBits);
   }
 
+  // Only define long operator for native builds (avoids duplicate on embedded)
+#ifdef NATIVE
   explicit operator long() const {
     return static_cast<long>(value >> FractionalBits);
   }
+#endif
 
   // Casting to int
   explicit operator float() const {

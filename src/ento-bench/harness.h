@@ -308,8 +308,8 @@ public:
       for (i = 0; i < Reps; i++)
       {
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
-        Delay::ms(10);
-        //Delay::ms(50);
+        trigger_pin_high();
+        Delay::ms(50);
 #endif
         start_roi();
 
