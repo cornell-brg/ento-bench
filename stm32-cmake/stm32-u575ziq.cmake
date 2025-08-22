@@ -24,6 +24,15 @@ option(BUILD_U575ZIQ "Build for Nucleo board STM32U575ZIQ..." ON)
 
 set(CMSIS_FIND_COMPONENTS "STM32U575ZI")
 set(CMSIS_FIND_COMPONENTS_FAMILIES "STM32U575ZI")
+set(HAL_FIND_COMPONENTS "U5")
+
+# Debug info
+message(STATUS "U5 Toolchain Debug:")
+message(STATUS "  STM_FAMILY: ${STM_FAMILY}")
+message(STATUS "  STM32_FAMILY_LONG_NAME: ${STM32_FAMILY_LONG_NAME}")
+message(STATUS "  HAL_FIND_COMPONENTS: ${HAL_FIND_COMPONENTS}")
+message(STATUS "  CMSIS_FIND_COMPONENTS: ${CMSIS_FIND_COMPONENTS}")
+message(STATUS "  CORE_C: ${CORE_C}")
 
 include(stm32/common)
 include(stm32/devices)
@@ -61,7 +70,10 @@ if(NOT STM_PRODUCT)
 endif()
 
 list(TRANSFORM STM_FAMILY PREPEND STM32 OUTPUT_VARIABLE STM32_FAMILY_LONG_NAME)
-set(STM32_FAMILY_LONG_NAME "${STM32_FAMILY_LONG_NAME}")
+# Explicitly set if the transform didn't work
+if(NOT STM32_FAMILY_LONG_NAME)
+  set(STM32_FAMILY_LONG_NAME "STM32U5")
+endif()
 # Ensure we have the HAL and CMSIS libraries
 if (FETCH_ST_SOURCES)
   stm32_fetch_cmsis(U5)
