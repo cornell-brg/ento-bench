@@ -28,14 +28,10 @@ list(APPEND BENCH_TARGETS benchmark-example)
 # Configure Example Benchmarks
 # =============================================================================
 
-# Use simple direct configuration for examples
-add_preconfigured_benchmark_group("example"
+# Use JSON configuration for examples (following EntoBench patterns)
+add_configured_benchmark_group_with_target_configs("example"
   TARGETS ${BENCH_TARGETS}
-  REPS 10
-  INNER_REPS 100  # More inner reps to see vector add performance clearly
-  VERBOSITY 2     # More verbose for educational purposes
-  ENABLE_CACHES
-  MAX_PROBLEMS 1  # Simple example, just one "problem"
+  CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/example_benchmarks.json"
 )
 
 # =============================================================================
