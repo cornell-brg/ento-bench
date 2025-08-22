@@ -230,6 +230,7 @@ if(STM32_BUILD)
           /usr/local/bin
           /opt/homebrew/bin
           /usr/bin
+	  ~/external/openocd/bin
   )
 
   if(NOT OPENOCD_EXECUTABLE)
