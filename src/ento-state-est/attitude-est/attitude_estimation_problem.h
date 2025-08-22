@@ -75,22 +75,17 @@ public:
 #ifndef NATIVE
   const char* serialize_impl() const;
 #endif
-  // @TODO: Add deserialize implementation for embedded builds
   bool deserialize_impl(const char* line);
 
-  // @TODO: Complete validate implementation. 
   bool validate_impl();
 
-  // @TODO: Complete solve implementation.
   void solve_impl();
 
-
-  // @TODO: Complete clear implementation.
   void clear_impl();
 
   static constexpr const char* header_impl()
   {
-    return "Attitude Estimation Problem"; //@TODO: Add string for header (input)
+    return "Attitude Estimation Problem";
   }
 
   // Constructor for Mahoney filters (kp, ki parameters)

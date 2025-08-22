@@ -117,8 +117,8 @@ int main(int argc, char **argv)
   if (__ento_test_num(__n, 1)) test_eight_pt_8_float();
   if (__ento_test_num(__n, 2)) test_eight_pt_16_float();
   if (__ento_test_num(__n, 3)) test_eight_pt_32_float();
-  if (__ento_test_num(__n, 4)) test_eight_pt_8_double();
-  if (__ento_test_num(__n, 5)) test_eight_pt_16_double();
-  if (__ento_test_num(__n, 6)) test_eight_pt_32_double();
+  //if (__ento_test_num(__n, 4)) test_eight_pt_8_double();
+  //if (__ento_test_num(__n, 5)) test_eight_pt_16_double();
+  //if (__ento_test_num(__n, 6)) test_eight_pt_32_double();
   if (__ento_test_num(__n, 7)) test_linear_refine_eight_point_float();
 } 

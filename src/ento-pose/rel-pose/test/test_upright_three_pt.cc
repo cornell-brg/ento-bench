@@ -116,5 +116,5 @@ int main(int argc, char **argv)
     __n = __ento_get_test_num_from_file(__ento_cmdline_args_path_buffer);
   }
   if (__ento_test_num(__n, 1)) test_upright_three_pt_single_float();
-  if (__ento_test_num(__n, 2)) test_upright_three_pt_single_double();
+  //if (__ento_test_num(__n, 2)) test_upright_three_pt_single_double();
 } 

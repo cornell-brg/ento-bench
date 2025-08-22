@@ -212,7 +212,7 @@ void test_mahoney_functor()
   using FP = EntoAttitude::Q7_24;
   
   // Create the functor
-  EntoAttitude::FilterMahonyFixed<FP, false> mahony_filter(FP(0.1f), FP(0.01f));
+  EntoAttitude::FilterMahonyFixed<FP, false> mahony_filter;
   
   // Initial quaternion
   Eigen::Quaternion<FP> q_init(FP(1.0f), FP(0.0f), FP(0.0f), FP(0.0f));
@@ -227,11 +227,17 @@ void test_mahoney_functor()
   meas.acc.data()[2] = FP(8.3f);
 
   FP dt = FP(0.004f);
+  FP kp = FP(0.1f);
+  FP ki = FP(0.01f);
+  Eigen::Matrix<FP,3,1> bias;
+  bias.data()[0] = FP(0.0f);
+  bias.data()[1] = FP(0.0f);
+  bias.data()[2] = FP(0.0f);
   Eigen::Quaternion<FP> q_out;
 
   try {
     // Test the functor interface
-    Eigen::Quaternion<FP> q_result = mahony_filter(q_init, meas, dt, &q_out);
+    Eigen::Quaternion<FP> q_result = mahony_filter(q_init, meas, dt, kp, ki, bias);
 
     ENTO_DEBUG("Functor result quaternion: [%f, %f, %f, %f]", 
       q_result.coeffs()[0].to_float(), q_result.coeffs()[1].to_float(), 

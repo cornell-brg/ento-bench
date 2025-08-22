@@ -336,7 +336,7 @@ void test_attitude_problem_clear() {
   ENTO_TEST_CHECK_FLOAT_EQ(problem.dt_, 0.01f);
   
   // Now call clear_impl
-  ENTO_TEST_CHECK_TRUE(problem.clear_impl());
+  problem.clear_impl();
   
   // Check that variables are reset to their defaults
   
