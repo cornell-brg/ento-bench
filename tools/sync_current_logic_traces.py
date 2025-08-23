@@ -16,9 +16,9 @@ def separate_and_combine(path: Path) -> Path:
 
     subdirs = [subdir for subdir in path.iterdir() if subdir.is_dir()]
     pm_dir = None
-    print(subdirs, path)
+    #print(subdirs, path)
     for subdir in subdirs:
-        print(subdir)
+        #print(subdir)
         if subdir.is_dir() and 'PM' in subdir.stem:
             pm_dir = subdir
             break
@@ -49,13 +49,13 @@ def separate_and_combine(path: Path) -> Path:
     combined_data = pd.concat(data_frames, ignore_index=True)
     #t0 = combined_data['time'][0]
     #combined_data['time'] -= t0
-    print(combined_data.head())
+    #print(combined_data.head())
 
 
     # write the combined dataframe to a new csv file
 
     combined_data.to_csv(output_file, index=False)
-    print(combined_data.head())
+    #print(combined_data.head())
     print(f"Completed combining power monitor data for file: {path}.")
     return output_file
 
@@ -68,18 +68,18 @@ def combine_files(file1: Path, file2: Path) -> Path:
     merged_df = df_pm.merge(df_sal, how='outer', on='time')
     merged_df.sort_values(by='time', inplace=True)
     num_spikes = np.sum(merged_df['latency'] == 1)
-    print(f"Merged df num latency spikes: {num_spikes}")
+    #print(f"Merged df num latency spikes: {num_spikes}")
 
     print(f'Finished merging {file1.stem} and {file2.stem}')
-    print(merged_df.head())
+    #print(merged_df.head())
     # Save the combined DataFrame to a new CSV file
     output_file = file1.parent / f'{file1.parent.stem}_combined.csv'
-    print(f'Saving merged df to {output_file}.')
+    #print(f'Saving merged df to {output_file}.')
     merged_df.to_csv(output_file, index=False)
     print(f'Nan counts: {merged_df.isna().sum()}')
     print(np.sum(merged_df['latency'] == 1))
 
-    print("Combining files complete.")
+    #print("Combining files complete.")
     return output_file
 
 def fill_gaps_with_zeros(df: pd.DataFrame, test_name: str) -> pd.DataFrame:
@@ -88,7 +88,7 @@ def fill_gaps_with_zeros(df: pd.DataFrame, test_name: str) -> pd.DataFrame:
     prev_time = None
     current_group = []
 
-    print(df.columns)
+    #print(df.columns)
     for _, row in df.iterrows():
         time = row["time"]
         value1 = row["trigger"]
@@ -115,66 +115,66 @@ def fill_gaps_with_zeros(df: pd.DataFrame, test_name: str) -> pd.DataFrame:
 
 def process_sal(input_file: Path, test_type: str = 'PIL', field_order: int = 0):
     df = pd.read_csv(input_file)
-    print(df.head())
+    #print(df.head())
     
 
     test_name = input_file.parent.stem
     column_names = df.columns.values
-    print(f'Original columns names: {column_names}')
-    print(f'FIELD ORDER: {field_order}\n\n\n\n\n')
+    #print(f'Original columns names: {column_names}')
+    #print(f'FIELD ORDER: {field_order}\n\n\n\n\n')
     if field_order == 0:
         if len(column_names) == 4:
             new_names = ['time', 'trigger_com', 'trigger', 'latency']
             new_column_names = { old_name: new_name for old_name, new_name in zip(column_names, new_names)}
-            print(new_column_names)
+            #print(new_column_names)
             df.rename(columns=new_column_names, inplace=True)
-            print(df.columns.values)
+            #print(df.columns.values)
             df = df[['time', 'trigger', 'latency']]
         elif len(column_names) == 3:
             new_names = ['time', 'trigger', 'latency']
             new_column_names = { old_name: new_name for old_name, new_name in zip(column_names, new_names)}
-            print(new_column_names)
+            #print(new_column_names)
             df.rename(columns=new_column_names, inplace=True)
-            print(df.columns.values)
+            #print(df.columns.values)
         else:
             raise AttributeError('Got unknown test type.')
     else: 
         if len(column_names) == 3:
             df = df.iloc[:, [0, 2, 1]]
             column_names = df.columns.values
-            print(f'Reordered df!!! \n')
-            print(df.head())
+            #print(f'Reordered df!!! \n')
+            #print(df.head())
             new_names = ['time', 'trigger', 'latency']
             new_column_names = { old_name: new_name for old_name, new_name in zip(column_names, new_names)}
-            print(new_column_names)
+            #print(new_column_names)
             df.rename(columns=new_column_names, inplace=True)
-            print(df.columns.values)
+            #print(df.columns.values)
         else:
             raise AttributeError('Got unknown test type.')
 
-    print(f'{input_file} dataframe latency has length: {len(df["latency"])}')
+    #print(f'{input_file} dataframe latency has length: {len(df["latency"])}')
     output_file = input_file.parent / f'{input_file.parent.stem}_processed.csv'
 
     # Find the index of the first occurrence of 1 in Trigger column
     first_occurrence_index = df[df["trigger"] == 1].index[0]
-    print(first_occurrence_index)
+    #print(first_occurrence_index)
 
     # Discard rows before the first occurrence of 1 in Trigger column
     # We only care about values after trigger (start of measurements)
-    print(df.head())
+    #print(df.head())
     t0 = df['time'][first_occurrence_index] # 0.1 ms delay?
     df = df.iloc[first_occurrence_index:, :].reset_index()
-    print(df)
+    #print(df)
 
     # Change all second value column to be 1
     indices = np.where(df['latency'] == 1)[0]
-    print(len(indices))
-    print(indices)
+    #print(len(indices))
+    #print(indices)
     tstarts = df['time'][indices]
-    print(f'Latency tstarts: {tstarts}\n')
+    #print(f'Latency tstarts: {tstarts}\n')
     indices += 1
     tends = df['time'][indices]
-    print(f'Latency tends: {tends}\n')
+    #print(f'Latency tends: {tends}\n')
     df.latency.values[indices] = 1
 
     #print("-----------------df with 1s---------------------")
@@ -185,30 +185,30 @@ def process_sal(input_file: Path, test_type: str = 'PIL', field_order: int = 0):
     # Fill gaps and consecutive ones
     #filled_df = fill_gaps_with_zeros(df, test_name)
     filled_df = df
-    print("---------------filled_df---------------")
-    print(filled_df.head())
+    #print("---------------filled_df---------------")
+    #print(filled_df.head())
     # Combine the original and modified data
     #combined_df = pd.concat([df, filled_df])
 
     # Sort the combined DataFrame by time
     filled_df.sort_values(by="time", inplace=True)
-    print("----------------sorted df------------------------")
-    print(filled_df.head())
+    #print("----------------sorted df------------------------")
+    #print(filled_df.head())
 
-    print(f'Time zero: {t0}')
+    #print(f'Time zero: {t0}')
     # 0.0005 was found adhoc looking at measured data
     filled_df["time"] = (filled_df["time"] - t0)
-    print(f'Aligned df: {filled_df.head()}')
+    #print(f'Aligned df: {filled_df.head()}')
     filled_df["time"] = (filled_df["time"]) * 1000
     #filled_df["time"] = round(filled_df["time"],2)
     
     # Save the combined DataFrame to a new CSV file
     filled_df.to_csv(output_file, index=False)
 
-    print("---------------final df-------------------------")
+    #print("---------------final df-------------------------")
     # filtered_rows = combined_df[combined_df['B11(SVD Algorithm)'] == 1]
-    print(filled_df.head())
-    print(len(filled_df['time']))
+    #print(filled_df.head())
+    #print(len(filled_df['time']))
 
     print("Processing complete.")
     return output_file
@@ -229,21 +229,21 @@ def main():
         sys.exit(1)
 
     args.directory = Path(args.directory).resolve()
-    print(args.directory)
+    #print(args.directory)
     if not args.directory.exists(): raise FileNotFoundError(f'Could not find directory: {args.directory}')
     pd.set_option('display.precision', 10)
 
     if args.traverse_subdirs:
         subdirs = [f for f in args.directory.iterdir() if f.is_dir()]
-        print(f'Subdirs: {subdirs}')
+        #print(f'Subdirs: {subdirs}')
         for subdir in subdirs:
             if 'original-meas' in subdir.name: continue
             if 'orig-meas' in subdir.name: continue
             if 'plot' in str(subdir):
                 continue
-            print(f'Subdir: {subdir}')
+            #print(f'Subdir: {subdir}')
             sal_files = list(subdir.glob(f'{subdir.name}.csv'))
-            print(f'Sal files: {sal_files}')
+            #print(f'Sal files: {sal_files}')
             if len(sal_files) > 1:
                 print("Found multiple logical analyzer traces. " + \
                       f"Taking the first one: {sal_files[0]}.")
@@ -253,26 +253,26 @@ def main():
             combined_pm = separate_and_combine(subdir)
             merged_pm_sal = combine_files(combined_pm, filled_sal_file)
     else:
-        print('Separating and combining')
-        print(args.directory / f'{args.directory.name}.csv')
+        #print('Separating and combining')
+        #print(args.directory / f'{args.directory.name}.csv')
         combined_pm = separate_and_combine(args.directory)
         sal_files = list(args.directory.glob(f'{args.directory.name}.csv'))
-        print(sal_files)
+        #print(sal_files)
         if len(sal_files) > 1:
             print("Found multiple logical analyzer traces. " + \
                   f"Taking the first one: {sal_files[0]}.")
         if len(sal_files) == 0:
             return FileNotFoundError("Could not find sal file.")
         sal_file = sal_files[0]
-        print("Hello")
-        print(args.directory)
-        print(sal_files)
+        #print("Hello")
+        #print(args.directory)
+        #print(sal_files)
         
         sal_file = sal_files[0]
         filled_sal_file = process_sal(sal_file, field_order=args.field_order)
-        print("merging")
+        #print("merging")
         merged_pm_sal = combine_files(combined_pm, filled_sal_file)
-        print("finished")
+        #print("finished")
 
 
 if __name__ == '__main__':
