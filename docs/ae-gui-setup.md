@@ -11,16 +11,16 @@ probe+programmer and microcontroller under test as shown in the provided hardwar
 Logic 2 is used to capture GPIO signals from the microcontroller during benchmark runs.
 
 1. **Launch Logic 2 and Open Device Settings**  
-   ![Logic2 Startup](logic2-startup.png)
+   ![Logic2 Startup](images/logic2-startup.png)
 
 2. Use only Digital Pins 0 and 1. Set the sampling frequency to the highest supported for 
    your Saleae Logic Analyzer. Our model can reach 500 MS/s. Models that can only sample at
    100 MS/s will work too. Set the logic level to 3.3+ Volts. 
-   ![Logic2 Device Settings](logic2-device-settings.png)
+   ![Logic2 Device Settings](images/logic2-device-settings.png)
 
 3. **Rename the signal channels** (optional, but helpful).
    Rename GPIO channels to match the expected benchmark signals (e.g., `TRIGGER (D7)`, `LATENCY (D4)`).  
-   ![Logic2 Signal Renaming](logic2-signal-renaming.png)
+   ![Logic2 Signal Renaming](images/logic2-signal-renaming.png)
 
 ---
 
@@ -30,19 +30,19 @@ STM32CubeMonitor-Power (CMP) is used to measure current draw from the STLink-V3P
 
 1. **Select the STLink-V3PWR board**  
    Choose the board from the device selection screen.  
-   ![CMP Board Selection](cmp-board-sel.png)
+   ![CMP Board Selection](images/cmp-board-sel.png)
 
 2. **Configure the measurement channels**  
    Adjust the CMP configuration to enable the relevant rails and set sampling options.  
    Use the following configuration:
-       * Sampling Frequency: 100000
-       * Acquisition Time: Inf
-       * Current Threshold: 100000 µA
-       * Trigger Source: hw
-       * Trigger Delay: 0 ms
-       * Input Voltage: 3300 mV
+   * Sampling Frequency: 100000
+   * Acquisition Time: Inf
+   * Current Threshold: 100000 µA
+   * Trigger Source: hw
+   * Trigger Delay: 0 ms
+   * Input Voltage: 3300 mV
 
-   ![CMP Configuration](cmp-config.png)
+   ![CMP Configuration](images/cmp-config.png)
 
 ---
 
