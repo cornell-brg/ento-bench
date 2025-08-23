@@ -287,10 +287,14 @@ else() # Native Build
   if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS "-std=c++20 -g3 -O3")
   else()
-    set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O3")
+    #set(CMAKE_CXX_FLAGS "-Wall -Wextra -std=c++20 -O3")
+    set(CMAKE_CXX_FLAGS "-std=c++20 -O3")
   endif()
   add_definitions(-DNATIVE)
 endif()
+
+# Suppress warnings for now...
+add_compile_options(-w)
 
 set(SRC_DIR src)
 set(BIN_DIR bin)
