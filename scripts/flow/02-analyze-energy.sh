@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   echo "Usage: $0 -d <experiment-dir>"
   echo "  -d : path to experiment directory"
-  echo "       e.g. experiments/ae/m4/example/benchmark-example-cache"
+  echo "       e.g. experiments/ae/m4/example/example-cache"
   exit 1
 }
 
@@ -32,6 +32,6 @@ echo "[2/3] Syncing current and logic traces..."
 python3 tools/sync_current_logic_traces.py --directory "$DIR"
 
 echo "[3/3] Analyzing experiment: $NAME"
-python3 tools/analyze_single_experiment_v3.py "$DIR" "$NAME"
+python3 tools/analyze_single_experiment.py "${DIR}/.." "$NAME"
 
 echo "Done. Results written in: $DIR"

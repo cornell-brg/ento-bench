@@ -1,59 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Helper to register aliases for STM32CubeMonitor-Power (CMP) and Saleae Logic 2.
-# Usage:
-#   ./04-register-cmp-logic2.sh [CMP_DIR] [LOGIC2_APPIMAGE]
-#
-# Defaults:
-#   CMP_DIR="$HOME/workspace/external/STMicroelectronics"
-#   LOGIC2_APPIMAGE="$HOME/external/logic2/Logic-*.AppImage"
+# =============================================================================
+# Register aliases to launch:
+#   - STM32CubeMonitor-Power (cube-monitor-pwr) using bundled JRE
+#   - Saleae Logic 2 (logic2) via a wrapper that picks the newest AppImage
+# =============================================================================
 
-CMP_DIR_DEFAULT="${HOME}/workspace/external/STMicroelectronics"
-LOGIC2_APPIMAGE_DEFAULT="${HOME}/external/logic2/Logic-*.AppImage"
+CMP_DIR_DEFAULT="${HOME}/external/STMicroelectronics/STM32CubeMonitor-Power"
+LOGIC2_DIR_DEFAULT="${HOME}/external/logic2"
 
 CMP_DIR="${1:-${CMP_DIR_DEFAULT}}"
-LOGIC2_APPIMAGE="${2:-${LOGIC2_APPIMAGE_DEFAULT}}"
+LOGIC2_DIR="${2:-${LOGIC2_DIR_DEFAULT}}"
 
 BASHRC="${HOME}/.bashrc"
-added=0
+BIN_DIR="${HOME}/.local/bin"
+LOGIC2_WRAPPER="${BIN_DIR}/logic2-launch"
 
-# CMP jar path (common install layout)
-CMP_JAR="${CMP_DIR}/STM32CubeMonitor-Power/STM32CubeMonitor-Power.jar"
+mkdir -p "${BIN_DIR}"
 
-if [[ -f "$CMP_JAR" ]]; then
-  if ! grep -q 'alias cube-monitor-pwr' "${BASHRC}"; then
-    printf "alias cube-monitor-pwr='java -jar \"%s\"'\n" "$CMP_JAR" >> "${BASHRC}"
-    echo "[*] Registered alias: cube-monitor-pwr -> $CMP_JAR"
-    added=1
-  else
-    echo "[*] Alias already present: cube-monitor-pwr"
-  fi
-else
-  echo "[!] CMP jar not found at: $CMP_JAR"
-  echo "    If installed elsewhere, re-run with explicit CMP_DIR:"
-  echo "    ./04-register-cmp-logic2.sh /path/to/STMicroelectronics"
+# --- Write Logic 2 wrapper (avoids alias glob issues; accepts optional dir arg) ---
+cat > "${LOGIC2_WRAPPER}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+search_dir="${1:-$HOME/external/logic2}"
+
+shopt -s nullglob
+apps=( "$search_dir"/Logic-*.AppImage "$HOME/Downloads"/Logic-*.AppImage )
+shopt -u nullglob
+
+if (( ${#apps[@]} == 0 )); then
+  echo "[ERR] Logic 2 AppImage not found in: $search_dir or ~/Downloads" >&2
+  echo "      Download from https://support.saleae.com/logic-software/sw-installation" >&2
+  exit 1
 fi
 
-# Resolve Logic 2 AppImage (glob OK)
-LOGIC2_PATH=$(compgen -G "$LOGIC2_APPIMAGE" || true)
-if [[ -n "$LOGIC2_PATH" && -f "$LOGIC2_PATH" ]]; then
-  chmod +x "$LOGIC2_PATH" || true
-  if ! grep -q 'alias logic2' "${BASHRC}"; then
-    printf "alias logic2='%s'\n" "$LOGIC2_PATH" >> "${BASHRC}"
-    echo "[*] Registered alias: logic2 -> $LOGIC2_PATH"
-    added=1
-  else
-    echo "[*] Alias already present: logic2"
-  fi
-else
-  echo "[!] Logic 2 AppImage not found matching: $LOGIC2_APPIMAGE"
-  echo "    Re-run with explicit path if needed:"
-  echo "    ./04-register-cmp-logic2.sh '' /full/path/to/Logic-2.x.y.AppImage"
+# pick newest/lexicographically highest
+IFS=$'\n' read -r -d '' -a apps_sorted < <(printf '%s\n' "${apps[@]}" | sort -V && printf '\0')
+app="${apps_sorted[-1]}"
+
+chmod +x "$app" 2>/dev/null || true
+
+# If FUSE error occurs, user might need: sudo apt-get install -y libfuse2
+exec "$app"
+EOF
+chmod +x "${LOGIC2_WRAPPER}"
+
+# --- Ensure ~/.local/bin is on PATH for interactive shells (idempotent) ---
+if ! grep -Fq '~/.local/bin' "${BASHRC}"; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "${BASHRC}"
+  echo "[*] Added ~/.local/bin to PATH in ${BASHRC}"
 fi
 
-if [[ $added -eq 1 ]]; then
-  echo "[*] Aliases added to ~/.bashrc. Run: source ~/.bashrc"
+# --- Ensure aliases exist in ~/.bashrc (idempotent) ---
+
+# Escape CMP_DIR safely for alias composition
+esc_cmp_dir=$(printf '%q' "${CMP_DIR}")
+
+# cube-monitor-pwr alias (bundled JRE + XRDP-friendly flags)
+if ! grep -Fq 'alias cube-monitor-pwr=' "${BASHRC}"; then
+  echo "alias cube-monitor-pwr='SWT_GTK3=0 _JAVA_OPTIONS=\"-Dsun.java2d.xrender=false\" ${esc_cmp_dir}/jre/bin/java -jar ${esc_cmp_dir}/STM32CubeMonitor-Power.jar'" >> "${BASHRC}"
+  echo "[*] Registered alias: cube-monitor-pwr"
 else
-  echo "[*] No changes made to ~/.bashrc"
+  echo "[*] Alias already present: cube-monitor-pwr"
 fi
+
+# logic2 alias -> wrapper (so wildcard expands at runtime inside wrapper)
+if ! grep -Fq 'alias logic2=' "${BASHRC}"; then
+  echo "alias logic2='${LOGIC2_WRAPPER}'" >> "${BASHRC}"
+  echo "[*] Registered alias: logic2"
+else
+  echo "[*] Alias already present: logic2"
+fi
+
+echo "[*] Aliases added/verified in ${BASHRC}"
+echo "[*] Wrapper installed at ${LOGIC2_WRAPPER}"
+echo "[*] Run: source ~/.bashrc"
