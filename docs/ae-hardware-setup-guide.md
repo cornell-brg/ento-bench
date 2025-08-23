@@ -17,9 +17,9 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - Used to power the board and capture current consumption.
   - Power Connection header varies by board (see below).
   - Use a second female-to-male jumper to connect from `TRIGGER` to the TGI pin
-    on the STLink-V3PWR. ![TGI Connection](stlink-v3pwr-pinout.png)
+    on the STLink-V3PWR. ![TGI Connection](images/stlink-v3pwr-pinout.png)
   - Connect a MIPI14 cable to the compatible Debug header. Picture below shows an example setup.
-    ![Example Setup](example-hw-setup.png)
+    ![Example Setup](images/example-hw-setup.png)
 
 
 ⚠️ **Important:** Use the STLink-V3PWR as the *only* power source. Do not power the board simultaneously via USB 5V.
@@ -33,8 +33,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32G474 Board](stm32g474-pinout.png)
-![STM32G474 Pinout](g474-pinout.png)
+![STM32G474 Board](images/stm32g474-pinout.png)
+![STM32G474 Pinout](images/g474-pinout.png)
 
 ---
 
@@ -45,8 +45,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32H7A3ZIQ Wiring](stm32h7a3ziq-pinout.png)
-![STM32H7A3ZIQ Pinout](u575-pinout.png)
+![STM32H7A3ZIQ Wiring](images/stm32h7a3ziq-pinout.png)
+![STM32H7A3ZIQ Pinout](images/u575-pinout.png)
 
 ---
 
@@ -57,8 +57,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32U575ZIQ Wiring](stm32u575ziq-pinout.png)
-![STM32U575ZIQ Pinout](u575-pinout.png)
+![STM32U575ZIQ Wiring](images/stm32u575ziq-pinout.png)
+![STM32U575ZIQ Pinout](images/u575-pinout.png)
 
 ---
 
