@@ -18,11 +18,11 @@ set(BENCH_TARGETS) # List of targets
 # =============================================================================
 
 # Vector-Vector Add Example
-add_benchmark(benchmark-example
+add_benchmark(bench-example
   SOURCES benchmark_example.cc
   LIBRARIES ${MODULES}
 )
-list(APPEND BENCH_TARGETS benchmark-example)
+list(APPEND BENCH_TARGETS bench-example)
 
 # =============================================================================
 # Configure Example Benchmarks
@@ -49,7 +49,7 @@ add_custom_target(bench-example-help
   COMMAND ${CMAKE_COMMAND} -E echo "============================"
   COMMAND ${CMAKE_COMMAND} -E echo ""
   COMMAND ${CMAKE_COMMAND} -E echo "Available Examples:"
-  COMMAND ${CMAKE_COMMAND} -E echo "  make stm32-flash-benchmark-example-semihosted"
+  COMMAND ${CMAKE_COMMAND} -E echo "  make stm32-flash-bench-example-semihosted"
   COMMAND ${CMAKE_COMMAND} -E echo "    - Vector-vector add example (1000 float elements)"
   COMMAND ${CMAKE_COMMAND} -E echo "    - Demonstrates all EntoBench idioms"
   COMMAND ${CMAKE_COMMAND} -E echo "    - Self-contained kernel definition"

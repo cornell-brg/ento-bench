@@ -41,6 +41,7 @@ STM32CubeMonitor-Power (CMP) is used to measure current draw from the STLink-V3P
    * Trigger Source: hw
    * Trigger Delay: 0 ms
    * Input Voltage: 3300 mV
+   After, press the the Power On button if it shows as Power Off.
 
    ![CMP Configuration](images/cmp-config.png)
 
