@@ -4,9 +4,3 @@
 [submodule "external/eigen"]
 	path = external/eigen
 	url = https://gitlab.com/libeigen/eigen.git
-[submodule "external/robobee3d"]
-	path = external/robobee3d
-	url = https://github.com/avikde/robobee3d.git
-[submodule "external/uav_geometric_control"]
-	path = external/uav_geometric_control
-	url = https://github.com/fdcl-gwu/uav_geometric_control.git
