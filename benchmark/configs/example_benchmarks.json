@@ -1,9 +1,9 @@
 {
   "example": {
     "reps": 10,
-    "inner_reps": 100,
-    "verbosity": 2,
+    "inner_reps": 50,
+    "verbosity": 1,
     "enable_caches": true,
     "max_problems": 1
   }
-} 
+}
