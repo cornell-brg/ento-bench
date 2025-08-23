@@ -1,267 +1,231 @@
 <div align="center">
   <h1>EntoBench: A Benchmarking Framework for Insect-Scale Robotics</h1>
-  
+
   <img src="misc/entobench-logo.png" alt="EntoBench Logo" width="400"/>
-  
-  [![Tests](https://github.com/derinozturk/ento-bench/actions/workflows/tests.yml/badge.svg)](https://github.com/derinozturk/ento-bench/actions/workflows/tests.yml)
-  [![Build Status](https://github.com/derinozturk/ento-bench/actions/workflows/build.yml/badge.svg)](https://github.com/derinozturk/ento-bench/actions/workflows/build.yml)
-  [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Cortex--M%20%7C%20STM32-blue.svg)](https://www.st.com/en/microcontrollers-microprocessors.html)
-  [![CMake](https://img.shields.io/badge/CMake-3.16%2B-064F8C?logo=cmake&logoColor=white)](https://cmake.org/)
+
+  <!-- CI badges intentionally omitted for AE to avoid red badges -->
+  <a href="https://www.st.com/en/microcontrollers-microprocessors.html">
+    <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Cortex--M%20%7C%20STM32-blue.svg" alt="Platform"/>
+  </a>
+  <a href="https://cmake.org/">
+    <img src="https://img.shields.io/badge/CMake-3.16%2B-064F8C?logo=cmake&logoColor=white" alt="CMake"/>
+  </a>
+
+  <p><strong>Version:</strong> v1.0.0-ae</p>
 </div>
+
+---
 
 ## Overview
 
-EntoBench is a comprehensive evaluation framework and benchmark suite for computer vision, state estimation, and control algorithms on insect-scale robots. The framework targets ARM Cortex-M microcontrollers (STM32) and provides sophisticated benchmarking capabilities with performance measurement tools for latency, peak power, and energy analysis.
+**EntoBench** is a framework and benchmark suite for computer vision, state estimation, and control kernels on insect-scale robots.  
+It targets **ARM Cortex-M (STM32)** MCUs and provides reproducible measurements of:
 
-### Key Features
+- Cycle counts
+- Latency
+- Peak power
+- Energy
 
-- **Multi-target support**: Native (x86/ARM64), STM32 microcontrollers, gem5 simulation
-- **Comprehensive algorithm coverage**: Computer vision, pose estimation, attitude estimation, control systems  
-- **Performance measurement**: Cycle counts, latency, peak power, and energy analysis
-- **Professional benchmarking harness**: Configurable metrics, dataset-driven testing
-- **STM32 integration**: Automated flashing, semihosting support, OpenOCD integration
-- **JSON-based configuration**: Sophisticated parameter control for experiments
+This **Artifact Evaluation (AE)** release reproduces the results in the paper’s *Workload Characterization* section using automated build scripts and GUI-based measurement tools.
+
+---
 
 ## Supported Hardware
 
-EntoBench supports the following STM32 development boards:
+### Target Boards
+- **NUCLEO-STM32G474RE** (Cortex-M4F)
+- **NUCLEO-STM32U575ZIQ** (Cortex-M33F)
+- **NUCLEO-STM32H7A3ZIQ** (Cortex-M7F)
 
-- **NUCLEO-STM32G474RE** (Cortex-M4 with FPU)
-- **NUCLEO-STM32U575ZIQ** (Cortex-M33 with FPU)  
-- **NUCLEO-STM32H7A3ZIQ** (Cortex-M7 with FPU)
-- **NUCLEO-C092RC** (Cortex-M0+)
+### Measurement Hardware (optional)
+- **STLINK-V3PWR** — current measurements, flashing, semihosting
+- **Saleae Logic Pro** — logic timing & trigger capture
 
-### Measurement Hardware (Optional)
+> Alternative probes (e.g., X-NUCLEO-LPM01A) may work but are not officially supported.
 
-For power and energy measurements:
-- **STLINK-V3PWR** - Current measurements, flashing, and semihosting
-- **Saleae Logic Pro Analyzer** - Logic analysis and timing measurements
+---
 
-> Alternative: X-NUCLEO-LPM01A current probe (commonly used in TinyML papers) may work but is not officially supported.
+## Quick Links
 
-## Installation
+- **Docs**: `docs/` (hardware setup, Logic 2, CMP config)
+- **Experiment flow scripts**: `scripts/flow/`
+- **One-shot install scripts**: `scripts/00..05-*.sh`
 
-### Prerequisites
+---
 
-#### Ubuntu 24.04
+## Installation (Ubuntu 24.04)
 
+All steps are automated via scripts in `scripts/`. Run them in order:
+
+### 1) System Packages
 ```bash
-# Install system packages
-sudo apt update
-sudo apt install build-essential pkg-config automake libtool autoconf cmake \
-                 libjim-dev jimsh openjdk-17-jre
-
-# Verify Java version
-java -version
-# If not version 17, configure it:
-sudo update-alternatives --config java
+cd scripts
+./00-install-system-packages.sh
 ```
 
-#### macOS
-
+### 2) ARM GNU Toolchain (14.3)
 ```bash
-# Install system packages
-brew install cmake pkg-config automake libtool autoconf
-brew install openjdk@17
+./01-install-arm-toolchain.sh
 ```
 
-### ARM GNU Embedded Toolchain
-
-Download and install the official ARM toolchain:
-
+### 3) Python Environment
 ```bash
-# Create toolchain directory
-mkdir -p ~/.toolchains
-cd ~/.toolchains
-
-# Download ARM GNU Toolchain 14.3
-wget "https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu/14.3.rel1/binrel/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi.tar.xz" -O arm-none-eabi-14.3.tar.xz
-
-# Extract toolchain
-tar -xf arm-none-eabi-14.3.tar.xz
-
-# Add to PATH
-echo 'export ARM_TOOLCHAIN_ROOT=$HOME/.toolchains/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi' >> ~/.bashrc
-echo 'export PATH="$ARM_TOOLCHAIN_ROOT/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Verify installation
-arm-none-eabi-gcc --version
+./02-setup-python-venv.sh
+source ~/.venvs/entobench-ae/bin/activate
 ```
 
-### OpenOCD (STM32 Support)
-
+### 4) STLINK-V3PWR udev Rules
 ```bash
-# Clone and build OpenOCD with STM32 support
-git clone https://git.code.sf.net/p/openocd/code openocd
-cd openocd
-git checkout bc9ca5f4a
-./bootstrap
-./configure
-make -j$(nproc)
-sudo make install
+./03-setup-udev-stlinkv3pwr.sh
+# unplug/replug STLINK-V3PWR after this
+```
 
-# Set environment variables
-echo 'export OPENOCD_HOME="/usr/local/share/openocd/scripts"' >> ~/.bashrc
-echo 'export OPENOCD_PATH="/usr/local/share/openocd/scripts"' >> ~/.bashrc
+### 5) GUI Apps (manual download, then register)
+- **STM32CubeMonPwr**: download from ST and extract to  
+  `~/external/STMicroelectronics/STM32CubeMonitor-Power/`
+- **Saleae Logic 2**: place AppImage under  
+  `~/external/logic2/`
+
+Register convenient launchers:
+```bash
+./04-register-cmp-logic2.sh
 source ~/.bashrc
 ```
 
-### Power Measurement Tools (Optional)
-
-#### STM32CubeMonPwr
-
-1. Download from [STM32CubeMonPwr page](https://www.st.com/en/development-tools/stm32cubemonpwr.html)
-2. Create STMicroelectronics account if needed
-3. Install:
-
+### 6) Verify Setup
 ```bash
-mkdir -p ~/workspace/external
-mv ~/Downloads/cubemonpwr-lin-v1-2-1.zip ~/workspace/external/
-cd ~/workspace/external
-unzip cubemonpwr-lin-v1-2-1.zip
-cd cubemonpwr-1.2.1
-
-# Install (choose ~/workspace/external/STMicroelectronics when prompted)
-java -jar SetupSTM32CubeMonitor-Power.jar
-
-# Create alias
-echo 'alias cube-monitor-pwr="java -jar ~/workspace/external/STMicroelectronics/STM32CubeMonitor-Power/STM32CubeMonitor-Power.jar"' >> ~/.bashrc
-```
-
-4. Update udev rules for STLINK-V3PWR:
-
-```bash
-sudo tee /etc/udev/rules.d/60-stlinkv3pwr.rules << EOF
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="3757", MODE:="0666"
-EOF
-
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-#### Saleae Logic 2
-
-Install from [Saleae Logic 2 page](https://support.saleae.com/logic-software/sw-installation).
-
-## Quick Start
-
-### 1. Clone and Setup
-
-```bash
-git clone https://github.com/derinozturk/ento-bench.git
-cd ento-bench
-```
-
-### 2. Native Build (Quick Test)
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make check
-```
-
-### 3. STM32 Build and Flash
-
-```bash
-# Create build directory for your target MCU
-mkdir build-g474 && cd build-g474
-
-# Configure for STM32G474RE
-cmake -DCMAKE_TOOLCHAIN_FILE=../stm32-cmake/stm32-g474re.cmake \
-      -DFETCH_ST_SOURCES=True \
-      -DOPENOCD_CFG=semihosting_stm32g4.cfg \
-      ..
-
-# Build benchmarks
-make -j$(nproc)
-
-# Flash and run a benchmark (connect STM32 board first)
-make stm32-flash-bench-mahony-float-imu-semihosted
-```
-
-## Available Benchmarks
-
-EntoBench provides benchmarks across multiple robotics domains:
-
-### Perception  
-- **Feature Detection/Description**: FAST+BRIEF, SIFT, ORB
-- **Optical Flow**: Lucas-Kanade, block matching, image interpolation
-
-### State Estimation
-- **Attitude Estimation**: Mahony, Madgwick, Fourati filters
-- **Pose Estimation**: P3P, UP2P, DLT, 5-point, 8-point, Homography, Upright Planar 2pt, Upright Planar 3pt, Upright 3pt
-- **Robust Estimation**: LO-RANSAC variants for outlier rejection
-- **Extended Kalman Filters**: RoboFly and RoboBee EKF implementations given a ToF+IMU, and ToF+IMU+OpticalFlow sensor suites respectively.
-
-### Control Systems
-- **Linear Controllers**: LQR for RoboFly
-- **Nonlinear Controllers**: Geometric control on SO(3)
-- **Model Predictive Control**: TinyMPC implementation for RoboFly
-- **Adaptive Control**: Sliding Mode Adaptive Controller for RoboBee 
-
-## Benchmark Naming Convention
-
-Individual benchmarks follow this pattern:
-```bash
-# Format: bench-<algorithm>-<precision>-<variant>
-make stm32-flash-bench-mahony-float-imu-semihosted
-make stm32-flash-bench-p3p-double-semihosted  
-make stm32-flash-bench-madgwick-q7-24-marg-semihosted
-```
-
-## Power and Energy Measurements
-
-For detailed power analysis:
-
-1. Connect STLINK-V3PWR to target board
-2. Start STM32CubeMonPwr application
-3. Configure Logic 2 for timing analysis
-4. Run benchmarks with current measurement
-5. Process results using provided analysis scripts
-
-See `docs/hw-setup.md` and `docs/cube-monitor-cfg.md` for detailed setup guides.
-
-## Configuration
-
-EntoBench uses JSON-based configuration for flexible benchmark tuning:
-
-- `benchmark/configs/estimation_benchmarks.json` - State estimation parameters
-- `benchmark/configs/control_benchmarks.json` - Control system parameters  
-- `benchmark/configs/perception_benchmarks.json` - Computer vision parameters
-
-Each configuration supports:
-- **Repetitions**: Number of benchmark runs
-- **Inner repetitions**: Algorithm iterations per run
-- **Verbosity levels**: Output detail control
-- **Cache settings**: Memory optimization flags
-- **Problem sizes**: Dataset scaling parameters
-
-## Documentation
-
-- `docs/build_system_analysis.md` - Build system architecture
-- `docs/stm32_flash_targets.md` - Available STM32 flash targets
-- `docs/cmake_cleanup_plan.md` - Build system documentation
-- Hardware setup guides in `docs/` directory
-
-## Contributing
-
-EntoBench is actively developed for insect-scale robotics research. Please see the issues page for known limitations and planned improvements.
-
-## License
-
-[License information to be added]
-
-## Citation
-
-If you use EntoBench in your research, please cite:
-
-```bibtex
-[Citation to be added when published]
+./05-verify-setup.sh
 ```
 
 ---
 
-*EntoBench is developed for advancing embedded system benchmarking in insect-scale robotics applications.*
+## Quick Start (AE Workflow)
 
+### 0) Clone
+```bash
+git clone https://github.com/cornell-brg/ento-bench.git
+cd ento-bench
+```
 
+### 1) Create build & experiment structure
+```bash
+./scripts/flow/00-setup-experiment-env.sh
+```
+Creates:
+- Builds: `build/build-g474`, `build/build-u575`, `build/build-h7a3`
+- Experiments: `experiments/ae/m4/example/{example-cache,example-nocache}`
+
+### 2) Launch GUIs
+```bash
+./scripts/flow/01-launch-apps.sh
+```
+Then in your desktop/XRDP session, bring **STM32CubeMonitor-Power** and **Logic 2** to the foreground.
+
+### 3) Flash & run the example benchmark (with acquisition)
+1. In **Logic 2**: press **Play**  
+2. In **CMP**: press **Start Acquisition**  
+3. In a terminal:
+   ```bash
+   cd build/build-g474
+   make stm32-flash-bench-example-semihosted
+   ```
+4. Wait until the trigger pin (D7) goes low in **Logic 2**, then stop both acquisitions.
+
+### 4) Save measurement data
+- **Logic 2**: Save a `.sal` **and** Export Raw Data to  
+  `experiments/ae/m4/example/example-cache/`
+- **CMP**: “Save Graph” to the **same** directory  
+  *(tip: the button can be finicky—click near the lower-right corner)*
+
+### 5) Analyze
+```bash
+source ~/.venvs/entobench-ae/bin/activate
+./scripts/flow/02-analyze-energy.sh \
+  -d experiments/ae/m4/example/example-cache
+```
+Outputs include cycle counts, average energy, peak power, and latency.  
+Expected/illustrative outputs are shown in `docs/expected-results.md` (PDF provided).
+
+---
+
+## Experiment Customization
+
+Change per-benchmark parameters in:
+- `benchmark/configs/example_benchmarks.json` (for the example)
+- Other domains under `benchmark/configs/`
+
+**Disable caches** by setting:
+```json
+"enable_caches": false
+```
+
+Re-configure builds to propagate config changes:
+```bash
+./scripts/clean-and-rebuild.sh
+```
+
+---
+
+## Troubleshooting
+
+**CMP won’t launch (JavaFX error) or no GUI under XRDP**
+- Use the registered launcher which runs the **bundled JRE** and XRDP-friendly flags:
+  ```bash
+  cube-monitor-pwr
+  ```
+  (The `04-register-cmp-logic2.sh` script sets this up as:
+  `SWT_GTK3=0 _JAVA_OPTIONS="-Dsun.java2d.xrender=false" "$CMP_DIR/jre/bin/java" -jar "$CMP_DIR/STM32CubeMonitor-Power.jar"`)
+
+**Logic 2 AppImage won’t start (FUSE)**
+- Install FUSE v2 compatibility: `sudo apt-get install -y libfuse2`
+
+**udev permissions**
+- Re-run `./03-setup-udev-stlinkv3pwr.sh` and unplug/replug the device.
+
+**CMake floods warnings**
+- AE release globally suppresses most warnings in the top-level CMake for clarity.
+
+---
+
+## Repository Structure (high level)
+
+```
+ento-bench/
+├─ benchmark/                # Benchmarks and configs
+│  └─ configs/               # JSON configs (e.g., enable_caches)
+├─ docs/                     # Setup guides, expected results, customization
+├─ scripts/                  # Install & helper scripts
+│  ├─ install/               # AE install scripts (00,01,02...,05)
+│  └─ flow/                  # AE workflow scripts (00,01,02...)
+├─ src/                      # Source code (kernels, eval framework)
+├─ stm32-cmake/              # Toolchain files & MCU configs
+├─ tools/                    # Analysis scripts (rename/sync/analyze)
+└─ build/                    # Generated build dirs (after setup)
+```
+
+---
+
+## Versioning
+
+- **Tag**: `v1.0.0-ae`  
+- Any AE-only fixes will bump the last segment: `v1.0.0-ae.1`, `v1.0.0-ae.2`, …
+
+---
+
+## Citation
+
+Please cite our paper (to appear) if you use EntoBench in your research. Will be added
+upon publication.
+
+---
+
+## License
+
+TBD (will be updated upon camera-ready).
+
+---
+
+## Contact / Issues
+
+- Issues & feature requests: GitHub Issues
+- Hardware enablement requests welcome (open an issue with board details)
