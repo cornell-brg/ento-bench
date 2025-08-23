@@ -601,7 +601,7 @@ function(add_benchmark_group_target GROUP_NAME)
   string(REPLACE ";" " " TARGET_LIST_STR "${TARGET_LIST}")
   
   # Path to the build progress script
-  set(PROGRESS_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/build_with_progress.sh")
+  set(PROGRESS_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/build-with-progress.sh")
   
   # Check if script exists
   if(NOT EXISTS ${PROGRESS_SCRIPT})
