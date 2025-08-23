@@ -11,13 +11,16 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - Connect to the **Arduino headers** on each NUCLEO board.
   - `D7` → LA Channel 0 (`TRIGGER`)
   - `D4` → LA Channel 1 (`LATENCY`)
+  - Connect ground probes into available GND pins on NUCLEO board.
 
 - **STLink-V3PWR:**
   - Used to power the board and capture current consumption.
-  - Connection header varies by board (see below).
+  - Power Connection header varies by board (see below).
+  - Use a second female-to-male jumper to connect from `TRIGGER` to the TGI pin
+    on the STLink-V3PWR. ![TGI Connection](stlink-v3pwr-pinout.png)
+  - Connect a MIPI14 cable to the compatible Debug header. Picture below shows an example setup.
+    ![Example Setup](example-hw-setup.png)
 
-- **USB connection:**  
-  Each board should still be connected to the host PC via USB for flashing/debugging.
 
 ⚠️ **Important:** Use the STLink-V3PWR as the *only* power source. Do not power the board simultaneously via USB 5V.
 
@@ -30,7 +33,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32G474 Wiring](stm32g474-wiring.png)
+![STM32G474 Board](stm32g474-pinout.png)
+![STM32G474 Pinout](g474-pinout.png)
 
 ---
 
@@ -41,7 +45,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32H7A3ZIQ Wiring](stm32h7a3ziq-wiring.png)
+![STM32H7A3ZIQ Wiring](stm32h7a3ziq-pinout.png)
+![STM32H7A3ZIQ Pinout](u575-pinout.png)
 
 ---
 
@@ -52,19 +57,8 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
   - D7 → LA Channel 0 (`TRIGGER`)  
   - D4 → LA Channel 1 (`LATENCY`)  
 
-![STM32U575ZIQ Wiring](stm32u575ziq-wiring.png)
-
----
-
-## 4. NUCLEO-STM32C092RC
-
-- **Power:** Connect STLink-V3PWR to the **3V3 pin**.  
-- **Signals:**  
-  - D7 → LA Channel 0 (`TRIGGER`)  
-  - D4 → LA Channel 1 (`LATENCY`)  
-- **Board Modification:** SB (solder bridge) must be removed to enable external power through the 3V3 pin.  
-
-![STM32C092RC Wiring](stm32c092rc-wiring.png)
+![STM32U575ZIQ Wiring](stm32u575ziq-pinout.png)
+![STM32U575ZIQ Pinout](u575-pinout.png)
 
 ---
 
@@ -75,12 +69,5 @@ We assume you have the required hardware (Saleae Logic Pro or compatible, STLink
 | STM32G474            | 3V3       | LA Ch0       | LA Ch1       |                                     |
 | STM32H7A3ZIQ         | 3V3       | LA Ch0       | LA Ch1       |                                     |
 | STM32U575ZIQ         | IOREF     | LA Ch0       | LA Ch1       |                                     |
-| STM32C092RC          | 3V3       | LA Ch0       | LA Ch1       | Requires SB removal for 3V3 input   |
 
 ---
-
-## Verification
-
-1. In CubeMonitor-Power, verify that the board draws stable idle current after connecting.  
-2. In Logic 2, confirm that `TRIGGER` toggles when a benchmark runs.  
-3. Check that `LATENCY` pulses are visible during benchmark execution.
