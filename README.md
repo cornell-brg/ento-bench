@@ -45,14 +45,6 @@ This **Artifact Evaluation (AE)** release reproduces the results in the paper’
 
 ---
 
-## Quick Links
-
-- **Docs**: `docs/` (hardware setup, Logic 2, CMP config)
-- **Experiment flow scripts**: `scripts/flow/`
-- **One-shot install scripts**: `scripts/00..05-*.sh`
-
----
-
 ## Installation (Ubuntu 24.04)
 
 All steps are automated via scripts in `scripts/`. Run them in order:
