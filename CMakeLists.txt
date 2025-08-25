@@ -302,7 +302,6 @@ set(APP_DIR apps)
 set(UB_DIR ubench)
 set(SANDBOX_DIR sandbox)
 set(BENCHMARK_DIR benchmark)
-set(EXAMPLE_DIR example)
 
 # Figure out arch
 message(VERBOSE "Target architecture: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -328,7 +327,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 # Subdirs are only for Cmake to traverse down and autogenerate Makefiles
 add_subdirectory(${SRC_DIR})
 add_subdirectory(${SANDBOX_DIR})
-add_subdirectory(${EXAMPLE_DIR})
 add_subdirectory(${BENCHMARK_DIR})
 
 
