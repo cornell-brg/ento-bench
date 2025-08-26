@@ -29,7 +29,8 @@ list(APPEND BENCH_TARGETS bench-example)
 # =============================================================================
 
 # Use JSON configuration for examples (following EntoBench patterns)
-add_configured_benchmark_group_with_target_configs("example-cfg"
+
+add_configured_benchmark_group_with_target_configs("examples"
   TARGETS ${BENCH_TARGETS}
   CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/example_benchmarks.json"
 )
