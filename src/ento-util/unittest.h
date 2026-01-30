@@ -103,6 +103,38 @@ inline char __ento_cmdline_args_path_buffer[256] = {};
   return __failed;
 
 //------------------------------------------------------------------------
+// TEST_BEGIN(name) / TEST_END()
+//------------------------------------------------------------------------
+// Helper macros for individual test function naming and completion
+
+#define TEST_BEGIN(name) \
+  do { \
+    if ( EntoUtil::__n != 0 ) { \
+      std::printf("%s", name); \
+      std::fflush(stdout); \
+    } \
+  } while(0)
+
+#define TEST_END() \
+  do { \
+    if ( EntoUtil::__failed ) { \
+      if ( EntoUtil::__n < 0 ) { \
+        std::printf(" " __RED "FAILED" __RESET "\n"); \
+      } else { \
+        std::printf(" - [ " __RED "FAILED" __RESET " ]\n"); \
+      } \
+    } else { \
+      if ( EntoUtil::__n < 0 ) { \
+        std::printf(" " __GREEN "PASSED" __RESET "\n"); \
+      } else if ( EntoUtil::__n > 0 ) { \
+        std::printf(" - [ " __GREEN "PASSED" __RESET " ]\n"); \
+      } else { \
+        std::printf(" PASSED\n"); \
+      } \
+    } \
+  } while(0)
+
+//------------------------------------------------------------------------
 // ENTO_TEST_CHECK_FAIL()
 //------------------------------------------------------------------------
 // Unconditionally fail a test case.

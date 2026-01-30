@@ -60,7 +60,7 @@ void __ento_test_start( const char* file )
 {
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
-  if ( __n < 0 ) std::printf( "%s" , file );
+  if ( __n < 0 ) std::printf( "Running test file %s\n" , file );
   if ( __n > 0 ) std::printf( "Running test cases in %s.\n", file);
 }
 
@@ -88,8 +88,11 @@ void __ento_test_fail( const char* file, int lineno, char *expr )
 {
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
-  if ( __n < 0 ) std::printf( __RED "." __RESET );
-  std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s\n", file, lineno, expr );
+  if ( __n < 0 ) {
+    std::printf( __RED "." __RESET );
+  } else if ( __n > 0 ) {
+    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s\n", file, lineno, expr );
+  }
   __failed = 1;
 }
 
@@ -121,9 +124,12 @@ void __ento_test_check_and_print_int_binop( const char* file, int lineno, const 
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
   if ( __failure_condition ) {
-    if ( __n < 0 ) std::printf( "\n" );
-    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%d != %d)\n",
-           file, lineno, expr1, expr2, __int_expr0, __int_expr1 );
+    if ( __n < 0 ) {
+      std::printf( __RED "." __RESET );
+    } else if ( __n > 0 ) {
+      std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%d != %d)\n",
+             file, lineno, expr1, expr2, __int_expr0, __int_expr1 );
+    }
     __failed = 1;
   } else if ( __n > 0 ) {
     std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s (%d == %d)\n",
@@ -147,15 +153,18 @@ void __ento_test_check_and_print_float_binop( const char* file, int lineno, cons
   using namespace EntoUtil;
   file = __ento_debug_get_file_name( file );
   if ( __failure_condition ) {
-    if ( __n < 0 ) std::printf( "\n" );
-    std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%.10e != %.10e)\n",
-           file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
+    if ( __n < 0 ) {
+      std::printf( __RED "." __RESET );
+    } else if ( __n > 0 ) {
+      std::printf(" - [ " __RED "FAILED" __RESET " ] File %s:%d:  %s != %s (%.10e != %.10e)\n",
+             file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
+    }
     __failed = 1;
   } else if ( __n > 0 ) {
     std::printf(" - [ " __GREEN "passed" __RESET " ] File %s:%d:  %s == %s (%.10e == %.10e)\n",
            file, lineno, expr1, expr2, __float_expr0, __float_expr1 );
   } else if ( __n < 0 ) {
-    std::printf( __GREEN ".");
+    std::printf( __GREEN "." __RESET );
   }
 }
 
