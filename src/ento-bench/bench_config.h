@@ -3,9 +3,10 @@
 
 #include <cstddef>
 
-// Include cache utilities for ENTO_BENCH_SETUP macro
+// Include cache/flash utilities for ENTO_BENCH_SETUP macro
 #ifndef NATIVE
 #include <ento-mcu/cache_util.h>
+#include <ento-mcu/flash_util.h>
 #endif
 
 namespace EntoBench {
@@ -81,6 +82,12 @@ constexpr bool DefaultEnableCaches = true;
 constexpr bool DefaultEnableCaches = (ENABLE_CACHES != 0);
 #endif
 
+#ifndef ENABLE_PREFETCH
+constexpr bool DefaultEnablePrefetch = true;
+#else
+constexpr bool DefaultEnablePrefetch = (ENABLE_PREFETCH != 0);
+#endif
+
 #ifndef ENABLE_VECTORIZATION
 constexpr bool DefaultEnableVectorization = true;
 #else
@@ -130,6 +137,13 @@ using CustomHarness = Harness<Problem, DoWarmup, Reps, InnerReps, MaxProblems, V
     do { \
         if constexpr (EntoBench::DefaultEnableCaches) { \
             enable_all_caches(); \
+        } else { \
+            disable_all_caches(); \
+        } \
+        if constexpr (!EntoBench::DefaultEnablePrefetch) { \
+            disable_instruction_cache_prefetch(); \
+        } else if constexpr (!EntoBench::DefaultEnableCaches) { \
+            enable_instruction_cache_prefetch(); \
         } \
     } while(0)
 
@@ -142,6 +156,7 @@ using CustomHarness = Harness<Problem, DoWarmup, Reps, InnerReps, MaxProblems, V
         printf("MAX_PROBLEMS: %zu\n", EntoBench::DefaultMaxProblems); \
         printf("DO_WARMUP: %s\n", EntoBench::DefaultDoWarmup ? "true" : "false"); \
         printf("ENABLE_CACHES: %s\n", EntoBench::DefaultEnableCaches ? "true" : "false"); \
+        printf("ENABLE_PREFETCH: %s\n", EntoBench::DefaultEnablePrefetch ? "true" : "false"); \
         printf("ENABLE_VECTORIZATION: %s\n", EntoBench::DefaultEnableVectorization ? "true" : "false"); \
         printf("H7_PERFORMANCE_MULTIPLIER: %zu\n", EntoBench::H7_PERFORMANCE_MULTIPLIER); \
         printf("===============================\n"); \

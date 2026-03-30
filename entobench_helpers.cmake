@@ -50,6 +50,7 @@ function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
   extract_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
   extract_json_bool_flag("DO_WARMUP" "do_warmup")
   extract_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  extract_json_bool_flag("ENABLE_PREFETCH" "enable_prefetch")
   extract_json_bool_flag("ENABLE_VECTORIZATION" "enable_vectorization")
   
   # Set output variable
@@ -116,6 +117,7 @@ function(parse_target_config_file CONFIG_FILE TARGET_NAME OUTPUT_VAR)
   extract_target_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
   extract_target_json_bool_flag("DO_WARMUP" "do_warmup")
   extract_target_json_bool_flag("ENABLE_CACHES" "enable_caches")
+  extract_target_json_bool_flag("ENABLE_PREFETCH" "enable_prefetch")
   extract_json_bool_flag("ENABLE_VECTORIZATION" "enable_vectorization")
   
   # Set output variable
@@ -163,10 +165,10 @@ endfunction()
 #          REPS 10  # fallback values
 #          VERBOSITY 1)
 function(add_configured_benchmark_group_from_file GROUP_NAME)
-  cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES" 
-    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "TARGETS" 
+  cmake_parse_arguments(GROUP
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "TARGETS"
     ${ARGN}
   )
   
@@ -205,7 +207,10 @@ function(add_configured_benchmark_group_from_file GROUP_NAME)
     if(GROUP_ENABLE_CACHES)
       list(APPEND FINAL_CONFIG_ARGS "ENABLE_CACHES")
     endif()
-    
+    if(GROUP_ENABLE_PREFETCH)
+      list(APPEND FINAL_CONFIG_ARGS "ENABLE_PREFETCH")
+    endif()
+
     if(FINAL_CONFIG_ARGS)
       message(VERBOSE "Using fallback configuration for group '${GROUP_NAME}'")
     endif()
@@ -414,7 +419,8 @@ function(add_stm32_target target_name)
     set(DEBUG_LOG "${TARGET_BUILD_DIR}/debug-${target_name}.log")
   endif()
   # Determine the programming command based on the OpenOCD config
-  set(PROGRAM_CMD "program bin/${target_name}.elf verify")
+  # Use absolute path so OpenOCD can find the ELF regardless of working directory
+  set(PROGRAM_CMD "program ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${target_name}.elf verify")
   add_custom_target(stm32-flash-${target_name}-semihosted
     COMMAND bash -c "\
       ${OPENOCD_EXECUTABLE} \
@@ -639,10 +645,10 @@ endfunction()
 #          TARGETS target1 target2 target3
 #          REPS 30 VERBOSITY 1 ENABLE_CACHES)
 function(add_benchmark_group_target_with_config GROUP_NAME)
-  cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES" 
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "TARGETS" 
+  cmake_parse_arguments(GROUP
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "TARGETS"
     ${ARGN}
   )
   
@@ -678,7 +684,12 @@ function(add_benchmark_group_target_with_config GROUP_NAME)
   else()
     set(CONFIG_STR "${CONFIG_STR}_nocache")
   endif()
-  
+  if(GROUP_ENABLE_PREFETCH)
+    set(CONFIG_STR "${CONFIG_STR}_pf")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nopf")
+  endif()
+
   # Path to the build progress script
   set(PROGRESS_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/build_with_progress.sh")
   
@@ -726,10 +737,10 @@ endfunction()
 #          DO_WARMUP ON
 #          ENABLE_CACHES OFF)
 function(configure_benchmark_target TARGET_NAME)
-  cmake_parse_arguments(BENCH 
-    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "" 
+  cmake_parse_arguments(BENCH
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    ""
     ${ARGN}
   )
   
@@ -756,6 +767,11 @@ function(configure_benchmark_target TARGET_NAME)
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=1)
     else()
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_CACHES=0)
+    endif()
+    if(BENCH_ENABLE_PREFETCH)
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_PREFETCH=1)
+    else()
+      target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_PREFETCH=0)
     endif()
     if(BENCH_ENABLE_VECTORIZATION)
       target_compile_definitions(${TARGET_NAME} PRIVATE ENABLE_VECTORIZATION=1)
@@ -787,6 +803,11 @@ function(configure_benchmark_target TARGET_NAME)
     else()
       set(CONFIG_STR "${CONFIG_STR}_nocache")
     endif()
+    if(BENCH_ENABLE_PREFETCH)
+      set(CONFIG_STR "${CONFIG_STR}_pf")
+    else()
+      set(CONFIG_STR "${CONFIG_STR}_nopf")
+    endif()
     set_target_properties(${TARGET_NAME} PROPERTIES BENCH_CONFIG_STR "${CONFIG_STR}")
     message(VERBOSE "Configured ${TARGET_NAME} with:")
     if(DEFINED BENCH_REPS)
@@ -803,6 +824,7 @@ function(configure_benchmark_target TARGET_NAME)
     endif()
     message(VERBOSE "  DO_WARMUP=${BENCH_DO_WARMUP}")
     message(VERBOSE "  ENABLE_CACHES=${BENCH_ENABLE_CACHES}")
+    message(VERBOSE "  ENABLE_PREFETCH=${BENCH_ENABLE_PREFETCH}")
     message(VERBOSE "  ENABLE_VECTORIZATION=${BENCH_ENABLE_VECTORIZATION}")
     message(VERBOSE "  BENCH_CONFIG_STR=${CONFIG_STR}")
   else()
@@ -812,10 +834,10 @@ endfunction()
 
 # Enhanced add_benchmark function with configuration support
 function(add_configured_benchmark TARGET_NAME)
-  cmake_parse_arguments(ARG 
-    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
-    "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "SOURCES;LIBRARIES" 
+  cmake_parse_arguments(ARG
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
+    "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "SOURCES;LIBRARIES"
     ${ARGN}
   )
 
@@ -844,6 +866,7 @@ function(add_configured_benchmark TARGET_NAME)
     MAX_PROBLEMS ${ARG_MAX_PROBLEMS}
     ${ARG_DO_WARMUP}
     ${ARG_ENABLE_CACHES}
+    ${ARG_ENABLE_PREFETCH}
     ${ARG_ENABLE_VECTORIZATION}
   )
 endfunction()
@@ -851,10 +874,10 @@ endfunction()
 # NEW: Enhanced benchmark group function with configuration support
 function(add_configured_benchmark_group_target GROUP_NAME)
   # Parse configuration arguments and target list
-  cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "" 
+  cmake_parse_arguments(GROUP
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    ""
     ${ARGN}
   )
   
@@ -871,13 +894,14 @@ function(add_configured_benchmark_group_target GROUP_NAME)
         MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
         ${GROUP_DO_WARMUP}
         ${GROUP_ENABLE_CACHES}
+        ${GROUP_ENABLE_PREFETCH}
         ${GROUP_ENABLE_VECTORIZATION}
       )
     else()
       message(WARNING "Target ${target_name} does not exist in group ${GROUP_NAME}")
     endif()
   endforeach()
-  
+
   # Create the group target using the enhanced function with config
   add_benchmark_group_target_with_config(${GROUP_NAME}
     TARGETS ${TARGET_LIST}
@@ -887,6 +911,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
     MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
     ${GROUP_DO_WARMUP}
     ${GROUP_ENABLE_CACHES}
+    ${GROUP_ENABLE_PREFETCH}
     ${GROUP_ENABLE_VECTORIZATION}
   )
   
@@ -907,6 +932,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
   endif()
   message(VERBOSE "  Group DO_WARMUP=${GROUP_DO_WARMUP}")
   message(VERBOSE "  Group ENABLE_CACHES=${GROUP_ENABLE_CACHES}")
+  message(VERBOSE "  Group ENABLE_PREFETCH=${GROUP_ENABLE_PREFETCH}")
   message(VERBOSE "  Group ENABLE_VECTORIZATION=${GROUP_ENABLE_VECTORIZATION}")
 endfunction()
 
@@ -917,10 +943,10 @@ endfunction()
 #          VERBOSITY 1
 #          ENABLE_CACHES)
 function(add_preconfigured_benchmark_group GROUP_NAME)
-  cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES;ENABLE_VECTORIZATION" 
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "TARGETS" 
+  cmake_parse_arguments(GROUP
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "TARGETS"
     ${ARGN}
   )
   
@@ -953,10 +979,15 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
   else()
     set(CONFIG_STR "${CONFIG_STR}_nocache")
   endif()
-  
+  if(GROUP_ENABLE_PREFETCH)
+    set(CONFIG_STR "${CONFIG_STR}_pf")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nopf")
+  endif()
+
   # Store configuration string globally for use by add_stm32_targets
   set(GLOBAL_BENCHMARK_CONFIG_STR "${CONFIG_STR}" CACHE INTERNAL "Current benchmark configuration string")
-  
+
   # Configure all targets first
   foreach(target_name IN LISTS GROUP_TARGETS)
     if(TARGET ${target_name})
@@ -980,10 +1011,13 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
       if(GROUP_ENABLE_CACHES)
         list(APPEND CONFIG_ARGS "ENABLE_CACHES")
       endif()
+      if(GROUP_ENABLE_PREFETCH)
+        list(APPEND CONFIG_ARGS "ENABLE_PREFETCH")
+      endif()
       if(GROUP_ENABLE_VECTORIZATION)
         list(APPEND CONFIG_ARGS "ENABLE_VECTORIZATION")
       endif()
-      
+
       # Apply configuration if any parameters were specified
       if(CONFIG_ARGS)
         configure_benchmark_target(${target_name} ${CONFIG_ARGS})
@@ -1002,9 +1036,10 @@ function(add_preconfigured_benchmark_group GROUP_NAME)
     MAX_PROBLEMS ${GROUP_MAX_PROBLEMS}
     ${GROUP_DO_WARMUP}
     ${GROUP_ENABLE_CACHES}
+    ${GROUP_ENABLE_PREFETCH}
     ${GROUP_ENABLE_VECTORIZATION}
   )
-  
+
   message(VERBOSE "Stored benchmark config string: ${CONFIG_STR}")
 endfunction()
 
@@ -1013,10 +1048,10 @@ endfunction()
 #          CONFIG_FILE "configs/benchmarks.json"
 #          TARGETS target1 target2 target3)
 function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
-  cmake_parse_arguments(GROUP 
-    "DO_WARMUP;ENABLE_CACHES" 
-    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS" 
-    "TARGETS" 
+  cmake_parse_arguments(GROUP
+    "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "TARGETS"
     ${ARGN}
   )
   
@@ -1037,6 +1072,7 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   set(LOG_MAX_PROBLEMS "")
   set(LOG_DO_WARMUP OFF)
   set(LOG_ENABLE_CACHES OFF)
+  set(LOG_ENABLE_PREFETCH OFF)
   set(LOG_VECTORIZATION OFF)
   
   # Parse GROUP_CONFIG_ARGS to extract values
@@ -1063,6 +1099,8 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
           set(LOG_DO_WARMUP ON)
         elseif(KEY STREQUAL "ENABLE_CACHES")
           set(LOG_ENABLE_CACHES ON)
+        elseif(KEY STREQUAL "ENABLE_PREFETCH")
+          set(LOG_ENABLE_PREFETCH ON)
         elseif(KEY STREQUAL "ENABLE_VECTORIZATION")
           set(LOG_VECTORIZATION ON)
         endif()
@@ -1095,6 +1133,11 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
     set(CONFIG_STR "${CONFIG_STR}_cache")
   else()
     set(CONFIG_STR "${CONFIG_STR}_nocache")
+  endif()
+  if(LOG_ENABLE_PREFETCH)
+    set(CONFIG_STR "${CONFIG_STR}_pf")
+  else()
+    set(CONFIG_STR "${CONFIG_STR}_nopf")
   endif()
   
   # Store configuration string globally for use by add_stm32_targets
@@ -1147,6 +1190,9 @@ function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   endif()
   if(LOG_ENABLE_CACHES)
     list(APPEND CONFIG_PARAMS ENABLE_CACHES)
+  endif()
+  if(LOG_ENABLE_PREFETCH)
+    list(APPEND CONFIG_PARAMS ENABLE_PREFETCH)
   endif()
   if(LOG_VECTORIZATION)
     list(APPEND CONFIG_PARAMS ENABLE_VECTORIZATION)
