@@ -5,6 +5,10 @@
 #include <ento-mcu/timing.h>
 #endif
 
+#ifdef GEM5_SEMIHOSTING
+#include "gem5_m5ops_semi.h"
+#endif
+
 #ifdef GEM5
 #include <sys/syscalls.c>
 //#include <gem5/m5ops.h>
@@ -108,7 +112,9 @@ static inline ROIMetrics get_roi_stats();
 static inline
 void init_roi_tracking()
 {
-#if defined(STM32_BUILD)
+#if defined(GEM5_SEMIHOSTING)
+  /* No hardware counter init needed — gem5 handles stats internally */
+#elif defined(STM32_BUILD)
   disable_dwt();
   if (!is_cycle_counter_enabled()) init_cycle_counter();
   if (!is_cpi_counter_enabled()) init_cpi_counter();
@@ -116,7 +122,7 @@ void init_roi_tracking()
   if (!is_lsu_counter_enabled()) init_lsu_counter();
   if (!is_exc_counter_enabled()) init_exc_counter();
 #endif
-#if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
+#if defined(STM32_BUILD) && !defined(GEM5_SEMIHOSTING) && defined(LATENCY_MEASUREMENT)
   latency_pin_enable();
   trigger_pin_enable();
 #endif
@@ -127,7 +133,10 @@ static inline
 void start_roi(void)
 {
   __asm__ volatile("" ::: "memory");
-#ifdef STM32_BUILD
+#if defined(GEM5_SEMIHOSTING)
+  m5_reset_stats();
+  m5_work_begin();
+#elif defined(STM32_BUILD)
   //@TODO Disable Clear it Enable it. All in one go
   disable_and_reset_all_counters(); // Disables and resets counters
 #if !defined(STM32G0)
@@ -156,7 +165,10 @@ static inline
 void end_roi(void)
 {
   __asm__ volatile("" ::: "memory");
-#if defined(STM32_BUILD)
+#if defined(GEM5_SEMIHOSTING)
+  m5_work_end();
+  m5_dump_reset_stats();
+#elif defined(STM32_BUILD)
   //@TODO Disable all in one go.
   disable_all_counters();
 #if defined(LATENCY_MEASUREMENT)
@@ -171,7 +183,11 @@ void end_roi(void)
 static inline
 ROIMetrics get_roi_stats(void)
 {
-#ifdef STM32_BUILD
+#if defined(GEM5_SEMIHOSTING)
+  /* Stats are collected by gem5 via dump_stats — no local metrics */
+  ROIMetrics metrics = {};
+  return metrics;
+#elif defined(STM32_BUILD)
   uint32_t current_cycle_count = get_cycle_count();
   uint32_t current_cpi_count = get_cpi_count();
   uint32_t current_fold_count = get_fold_count();
