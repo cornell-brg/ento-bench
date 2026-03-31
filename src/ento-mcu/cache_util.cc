@@ -271,6 +271,10 @@ void enable_all_caches()
   enable_instruction_cache_prefetch();
 #endif
 
+#if defined(STM32G4)
+  LL_FLASH_EnableDataCache();
+#endif
+
 #if defined(STM32U5) || defined(STM32F7) || defined(STM32H7)
   icache_enable();
 #endif
@@ -293,6 +297,10 @@ void disable_all_caches()
 #if defined(STM32G4) || defined(STM32H7)
   disable_instruction_cache();
   disable_instruction_cache_prefetch();
+#endif
+
+#if defined(STM32G4)
+  LL_FLASH_DisableDataCache();
 #endif
 
 #if defined(STM32U5) || defined(STM32F7) || defined(STM32H7)
