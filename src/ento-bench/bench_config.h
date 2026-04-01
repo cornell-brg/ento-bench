@@ -94,6 +94,20 @@ constexpr bool DefaultEnableVectorization = true;
 constexpr bool DefaultEnableVectorization = (ENABLE_VECTORIZATION != 0);
 #endif
 
+// Kernel inline policy: 0=Inline (default), 1=NoInline, 2=Placed
+// Enum defined here so bench_config.h is self-contained; problem.h uses it.
+enum class InlinePolicy { Inline = 0, NoInline = 1, Placed = 2 };
+
+#ifndef INLINE_POLICY
+constexpr InlinePolicy DefaultInlinePolicy = InlinePolicy::Inline;
+#elif INLINE_POLICY == 1
+constexpr InlinePolicy DefaultInlinePolicy = InlinePolicy::NoInline;
+#elif INLINE_POLICY == 2
+constexpr InlinePolicy DefaultInlinePolicy = InlinePolicy::Placed;
+#else
+constexpr InlinePolicy DefaultInlinePolicy = InlinePolicy::Inline;
+#endif
+
 //=============================================================================
 // Vectorization Control for Perception Algorithms
 // Controls ARM SIMD optimizations (e.g., USADA8 for SAD computation)

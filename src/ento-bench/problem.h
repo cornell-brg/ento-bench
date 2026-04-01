@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <concepts>
 #include <ento-util/debug.h>
+#include <ento-bench/bench_config.h>
 
 #ifdef NATIVE
 #include <iostream>
@@ -116,8 +117,10 @@ void EntoProblem<Derived>::clear()
   return static_cast<Derived*>(this)->clear_impl();
 }
 
-template <typename Callable>
-class BasicProblem : public EntoProblem<BasicProblem<Callable>>
+// InlinePolicy enum is in bench_config.h
+
+template <typename Callable, InlinePolicy Policy = InlinePolicy::Inline>
+class BasicProblem : public EntoProblem<BasicProblem<Callable, Policy>>
 {
 public:
   static constexpr bool RequiresDataset_ = false;
@@ -130,17 +133,59 @@ public:
 
   bool deserialize_impl([[maybe_unused]] const char* line) { return true; }
   bool validate_impl() { return true; }
-  void solve_impl() { callable_(); }
+
+  void solve_impl() {
+    if constexpr (Policy == InlinePolicy::Inline) {
+      callable_();
+    } else {
+      call_noinline();
+    }
+  }
+
   bool clear_impl();
 
   static constexpr const char* header_impl() { return ""; }
-  
+
   BasicProblem(Callable callable) : callable_(std::move(callable)) {};
 
 private:
   Callable callable_;
+
+  __attribute__((noinline))
+  void call_noinline() { callable_(); }
 };
 
+// Placed specialization: noinline + section attribute
+template <typename Callable>
+class BasicProblem<Callable, InlinePolicy::Placed>
+    : public EntoProblem<BasicProblem<Callable, InlinePolicy::Placed>>
+{
+public:
+  static constexpr bool RequiresDataset_ = false;
+  static constexpr bool SaveResults_ = false;
+
+#ifdef NATIVE
+  std::string serialize_impl() const;
+  bool deserialize_impl([[maybe_unused]] const std::string &line) { return true; }
+#endif
+
+  bool deserialize_impl([[maybe_unused]] const char* line) { return true; }
+  bool validate_impl() { return true; }
+  void solve_impl() { call_placed(); }
+  bool clear_impl();
+
+  static constexpr const char* header_impl() { return ""; }
+
+  BasicProblem(Callable callable) : callable_(std::move(callable)) {};
+
+private:
+  Callable callable_;
+
+  __attribute__((noinline, section(".kernel_text")))
+  void call_placed() { callable_(); }
+};
+
+// Default make_basic_problem (Inline policy, backward compatible)
 template <typename T>
 auto make_basic_problem(T&& callable)
 {
@@ -151,6 +196,21 @@ auto make_basic_problem(T&& callable)
   else
   {
     return BasicProblem(std::forward<T>(callable));
+  }
+}
+
+// Explicit policy version
+template <InlinePolicy Policy, typename T>
+auto make_basic_problem(T&& callable)
+{
+  if constexpr (std::is_function_v<std::remove_pointer_t<std::decay_t<T>>>)
+  {
+    auto wrapper = [f = std::forward<T>(callable)]() { f(); };
+    return BasicProblem<decltype(wrapper), Policy>(std::move(wrapper));
+  }
+  else
+  {
+    return BasicProblem<std::decay_t<T>, Policy>(std::forward<T>(callable));
   }
 }
 

@@ -48,6 +48,7 @@ function(parse_benchmark_config_file CONFIG_FILE GROUP_NAME OUTPUT_VAR)
   extract_json_value("INNER_REPS" INNER_REPS_VALUE "inner_reps") 
   extract_json_value("VERBOSITY" VERBOSITY_VALUE "verbosity")
   extract_json_value("MAX_PROBLEMS" MAX_PROBLEMS_VALUE "max_problems")
+  extract_json_value("INLINE_POLICY" INLINE_POLICY_VALUE "inline_policy")
   extract_json_bool_flag("DO_WARMUP" "do_warmup")
   extract_json_bool_flag("ENABLE_CACHES" "enable_caches")
   extract_json_bool_flag("ENABLE_PREFETCH" "enable_prefetch")
@@ -167,7 +168,7 @@ endfunction()
 function(add_configured_benchmark_group_from_file GROUP_NAME)
   cmake_parse_arguments(GROUP
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
-    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     "TARGETS"
     ${ARGN}
   )
@@ -647,7 +648,7 @@ endfunction()
 function(add_benchmark_group_target_with_config GROUP_NAME)
   cmake_parse_arguments(GROUP
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     "TARGETS"
     ${ARGN}
   )
@@ -739,7 +740,7 @@ endfunction()
 function(configure_benchmark_target TARGET_NAME)
   cmake_parse_arguments(BENCH
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     ""
     ${ARGN}
   )
@@ -757,6 +758,9 @@ function(configure_benchmark_target TARGET_NAME)
     endif()
     if(DEFINED BENCH_MAX_PROBLEMS)
       target_compile_definitions(${TARGET_NAME} PRIVATE MAX_PROBLEMS=${BENCH_MAX_PROBLEMS})
+    endif()
+    if(DEFINED BENCH_INLINE_POLICY)
+      target_compile_definitions(${TARGET_NAME} PRIVATE INLINE_POLICY=${BENCH_INLINE_POLICY})
     endif()
     if(BENCH_DO_WARMUP)
       target_compile_definitions(${TARGET_NAME} PRIVATE DO_WARMUP=1)
@@ -836,7 +840,7 @@ endfunction()
 function(add_configured_benchmark TARGET_NAME)
   cmake_parse_arguments(ARG
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
-    "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "EXCLUDE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     "SOURCES;LIBRARIES"
     ${ARGN}
   )
@@ -876,7 +880,7 @@ function(add_configured_benchmark_group_target GROUP_NAME)
   # Parse configuration arguments and target list
   cmake_parse_arguments(GROUP
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     ""
     ${ARGN}
   )
@@ -945,7 +949,7 @@ endfunction()
 function(add_preconfigured_benchmark_group GROUP_NAME)
   cmake_parse_arguments(GROUP
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH;ENABLE_VECTORIZATION"
-    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     "TARGETS"
     ${ARGN}
   )
@@ -1050,7 +1054,7 @@ endfunction()
 function(add_configured_benchmark_group_with_target_configs GROUP_NAME)
   cmake_parse_arguments(GROUP
     "DO_WARMUP;ENABLE_CACHES;ENABLE_PREFETCH"
-    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS"
+    "CONFIG_FILE;REPS;INNER_REPS;VERBOSITY;MAX_PROBLEMS;INLINE_POLICY"
     "TARGETS"
     ${ARGN}
   )
