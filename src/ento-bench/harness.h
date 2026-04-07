@@ -449,6 +449,9 @@ public:
           }
         }
 
+        // Forward simulation step (outside ROI timing)
+        problem_.step();
+
         // Save Results if necessary for Problem Spec
         if constexpr (Problem::SaveResults_)
         {
@@ -531,7 +534,7 @@ public:
   }
 
 private:
-  
+
   //////// Private Class Members /////////
 
   Problem problem_;

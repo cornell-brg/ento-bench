@@ -66,7 +66,8 @@ class OptControlProblem :
     Eigen::Matrix< Scalar_t, StateSize, CtrlSize > m_Bdyn;
     
     int m_written_states;
-  
+    FILE* m_traj_log = nullptr;
+
   public:
   #ifdef NATIVE
     std::string serialize_impl() const
@@ -180,6 +181,7 @@ class OptControlProblem :
       return true;
     }
 
+
     void solve_impl()
     {
       if constexpr (UseSlidingWindow) {
@@ -218,6 +220,14 @@ class OptControlProblem :
         m_real_path.push_back(x0); // Just copy current state
       }
       m_iter++;
+#ifdef NATIVE
+      if (m_traj_log) {
+        auto& x = m_real_path[m_iter];
+        for (int j = 0; j < StateSize; j++) {
+          fprintf(m_traj_log, "%.8f%s", (double)x[j], j < StateSize-1 ? "," : "\n");
+        }
+      }
+#endif
     }
 
     // Public method to perform forward simulation step
@@ -234,7 +244,7 @@ class OptControlProblem :
       return "Optimal control state trajectory ( x, y, z, r, p, w, x_dot, y_dot, z_dot, r_dot, p_dot, w_dot )";
     }
 
-    OptControlProblem(Solver solver) : 
+    OptControlProblem(Solver solver, const char* traj_log_path = nullptr) :
       m_solver(std::move(solver)),
       m_trajectory_len(0),
       m_window_start(0),
@@ -244,9 +254,17 @@ class OptControlProblem :
       m_written_states(0)
     {
       if constexpr (has_dynamics_matrices<Solver_t>::value) {
-        m_Adyn = solver.get_Adyn();
-        m_Bdyn = solver.get_Bdyn();
+        m_Adyn = m_solver.get_Adyn();
+        m_Bdyn = m_solver.get_Bdyn();
       }
+#ifdef NATIVE
+      if (traj_log_path) {
+        m_traj_log = fopen(traj_log_path, "w");
+        if (m_traj_log) {
+          fprintf(m_traj_log, "x,y,z,r,p,w,x_dot,y_dot,z_dot,r_dot,p_dot,w_dot\n");
+        }
+      }
+#endif
     }
 
   private:

@@ -181,7 +181,11 @@ public:
 private:
   Callable callable_;
 
+#ifdef NATIVE
+  __attribute__((noinline))
+#else
   __attribute__((noinline, section(".kernel_text")))
+#endif
   void call_placed() { callable_(); }
 };
 

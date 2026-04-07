@@ -369,17 +369,17 @@ function(add_benchmark TARGET_NAME)
       LIBRARIES ${ARG_LIBRARIES}
     )
   else()
-    #add_non_arm_executable(${TARGET_NAME}
-    #  SOURCES ${ARG_SOURCES}
-    #  LIBRARIES ${ARG_LIBRARIES}
-    #)
+    add_executable(${TARGET_NAME} ${ARG_SOURCES})
+    target_link_libraries(${TARGET_NAME} PRIVATE ${ARG_LIBRARIES})
   endif()
-  target_link_options(${TARGET_NAME} PRIVATE
-      -Wl,-Map=${CMAKE_BINARY_DIR}/${TARGET_NAME}.map
-      -Wl,--cref
-      -Wl,--gc-sections
-      -Wl,--print-memory-usage
-    )
+  if(STM32_BUILD OR GEM5_BUILD)
+    target_link_options(${TARGET_NAME} PRIVATE
+        -Wl,-Map=${CMAKE_BINARY_DIR}/${TARGET_NAME}.map
+        -Wl,--cref
+        -Wl,--gc-sections
+        -Wl,--print-memory-usage
+      )
+  endif()
 
   # Set output directory based on the target's category
   # get_filename_component(BENCHMARK_PATH ${SOURCE_FILE} DIRECTORY)

@@ -66,6 +66,13 @@ add_benchmark(bench-tinympc
 )
 list(APPEND BENCH_TARGETS bench-tinympc)
 
+# TinyMPC Webots Crazyflie Benchmark
+add_benchmark(bench-tinympc-webots
+    SOURCES bench_tinympc_webots.cc
+    LIBRARIES ${MODULES}
+)
+list(APPEND BENCH_TARGETS bench-tinympc-webots)
+
 # RoboFly LQR Controller Benchmark
 add_benchmark(bench-robofly-lqr
     SOURCES bench_robofly_lqr.cc
@@ -225,3 +232,17 @@ message(VERBOSE "Control Bench targets: ${BENCH_TARGETS}")
 add_stm32_targets("${BENCH_TARGETS}")
 
 endif() # STM32_BUILD
+
+# =============================================================================
+# Native control benchmarks (outside STM32_BUILD guard)
+# =============================================================================
+if(NOT STM32_BUILD AND NOT GEM5_BUILD)
+  add_benchmark(bench-tinympc-webots
+      SOURCES bench_tinympc_webots.cc
+      LIBRARIES ento-control ento_util
+  )
+  add_benchmark(bench-tinympc-webots-replay
+      SOURCES bench_tinympc_webots_replay.cc
+      LIBRARIES ento-control ento_util
+  )
+endif()
