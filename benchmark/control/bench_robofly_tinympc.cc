@@ -1,3 +1,4 @@
+#define TINYMPC_DEBUG_ITERS
 #include <ento-bench/harness.h>
 #include <ento-util/file_path_util.h>
 #include <ento-util/debug.h>

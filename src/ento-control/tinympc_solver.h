@@ -316,6 +316,9 @@ public:
               m_soln.solved = true;
               m_soln.x = m_work.vnew;
               m_soln.u = m_work.znew;
+#ifdef TINYMPC_DEBUG_ITERS
+              printf("[TinyMPC] converged in %d iters\n", m_work.iter);
+#endif
               return;
           }
 
@@ -329,6 +332,9 @@ public:
       m_soln.solved = false;
       m_soln.x = m_work.vnew;
       m_soln.u = m_work.znew;
+#ifdef TINYMPC_DEBUG_ITERS
+      printf("[TinyMPC] max_iter reached: %d iters, NOT converged\n", m_work.iter);
+#endif
   }
 
   void update_settings( Scalar_t abs_pri_tol, Scalar_t abs_dua_tol, int max_iter,
