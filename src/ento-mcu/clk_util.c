@@ -100,7 +100,10 @@ uint32_t get_APB2_clk_freq(void)
 
 void sys_clk_cfg()
 {
-#if defined(STM32G4)
+#if defined(GEM5_SIM)
+  /* gem5 does not model RCC/clock peripherals — skip clock config */
+  return;
+#elif defined(STM32G4)
   if (LL_APB2_GRP1_IsEnabledClock(LL_APB2_GRP1_PERIPH_SYSCFG) == 0) {
     LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
   }

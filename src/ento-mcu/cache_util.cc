@@ -264,7 +264,10 @@ void branch_predictor_disable()
 
 void enable_all_caches()
 {
-#ifndef NATIVE
+#if defined(GEM5_SIM)
+  /* gem5 ART cache is configured via Python, not FLASH_ACR registers */
+  return;
+#elif !defined(NATIVE)
   // Enable instruction caches (abstracted MCU-specific calls)
 #if defined(STM32G4) || defined(STM32H7)
   enable_instruction_cache();
@@ -292,7 +295,9 @@ void enable_all_caches()
 
 void disable_all_caches()
 {
-#ifndef NATIVE
+#if defined(GEM5_SIM)
+  return;
+#elif !defined(NATIVE)
   // Disable instruction caches (abstracted MCU-specific calls)
 #if defined(STM32G4) || defined(STM32H7)
   disable_instruction_cache();

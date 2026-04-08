@@ -1,5 +1,16 @@
 #include <ento-mcu/flash_util.h>
 
+#if defined(GEM5_SIM)
+/* gem5 does not model FLASH_ACR registers — all flash/cache config
+   is handled by the ART cache model in Python/C++. Stub everything. */
+void enable_instruction_cache() {}
+void disable_instruction_cache() {}
+void enable_instruction_cache_prefetch() {}
+void disable_instruction_cache_prefetch() {}
+bool is_instruction_cache_prefetch_enabled() { return false; }
+uint32_t get_flash_latency() { return 0; }
+#else
+
 void enable_instruction_cache()
 {
 #if   defined(STM32G4)
@@ -64,3 +75,5 @@ uint32_t get_flash_latency()
   return 0;
 #endif
 }
+
+#endif /* !GEM5_SIM */
