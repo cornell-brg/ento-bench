@@ -714,6 +714,8 @@ function(add_benchmark_group_target_with_config GROUP_NAME)
     )
   endif()
   
+  add_dependencies(${GROUP_TARGET} ${GROUP_TARGETS})
+
   # Print summary
   list(LENGTH GROUP_TARGETS TARGET_COUNT)
   message(VERBOSE "Created benchmark group '${GROUP_TARGET}' with ${TARGET_COUNT} targets")
