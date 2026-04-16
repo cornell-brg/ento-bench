@@ -52,9 +52,14 @@ public:
 
   bool deserialize(const char* line);
 
+  // `prepare` runs outside ROI, before each Reps iteration in Harness::run().
+  // Distinct from `RequiresSetup_` (ExperimentIO dataset pre-load) — this is
+  // per-rep state reset, used by generated tests to load known entry state.
+  void prepare();
   bool validate();
   void solve();
   void clear();
+  ResultSig result_signature() const;
 
   // Must be defined in class declaration in base classes due to static constexpr
   static constexpr const char* header() { return Derived::header_impl(); }
@@ -128,6 +133,18 @@ void EntoProblem<Derived>::clear()
   return static_cast<Derived*>(this)->clear_impl();
 }
 
+template <typename Derived>
+void EntoProblem<Derived>::prepare()
+{
+  static_cast<Derived*>(this)->prepare_impl();
+}
+
+template <typename Derived>
+ResultSig EntoProblem<Derived>::result_signature() const
+{
+  return static_cast<const Derived*>(this)->result_signature_impl();
+}
+
 // InlinePolicy enum is in bench_config.h
 
 template <typename Callable, InlinePolicy Policy = InlinePolicy::Inline>
@@ -136,6 +153,8 @@ class BasicProblem : public EntoProblem<BasicProblem<Callable, Policy>>
 public:
   static constexpr bool RequiresDataset_ = false;
   static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresPrepare_ = false;
+  static constexpr bool DoValidate_ = false;
 
 #ifdef NATIVE
   std::string serialize_impl() const;
@@ -174,6 +193,8 @@ class BasicProblem<Callable, InlinePolicy::Placed>
 public:
   static constexpr bool RequiresDataset_ = false;
   static constexpr bool SaveResults_ = false;
+  static constexpr bool RequiresPrepare_ = false;
+  static constexpr bool DoValidate_ = false;
 
 #ifdef NATIVE
   std::string serialize_impl() const;
