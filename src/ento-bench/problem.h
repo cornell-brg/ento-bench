@@ -31,9 +31,6 @@ public:
 
   bool deserialize(const char* line);
 
-  template <typename... Args>
-  auto operator()(Args&&... args);
-
   bool validate();
   void solve();
   void clear();
@@ -88,13 +85,6 @@ template <typename Derived>
 bool EntoProblem<Derived>::deserialize(const char* line)
 {
   return static_cast<Derived*>(this)->deserialize_impl(line);
-}
-
-template <typename Derived>
-template <typename... Args>
-auto EntoProblem<Derived>::operator()(Args&&... args)
-{
-  return static_cast<Derived*>(this)->run(std::forward<Args>(args)...);
 }
 
 // Evaluate the correctness after running.
