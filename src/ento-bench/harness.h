@@ -307,6 +307,10 @@ public:
       size_t i;
       for (i = 0; i < Reps; i++)
       {
+        if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
+        {
+          problem_.prepare();
+        }
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         trigger_pin_high();
         Delay::ms(50);
@@ -414,6 +418,10 @@ public:
         size_t k;
         for (k = 0; k < Reps; k++)
         {
+          if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
+          {
+            problem_.prepare();
+          }
           start_roi();
 
           for (size_t j = 0; j < InnerReps; ++j)
