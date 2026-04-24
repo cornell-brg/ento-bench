@@ -535,8 +535,7 @@ public:
     // Print summary of global metrics. Depends on profile mode of Harness.
 #ifndef NATIVE
     print_summary();
-    if constexpr ((requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_) ||
-                  (requires { Problem::DoValidate_; } && Problem::DoValidate_))
+    if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
     {
       print_ento_result();
     }
@@ -700,26 +699,17 @@ private:
     printf("Min cycles: %u\n", (uint32_t) min_metrics_.elapsed_cycles);
   }
 
-  // Structured one-line output consumed by verification/parse.py.
-  // Format must stay stable: `ENTO_RESULT name=... validate=... sig_hash=... sig_len=... sig_hex=...`
+  // Structured one-line output consumed by verification diff tools.
+  // Format: `ENTO_RESULT name=<name> bytes=<hex>`
   void print_ento_result()
   {
-    const char* validate_str = "SKIP";
-    if constexpr (requires { Problem::DoValidate_; } && Problem::DoValidate_)
-    {
-      validate_str = problem_.validate() ? "PASS" : "FAIL";
-    }
-
     ResultSig sig{};
     if constexpr (requires(const Problem& p) { p.result_signature_impl(); })
     {
       sig = problem_.result_signature();
     }
 
-    printf("ENTO_RESULT name=%s validate=%s sig_hash=%016llx sig_len=%u sig_hex=",
-           name_, validate_str,
-           (unsigned long long) sig.hash,
-           (unsigned) sig.bytes.size());
+    printf("ENTO_RESULT name=%s bytes=", name_);
     for (size_t i = 0; i < sig.bytes.size(); ++i)
     {
       printf("%02x", sig.bytes[i]);

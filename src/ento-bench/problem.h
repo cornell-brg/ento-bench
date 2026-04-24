@@ -20,19 +20,7 @@ namespace EntoBench
 struct ResultSig
 {
   std::span<const uint8_t> bytes;
-  uint64_t hash = 0;
 };
-
-constexpr uint64_t fnv1a_64(const uint8_t* data, size_t len)
-{
-  uint64_t h = 14695981039346656037ULL;
-  for (size_t i = 0; i < len; ++i)
-  {
-    h ^= data[i];
-    h *= 1099511628211ULL;
-  }
-  return h;
-}
 
 template <typename Derived>
 class EntoProblem
@@ -154,7 +142,6 @@ public:
   static constexpr bool RequiresDataset_ = false;
   static constexpr bool SaveResults_ = false;
   static constexpr bool RequiresPrepare_ = false;
-  static constexpr bool DoValidate_ = false;
 
 #ifdef NATIVE
   std::string serialize_impl() const;
@@ -194,7 +181,6 @@ public:
   static constexpr bool RequiresDataset_ = false;
   static constexpr bool SaveResults_ = false;
   static constexpr bool RequiresPrepare_ = false;
-  static constexpr bool DoValidate_ = false;
 
 #ifdef NATIVE
   std::string serialize_impl() const;

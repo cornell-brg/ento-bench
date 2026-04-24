@@ -30,7 +30,6 @@ public:
   static constexpr bool   RequiresDataset_  = false;
   static constexpr bool   SaveResults_      = false;
   static constexpr bool   RequiresPrepare_  = true;
-  static constexpr bool   DoValidate_       = false;
 
   bool deserialize_impl(const char*) { return true; }
   static constexpr const char* header_impl() { return ""; }
@@ -40,10 +39,7 @@ public:
   ResultSig result_signature_impl() const
   {
     const uint8_t* p = reinterpret_cast<const uint8_t*>(exit_);
-    return ResultSig{
-      .bytes = std::span<const uint8_t>{p, ResultBytes},
-      .hash  = fnv1a_64(p, ResultBytes),
-    };
+    return ResultSig{ .bytes = std::span<const uint8_t>{p, ResultBytes} };
   }
 
 protected:
