@@ -112,8 +112,8 @@ static inline ROIMetrics get_roi_stats();
 static inline
 void init_roi_tracking()
 {
-#if defined(GEM5_SEMIHOSTING)
-  /* No hardware counter init needed — gem5 handles stats internally */
+#if defined(GEM5_SEMIHOSTING) || defined(QEMU_SIM)
+  /* No hardware counter init needed — gem5 / qemu handle stats internally */
 #elif defined(STM32_BUILD)
   disable_dwt();
   if (!is_cycle_counter_enabled()) init_cycle_counter();
@@ -122,7 +122,7 @@ void init_roi_tracking()
   if (!is_lsu_counter_enabled()) init_lsu_counter();
   if (!is_exc_counter_enabled()) init_exc_counter();
 #endif
-#if defined(STM32_BUILD) && !defined(GEM5_SEMIHOSTING) && defined(LATENCY_MEASUREMENT)
+#if defined(STM32_BUILD) && !defined(GEM5_SEMIHOSTING) && !defined(QEMU_SIM) && defined(LATENCY_MEASUREMENT)
   latency_pin_enable();
   trigger_pin_enable();
 #endif
@@ -136,6 +136,11 @@ void start_roi(void)
 #if defined(GEM5_SEMIHOSTING)
   m5_reset_stats();
   m5_work_begin();
+#elif defined(QEMU_SIM)
+  /* QEMU_SIM: print a recognizable marker so an external trace can
+     locate ROI start. printf goes via newlib → semihosted SYS_WRITE,
+     which QEMU's -semihosting-config handles natively. */
+  printf("[ROI BEGIN]\n");
 #elif defined(STM32_BUILD)
   //@TODO Disable Clear it Enable it. All in one go
   disable_and_reset_all_counters(); // Disables and resets counters
@@ -168,6 +173,11 @@ void end_roi(void)
 #if defined(GEM5_SEMIHOSTING)
   m5_work_end();
   m5_dump_reset_stats();
+#elif defined(QEMU_SIM)
+  /* QEMU_SIM: print a recognizable marker so an external trace can
+     locate ROI end. Pair with the [ROI BEGIN] line printed by
+     start_roi to bound the kernel window. */
+  printf("[ROI END]\n");
 #elif defined(STM32_BUILD)
   //@TODO Disable all in one go.
   disable_all_counters();
