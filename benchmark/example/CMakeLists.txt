@@ -32,7 +32,7 @@ list(APPEND BENCH_TARGETS bench-example)
 
 add_configured_benchmark_group_with_target_configs("examples"
   TARGETS ${BENCH_TARGETS}
-  CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/example_benchmarks.json"
+  CONFIG_FILE "${ENTOBENCH_CONFIGS_DIR}/example_benchmarks.json"
 )
 
 # =============================================================================

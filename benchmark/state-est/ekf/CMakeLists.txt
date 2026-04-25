@@ -143,7 +143,7 @@ message(VERBOSE "EKF INNER_REPS: ${BASE_INNER_REPS} (effective: ${EFFECTIVE_INNE
 # Configure EKF benchmarks using the estimation_benchmarks.json config
 # The config system will use the base values, but log files will reflect the effective values
 add_configured_benchmark_group_with_target_configs("ekf"
-  CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/estimation_benchmarks.json"
+  CONFIG_FILE "${ENTOBENCH_CONFIGS_DIR}/estimation_benchmarks.json"
   TARGETS ${BENCH_TARGETS}
 )
 

@@ -387,7 +387,7 @@ add_custom_target(bench-attitude-help
 # =============================================================================
 
 # Method 1: Enhanced config file approach with target-specific support
-set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/estimation_benchmarks.json")
+set(CONFIG_FILE "${ENTOBENCH_CONFIGS_DIR}/estimation_benchmarks.json")
 if(EXISTS ${CONFIG_FILE})
   message(STATUS "Using enhanced config file with target-specific support: ${CONFIG_FILE}")
   add_configured_benchmark_group_with_target_configs("attitude-est"

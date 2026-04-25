@@ -3,6 +3,21 @@
 include(CMakeParseArguments)
 
 # =============================================================================
+# CONFIG DIRECTORY (overridable by parent project)
+# =============================================================================
+# When ento-bench is built natively (cmake invoked from ento-bench root),
+# CMAKE_SOURCE_DIR is the ento-bench root and configs live at
+# ${CMAKE_SOURCE_DIR}/benchmark/configs. When ento-bench is a submodule and
+# CMake is configured from the parent's benchmark/ directory, CMAKE_SOURCE_DIR
+# points at the parent's benchmark/ — set ENTOBENCH_CONFIGS_DIR before
+# add_subdirectory(<ento-bench>) to redirect the per-category bench CMakeLists
+# at the right location.
+if(NOT DEFINED ENTOBENCH_CONFIGS_DIR)
+  set(ENTOBENCH_CONFIGS_DIR "${CMAKE_SOURCE_DIR}/benchmark/configs"
+      CACHE PATH "Directory holding *_benchmarks.json config files")
+endif()
+
+# =============================================================================
 # CONFIG FILE PARSING FUNCTIONS
 # =============================================================================
 

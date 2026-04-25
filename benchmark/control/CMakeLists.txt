@@ -183,7 +183,7 @@ message(VERBOSE "Control INNER_REPS: ${BASE_INNER_REPS} (effective: ${EFFECTIVE_
 # =============================================================================
 
 # Method 1: Enhanced config file approach with target-specific support
-set(CONFIG_FILE "${CMAKE_SOURCE_DIR}/benchmark/configs/control_benchmarks.json")
+set(CONFIG_FILE "${ENTOBENCH_CONFIGS_DIR}/control_benchmarks.json")
 if(EXISTS ${CONFIG_FILE})
   message(STATUS "Using enhanced config file with target-specific support: ${CONFIG_FILE}")
   add_configured_benchmark_group_with_target_configs("control"
