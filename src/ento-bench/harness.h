@@ -307,9 +307,12 @@ public:
       size_t i;
       for (i = 0; i < Reps; i++)
       {
-        if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
+        if constexpr (requires { Problem::RequiresPrepare_; })
         {
-          problem_.prepare();
+          if constexpr (Problem::RequiresPrepare_)
+          {
+            problem_.prepare();
+          }
         }
 #if defined(STM32_BUILD) & defined(LATENCY_MEASUREMENT)
         trigger_pin_high();
@@ -418,9 +421,12 @@ public:
         size_t k;
         for (k = 0; k < Reps; k++)
         {
-          if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
+          if constexpr (requires { Problem::RequiresPrepare_; })
           {
-            problem_.prepare();
+            if constexpr (Problem::RequiresPrepare_)
+            {
+              problem_.prepare();
+            }
           }
           start_roi();
 
@@ -535,9 +541,12 @@ public:
     // Print summary of global metrics. Depends on profile mode of Harness.
 #ifndef NATIVE
     print_summary();
-    if constexpr (requires { Problem::RequiresPrepare_; } && Problem::RequiresPrepare_)
+    if constexpr (requires { Problem::RequiresPrepare_; })
     {
-      print_ento_result();
+      if constexpr (Problem::RequiresPrepare_)
+      {
+        print_ento_result();
+      }
     }
 #endif
   }
