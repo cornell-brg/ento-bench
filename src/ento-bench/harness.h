@@ -53,38 +53,10 @@ private:
     Callable& callable_;
 };
 
-// MultiHarness class
-template <std::size_t N, NoArg... Callable>
-class MultiHarness {
-public:
-    //MultiHarness(Callable... funcs) : functions_{WorkloadWrapper<Callable>(funcs)...} {}
-    MultiHarness(Callable... funcs) : functions_{funcs...} {}
-
-    void run() {
-        run_impl(std::make_index_sequence<N>{});
-    }
-
-private:
-  template<std::size_t... I>
-  void run_impl(std::index_sequence<I...>) {
-      (void(std::initializer_list<int>{
-            (printf("Starting ROI!\n"),
-             start_roi(),
-             std::get<I>(functions_)(),
-             end_roi(), 
-             printf("Ending ROI!\n"),
-             0)
-            }), ...);
-  }
-           
-  //std::tuple<WorkloadWrapper<Callable>...> functions_;
-  std::tuple<Callable...> functions_;
-};
-
-template <NoArg... Callables>
-MultiHarness(Callables...) -> MultiHarness<sizeof...(Callables), Callables...>;
-
-
+// MultiHarness class lives in <ento-bench/multi_harness.h>. The legacy
+// debug-only stub that once lived here (no per-bench naming, hard-coded
+// "Starting ROI!" prints) has been removed; multi-bench measurement is
+// now driven by EntoBench::MultiHarness in that header.
 
 // Harness Class
 //
