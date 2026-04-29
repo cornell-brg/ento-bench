@@ -41,12 +41,7 @@ public:
     void setup()
     {
         print_bench_list();
-
-#if defined(STM32_BUILD) && !defined(GEM5_SEMIHOSTING)
         init_roi_tracking();
-#else
-        init_roi_tracking();
-#endif
 
 #if defined(STM32_BUILD) && defined(LATENCY_MEASUREMENT)
         // Mirror Harness::run() at harness.h:268 — let the trigger/latency
@@ -142,15 +137,18 @@ private:
         for (std::size_t k = 0; k < 60; ++k) {
             ipr[k] = 0;
         }
-        __asm__ volatile("dsb 0xF":::"memory");
-        __asm__ volatile("isb 0xF":::"memory");
+        __asm__ volatile("dsb sy":::"memory");
+        __asm__ volatile("isb sy":::"memory");
 #endif
     }
 
     void print_bench_list()
     {
-        // Single line, comma-separated, BENCHES: prefix. Energy-analyzer
-        // splits on ", " and matches against subsequent BENCH N: <name> lines.
+        // Three-line header parsed by the energy analyzer:
+        //   BENCHES: <name1>, <name2>, ...
+        //   MULTIBENCH_NAME: <binary_name>
+        //   MULTIBENCH_COUNT: <N>
+        // Subsequent BENCH <i>: <name> lines map ROI index → bench name.
         printf("BENCHES: ");
         for (std::size_t i = 0; i < N; ++i) {
             printf("%s%s", benches_[i].name, (i + 1 == N) ? "\n" : ", ");
